@@ -2,18 +2,16 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import * as authApi from "@/lib/api/auth";
+import { adminAuthApi } from "@/lib/api/admin-auth";
 import * as tokenStorage from "@/lib/utils/token-storage";
-import type { UserProfile } from "@/lib/types/auth";
-import type { LoginFormData, RegisterFormData } from "@/lib/schemas/auth";
+import type { AdminUserProfile } from "@/lib/api/admin-auth";
 import { toast } from "sonner";
 
 interface AuthContextType {
-  user: UserProfile | null;
+  user: AdminUserProfile | null;
   isLoading: boolean;
   isAuthenticated: boolean;
-  login: (data: LoginFormData) => Promise<void>;
-  register: (data: RegisterFormData) => Promise<{ isPending: boolean }>;
+  login: (data: { email: string; password: string; mfaCode?: string }) => Promise<void>;
   logout: () => Promise<void>;
   refreshSession: () => Promise<void>;
 }
@@ -21,7 +19,7 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<UserProfile | null>(null);
+  const [user, setUser] = useState<AdminUserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
 
@@ -47,10 +45,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
 
         try {
-          const response = await authApi.refreshAccessToken({ refreshToken });
+          const { data: response } = await adminAuthApi.refresh(refreshToken);
           tokenStorage.updateAccessToken(response.accessToken, response.expiresIn);
           
-          const userProfile = await authApi.getCurrentUser();
+          const { data: userProfile } = await adminAuthApi.getProfile();
           setUser(userProfile);
         } catch {
           // Refresh failed, clear everything
@@ -63,7 +61,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       try {
-        const userProfile = await authApi.getCurrentUser();
+        const { data: userProfile } = await adminAuthApi.getProfile();
         setUser(userProfile);
       } catch {
         // Token invalid, try refresh
@@ -76,10 +74,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
 
         try {
-          const response = await authApi.refreshAccessToken({ refreshToken });
+          const { data: response } = await adminAuthApi.refresh(refreshToken);
           tokenStorage.updateAccessToken(response.accessToken, response.expiresIn);
           
-          const userProfile = await authApi.getCurrentUser();
+          const { data: userProfile } = await adminAuthApi.getProfile();
           setUser(userProfile);
         } catch {
           // Refresh failed, clear everything
@@ -94,75 +92,44 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     loadUser();
   }, []);
 
-  const login = useCallback(async (data: LoginFormData) => {
+  const login = useCallback(async (data: { email: string; password: string; mfaCode?: string }) => {
     try {
-      const response = await authApi.login({
+      const { data: response } = await adminAuthApi.login({
         email: data.email,
         password: data.password,
+        mfaCode: data.mfaCode,
       });
 
-      if (!response.tokens) {
-        throw new Error("Login failed: No tokens received");
+      // Check if MFA is required
+      if (response.requiresMfa) {
+        toast.info("MFA code required. Please enter your authentication code.");
+        throw new Error("MFA_REQUIRED");
       }
 
       // Store tokens
       tokenStorage.storeTokens(
-        response.tokens.accessToken,
-        response.tokens.refreshToken,
-        response.tokens.expiresIn
+        response.accessToken,
+        response.refreshToken,
+        response.expiresIn
       );
 
       setUser(response.user);
       toast.success("Logged in successfully");
-      router.push("/dashboard");
     } catch (error: unknown) {
+      if (error instanceof Error && error.message === "MFA_REQUIRED") {
+        throw error;
+      }
       const errorMessage = error instanceof Error ? error.message : "Login failed";
       toast.error(errorMessage);
       throw error;
     }
-  }, [router]);
-
-  const register = useCallback(async (data: RegisterFormData): Promise<{ isPending: boolean }> => {
-    try {
-      const response = await authApi.register({
-        fullName: data.fullName,
-        email: data.email,
-        password: data.password,
-        phoneNumber: data.phone,
-        accessLevel: data.accessLevel,
-        reason: data.reason,
-      });
-
-      // Check if user needs approval (tokens will be null)
-      if (!response.tokens) {
-        // Account pending approval
-        toast.success("Registration successful! Your account is pending approval.");
-        return { isPending: true };
-      }
-
-      // Auto-login for public users
-      tokenStorage.storeTokens(
-        response.tokens.accessToken,
-        response.tokens.refreshToken,
-        response.tokens.expiresIn
-      );
-
-      setUser(response.user);
-      toast.success("Registration successful!");
-      router.push("/dashboard");
-      return { isPending: false };
-    } catch (error: unknown) {
-      const errorMessage = error instanceof Error ? error.message : "Registration failed";
-      toast.error(errorMessage);
-      throw error;
-    }
-  }, [router]);
+  }, []);
 
   const logout = useCallback(async () => {
     try {
       const refreshToken = tokenStorage.getRefreshToken();
       if (refreshToken) {
-        await authApi.logout(refreshToken);
+        await adminAuthApi.logout(refreshToken);
       }
     } catch (error) {
       console.error("Logout error:", error);
@@ -170,7 +137,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       tokenStorage.clearTokens();
       setUser(null);
       toast.success("Logged out successfully");
-      router.push("/");
+      router.push("/login");
     }
   }, [router]);
 
@@ -182,27 +149,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         throw new Error("No refresh token available");
       }
 
-      const response = await authApi.refreshAccessToken({ refreshToken });
+      const { data: response } = await adminAuthApi.refresh(refreshToken);
       
       // Update access token
       tokenStorage.updateAccessToken(response.accessToken, response.expiresIn);
 
       // Fetch updated user profile
-      const userProfile = await authApi.getCurrentUser();
+      const { data: userProfile } = await adminAuthApi.getProfile();
       setUser(userProfile);
     } catch {
       // Refresh failed, clear everything
       tokenStorage.clearTokens();
       setUser(null);
+      router.push("/login");
     }
-  }, []);
+  }, [router]);
 
   const value: AuthContextType = {
     user,
     isLoading,
     isAuthenticated: !!user,
     login,
-    register,
     logout,
     refreshSession,
   };

@@ -34,8 +34,9 @@ export default function AdminUsersPage() {
   const [roleModal, setRoleModal] = useState<AdminUser | null>(null);
   const [newRole, setNewRole] = useState<AdminUser['role']>("contributor");
 
-  const isOrgScoped = user?.role === "admin";
-  const orgId = user?.organisationId;
+  // Super admin sees all users
+  const isOrgScoped = false; // Admin portal is super_admin only
+  const orgId = undefined;
 
   // Fetch users from real API
   const { data: usersData, isLoading } = useUsers({

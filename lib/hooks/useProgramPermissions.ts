@@ -13,7 +13,7 @@ export function useProgramPermissions() {
   const { user } = useAuth();
   const role = user?.role ?? "public";
   const userId = user?.id ?? "";
-  const organisationId = user?.organisationId;
+  const organisationId = undefined; // Super admin has no org restriction
 
   return useMemo(
     () => ({
