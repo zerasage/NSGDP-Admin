@@ -32,7 +32,8 @@ export const adminNavItems: Array<{
   { href: "/admin/datasets", label: "All Datasets", icon: FileCheck },
   { href: "/admin/organisations", label: "Organisations", icon: Building2 },
   { href: "/admin/users", label: "All Users", icon: Users },
-  { href: "/admin/analytics", label: "Platform Analytics", icon: BarChart3 },
+  // TODO: Enable when analytics backend is ready (post-MS2)
+  // { href: "/admin/analytics", label: "Platform Analytics", icon: BarChart3 },
   { href: "/admin/audit-logs", label: "Audit Log", icon: ScrollText },
 ];
 

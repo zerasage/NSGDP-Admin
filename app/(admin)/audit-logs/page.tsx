@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState, useMemo } from "react";
 import { Download, Search, AlertTriangle, CheckCircle2 } from "lucide-react";
-import { getAuditLog } from "@/lib/mock";
-import type { AuditLogEntry, AuditAction } from "@/types/admin";
+import { useAuditLogs, downloadAuditLogsCsv } from "@/lib/hooks/useAuditLogs";
+import type { AuditLog } from "@/lib/api/admin";
 import { Pagination } from "@/components/data/pagination";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -19,7 +19,7 @@ import { statusPill } from "@/lib/constants/status-surfaces";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
-const ACTION_GROUPS: Array<{ label: string; actions: Array<{ value: AuditAction; label: string }> }> = [
+const ACTION_GROUPS: Array<{ label: string; actions: Array<{ value: string; label: string }> }> = [
   {
     label: "Data Actions",
     actions: [
@@ -60,10 +60,10 @@ const ACTION_GROUPS: Array<{ label: string; actions: Array<{ value: AuditAction;
   },
 ];
 
-const RISK_ACTIONS: AuditAction[] = ["failed_login", "suspend", "permission_grant", "permission_revoke"];
-const SUCCESS_ACTIONS: AuditAction[] = ["publish", "approve", "access_grant"];
+const RISK_ACTIONS: string[] = ["failed_login", "suspend", "permission_grant", "permission_revoke"];
+const SUCCESS_ACTIONS: string[] = ["publish", "approve", "access_grant"];
 
-function ActionBadge({ action }: { action: AuditAction }) {
+function ActionBadge({ action }: { action: string }) {
   const isRisk = RISK_ACTIONS.includes(action);
   const isSuccess = SUCCESS_ACTIONS.includes(action);
   return (
@@ -83,29 +83,35 @@ function ActionBadge({ action }: { action: AuditAction }) {
 }
 
 export default function AdminAuditLogsPage() {
-  const [entries, setEntries] = useState<AuditLogEntry[]>([]);
-  const [total, setTotal] = useState(0);
-  const [totalPages, setTotalPages] = useState(1);
-  const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
   const [action, setAction] = useState<string>("all");
   const [query, setQuery] = useState("");
 
-  useEffect(() => {
-    setLoading(true);
-    getAuditLog({
-      action: action !== "all" ? (action as AuditAction) : undefined,
-      query,
-      page,
-      pageSize,
-    }).then((result) => {
-      setEntries(result.data);
-      setTotal(result.meta.total);
-      setTotalPages(result.meta.totalPages);
-      setLoading(false);
-    });
-  }, [action, query, page, pageSize]);
+  // Fetch audit logs with filters
+  const params = useMemo(() => ({
+    page,
+    limit: pageSize,
+    action: action !== "all" ? action : undefined,
+    search: query || undefined,
+  }), [page, pageSize, action, query]);
+
+  const { data, isLoading } = useAuditLogs(params);
+
+  const entries = data?.data || [];
+  const total = data?.total || 0;
+  const totalPages = data?.totalPages || 1;
+
+  const handleExport = async () => {
+    try {
+      await downloadAuditLogsCsv({
+        action: action !== "all" ? action : undefined,
+      });
+      toast.success("Audit logs exported successfully");
+    } catch (error) {
+      toast.error("Failed to export audit logs");
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -114,7 +120,7 @@ export default function AdminAuditLogsPage() {
           <h1 className="text-2xl font-bold">Audit Log</h1>
           <p className="text-muted-foreground mt-1">Immutable record of all platform actions</p>
         </div>
-        <Button variant="outline" onClick={() => toast.success("CSV export started (mock)")}>
+        <Button variant="outline" onClick={handleExport}>
           <Download className="size-4" />
           Export CSV
         </Button>
@@ -153,14 +159,14 @@ export default function AdminAuditLogsPage() {
               <th className="px-4 py-3 font-medium">Timestamp</th>
               <th className="px-4 py-3 font-medium">User</th>
               <th className="px-4 py-3 font-medium">Action</th>
-              <th className="px-4 py-3 font-medium">Resource / Detail</th>
+              <th className="px-4 py-3 font-medium">Entity</th>
               <th className="px-4 py-3 font-medium">IP Address</th>
             </tr>
           </thead>
           <tbody>
-            {loading
+            {isLoading
               ? [...Array(5)].map((_, i) => <TableRowSkeleton key={i} cols={5} />)
-              : entries.map((e) => (
+              : entries.map((e: AuditLog) => (
                   <tr
                     key={e.id}
                     className={cn(
@@ -168,10 +174,10 @@ export default function AdminAuditLogsPage() {
                       RISK_ACTIONS.includes(e.action) && "bg-destructive/5"
                     )}
                   >
-                    <td className="px-4 py-3 whitespace-nowrap">{new Date(e.timestamp).toLocaleString()}</td>
-                    <td className="px-4 py-3">{e.userName}</td>
+                    <td className="px-4 py-3 whitespace-nowrap">{new Date(e.created_at).toLocaleString()}</td>
+                    <td className="px-4 py-3">{e.userId}</td>
                     <td className="px-4 py-3"><ActionBadge action={e.action} /></td>
-                    <td className="px-4 py-3 max-w-xs truncate font-sans">{e.resource}</td>
+                    <td className="px-4 py-3 max-w-xs truncate font-sans">{e.entityType}/{e.entityId}</td>
                     <td className="px-4 py-3 text-muted-foreground">{e.ipAddress}</td>
                   </tr>
                 ))}

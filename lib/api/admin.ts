@@ -236,3 +236,48 @@ export async function exportAuditLogs(
   });
   return response.data;
 }
+
+/**
+ * Dashboard statistics
+ */
+export interface DashboardStats {
+  totalUsers: number;
+  totalOrganisations: number;
+  totalDatasets: number;
+  pendingDatasets: number;
+  totalDownloads: number;
+  datasetStats: {
+    byStatus: Record<string, number>;
+    byOrganisation: Array<{ organisationId: string; organisationName: string; count: number }>;
+  };
+  downloadStats: {
+    total: number;
+    thisMonth: number;
+    thisWeek: number;
+    topDatasets: Array<{ datasetId: string; datasetTitle: string; downloads: number }>;
+  };
+  uploadStats: {
+    total: number;
+    thisMonth: number;
+    thisWeek: number;
+  };
+  recentActivity: Array<{
+    id: string;
+    action: string;
+    userId: string;
+    userName: string;
+    entityType: string;
+    entityId: string;
+    timestamp: string;
+  }>;
+}
+
+/**
+ * Get dashboard statistics
+ */
+export async function getDashboardStats(): Promise<DashboardStats> {
+  const response = await apiClient.get<ApiResponse<DashboardStats>>(
+    '/admin/dashboard/stats'
+  );
+  return response.data.data;
+}
