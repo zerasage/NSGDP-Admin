@@ -1,0 +1,121 @@
+import { z } from "zod";
+
+/**
+ * Access levels for registration
+ * - public: Registered User - instant access, no approval needed
+ * - partner: Data Contributor - requires admin approval
+ * - administrator: Org Representative - requires admin approval + org verification
+ */
+export const AccessLevel = {
+  PUBLIC: 'public',
+  PARTNER: 'partner',
+  ADMINISTRATOR: 'administrator',
+} as const;
+
+export type AccessLevel = typeof AccessLevel[keyof typeof AccessLevel];
+
+export const loginSchema = z.object({
+  email: z.string().email("Enter a valid email address"),
+  password: z.string().min(1, "Password is required"),
+  remember: z.boolean().optional(),
+});
+
+export type LoginFormData = z.infer<typeof loginSchema>;
+
+export const registerSchema = z
+  .object({
+    fullName: z.string().min(2, "Full name must be at least 2 characters"),
+    email: z.string().email("Enter a valid email address"),
+    phone: z
+      .string()
+      .optional()
+      .refine(
+        (val) => !val || /^(\+234|0)[789]\d{9}$/.test(val.replace(/\s/g, "")),
+        "Enter a valid Nigerian phone number"
+      ),
+    password: z
+      .string()
+      .min(8, "Password must be at least 8 characters")
+      .regex(/[A-Z]/, "Include at least one uppercase letter")
+      .regex(/[a-z]/, "Include at least one lowercase letter")
+      .regex(/\d/, "Include at least one number"),
+    confirmPassword: z.string(),
+    accessLevel: z.enum(["public", "partner", "administrator"]),
+    reason: z.string().min(20, "Please provide at least 20 characters"),
+    terms: z.literal(true, { message: "You must accept the terms" }),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: "Passwords do not match",
+    path: ["confirmPassword"],
+  });
+
+export type RegisterFormData = z.infer<typeof registerSchema>;
+
+export const forgotPasswordSchema = z.object({
+  email: z.string().email("Enter a valid email address"),
+});
+
+export const resetPasswordSchema = z
+  .object({
+    password: z
+      .string()
+      .min(8, "Password must be at least 8 characters")
+      .regex(/[A-Z]/, "Include at least one uppercase letter")
+      .regex(/[a-z]/, "Include at least one lowercase letter")
+      .regex(/\d/, "Include at least one number"),
+    confirmPassword: z.string(),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: "Passwords do not match",
+    path: ["confirmPassword"],
+  });
+
+export const contactSchema = z.object({
+  name: z.string().min(2, "Name is required"),
+  email: z.string().email("Enter a valid email address"),
+  subject: z.string().min(3, "Subject is required"),
+  message: z.string().min(10, "Message must be at least 10 characters"),
+});
+
+export const profileSchema = z.object({
+  fullName: z.string().min(2, "Full name must be at least 2 characters"),
+  bio: z.string().max(500).optional(),
+  email: z.string().email("Enter a valid email address"),
+  phone: z.string().optional(),
+  organization: z.string().optional(),
+});
+
+export const changePasswordSchema = z
+  .object({
+    currentPassword: z.string().min(1, "Current password is required"),
+    newPassword: z
+      .string()
+      .min(8, "Password must be at least 8 characters")
+      .regex(/[A-Z]/, "Include at least one uppercase letter")
+      .regex(/[a-z]/, "Include at least one lowercase letter")
+      .regex(/\d/, "Include at least one number"),
+    confirmPassword: z.string(),
+  })
+  .refine((data) => data.newPassword === data.confirmPassword, {
+    message: "Passwords do not match",
+    path: ["confirmPassword"],
+  });
+
+export const uploadStep1Schema = z.object({
+  title: z.string().min(3, "Title is required").max(100, "Max 100 characters"),
+  description: z.string().min(20, "Description must be at least 20 characters"),
+  tags: z.array(z.string()).optional(),
+});
+
+export const uploadStep2Schema = z.object({
+  lgas: z.array(z.string()).min(1, "Select at least one LGA"),
+  groups: z.array(z.string()).optional(),
+});
+
+export const uploadStep3Schema = z.object({
+  visibility: z.enum(["public", "restricted", "private"]),
+});
+
+export const uploadFullSchema = uploadStep1Schema
+  .merge(uploadStep2Schema)
+  .merge(uploadStep3Schema);
