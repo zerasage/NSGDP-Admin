@@ -1,14 +1,11 @@
 "use client";
 
-import { useState } from "react";
 import Link from "next/link";
 import {
   Database,
   FileCheck,
   Users,
   Download,
-  Activity,
-  CheckCircle2,
   AlertTriangle,
   ExternalLink,
   BarChart3,
@@ -18,16 +15,16 @@ import {
 import { useDashboardStats } from "@/lib/hooks/useDashboard";
 import { ActivityGraph } from "@/components/charts/activity-graph";
 import { generateActivityData } from "@/lib/mock/activity";
-import { AgeBadge } from "@/components/data/age-badge";
-import { StatusBadge } from "@/components/data/status-badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { buttonVariants } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { cn } from "@/lib/utils";
 import { PageHeaderSkeleton } from "@/components/feedback/skeletons";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export default function AdminDashboardPage() {
-  const { data: stats, isLoading } = useDashboardStats();
+  const { data: stats, isLoading, isError, error, refetch, isFetching } =
+    useDashboardStats();
 
   if (isLoading) {
     return (
@@ -42,43 +39,39 @@ export default function AdminDashboardPage() {
     );
   }
 
+  if (isError) {
+    return (
+      <div className="space-y-8">
+        <div>
+          <h1 className="text-2xl font-bold">Admin Dashboard</h1>
+          <p className="text-muted-foreground mt-1">Platform overview and key metrics</p>
+        </div>
+        <Alert variant="destructive">
+          <AlertTriangle />
+          <AlertTitle>Unable to load dashboard statistics</AlertTitle>
+          <AlertDescription className="space-y-3">
+            <p>{error instanceof Error ? error.message : "The dashboard API request failed."}</p>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={isFetching}
+              onClick={() => void refetch()}
+            >
+              {isFetching ? "Retrying..." : "Retry"}
+            </Button>
+          </AlertDescription>
+        </Alert>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-8">
       <div>
         <h1 className="text-2xl font-bold">Admin Dashboard</h1>
         <p className="text-muted-foreground mt-1">Platform overview and key metrics</p>
       </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Public Portal</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-sm text-muted-foreground mb-4">
-            Leave the admin console to view the public-facing data portal.
-          </p>
-          <div className="flex flex-wrap gap-2">
-            {[
-              { href: "/", label: "Portal Home", icon: ExternalLink },
-              { href: "/dataportal", label: "Browse Datasets", icon: Database },
-              { href: "/analytics", label: "Health Analytics", icon: BarChart3 },
-              { href: "/submit", label: "Submit Dataset", icon: Upload },
-            ].map(({ href, label, icon: Icon }) => (
-              <Link
-                key={href}
-                href={href}
-                className={cn(
-                  buttonVariants({ variant: "outline", size: "sm" }),
-                  "gap-1.5"
-                )}
-              >
-                <Icon className="size-3.5" />
-                {label}
-              </Link>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
         {[
@@ -132,7 +125,7 @@ export default function AdminDashboardPage() {
             <CardTitle className="text-base">Top Downloaded Datasets</CardTitle>
           </CardHeader>
           <CardContent>
-            {!stats?.downloadStats.topDatasets || stats.downloadStats.topDatasets.length === 0 ? (
+            {!stats?.downloadStats?.topDatasets || stats.downloadStats.topDatasets.length === 0 ? (
               <p className="text-sm text-muted-foreground">No download data available</p>
             ) : (
               <ul className="space-y-3">
@@ -170,12 +163,15 @@ export default function AdminDashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              {stats?.datasetStats.byStatus && Object.entries(stats.datasetStats.byStatus).map(([status, count]) => (
+              {stats?.datasetStats?.byStatus && Object.entries(stats.datasetStats.byStatus).map(([status, count]) => (
                 <div key={status} className="flex justify-between items-center text-sm">
                   <span className="capitalize">{status.replace(/_/g, ' ')}</span>
                   <span className="font-medium">{count}</span>
                 </div>
               ))}
+              {!stats?.datasetStats?.byStatus && (
+                <p className="text-sm text-muted-foreground">No dataset statistics available</p>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -188,20 +184,51 @@ export default function AdminDashboardPage() {
             <div className="space-y-3">
               <div className="flex justify-between items-center text-sm">
                 <span>Total Uploads</span>
-                <span className="font-medium">{stats?.uploadStats.total ?? 0}</span>
+                <span className="font-medium">{stats?.uploadStats?.total ?? 0}</span>
               </div>
               <div className="flex justify-between items-center text-sm">
                 <span>This Month</span>
-                <span className="font-medium">{stats?.uploadStats.thisMonth ?? 0}</span>
+                <span className="font-medium">{stats?.uploadStats?.thisMonth ?? 0}</span>
               </div>
               <div className="flex justify-between items-center text-sm">
                 <span>This Week</span>
-                <span className="font-medium">{stats?.uploadStats.thisWeek ?? 0}</span>
+                <span className="font-medium">{stats?.uploadStats?.thisWeek ?? 0}</span>
               </div>
             </div>
           </CardContent>
         </Card>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Public Portal</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm text-muted-foreground mb-4">
+            Leave the admin console to view the public-facing data portal.
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {[
+              { href: "/", label: "Portal Home", icon: ExternalLink },
+              { href: "/dataportal", label: "Browse Datasets", icon: Database },
+              { href: "/analytics", label: "Health Analytics", icon: BarChart3 },
+              { href: "/submit", label: "Submit Dataset", icon: Upload },
+            ].map(({ href, label, icon: Icon }) => (
+              <Link
+                key={href}
+                href={href}
+                className={cn(
+                  buttonVariants({ variant: "outline", size: "sm" }),
+                  "gap-1.5"
+                )}
+              >
+                <Icon className="size-3.5" />
+                {label}
+              </Link>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }

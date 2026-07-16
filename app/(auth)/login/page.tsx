@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/lib/auth";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
+import * as tokenStorage from "@/lib/utils/token-storage";
 
 export default function LoginPage() {
   const { login } = useAuth();
@@ -16,16 +17,22 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
+  // Clear any existing tokens when login page loads
+  useEffect(() => {
+    tokenStorage.clearTokens();
+  }, []);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
 
     try {
       await login({ email, password });
-      router.push("/");
+      // Redirect is now handled in the auth context
     } catch (error: any) {
-      toast.error(error.message || "Invalid credentials or insufficient permissions");
-    } finally {
+      if (error.message !== "MFA_REQUIRED") {
+        toast.error(error.message || "Invalid credentials or insufficient permissions");
+      }
       setIsLoading(false);
     }
   };

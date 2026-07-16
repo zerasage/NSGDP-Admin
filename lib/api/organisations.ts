@@ -38,12 +38,16 @@ export interface Organisation {
   updatedAt: string;
 }
 
-export interface OrganisationWithDatasets extends Organisation {
+export interface OrganisationWithDatasets {
+  organisation: Organisation;
   datasets: Array<{
     id: string;
     title: string;
     slug: string;
     status: string;
+    format: string;
+    visibility: string;
+    created_at: string;
   }>;
 }
 
@@ -68,12 +72,12 @@ export async function getOrganisations(
 }
 
 /**
- * Get organisation by slug with datasets
+ * Get organisation by slug with datasets (admin view - shows all datasets)
  */
 export async function getOrganisationBySlug(
   slug: string
 ): Promise<OrganisationWithDatasets> {
-  const response = await apiClient.get<ApiResponse<OrganisationWithDatasets>>(`/organisations/${slug}`);
+  const response = await apiClient.get<ApiResponse<OrganisationWithDatasets>>(`/admin/organisations/${slug}`);
   return response.data.data;
 }
 

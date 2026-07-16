@@ -72,7 +72,7 @@ export default function AdminUsersPage() {
       { userId: roleModal.id, data: { role: newRole } },
       {
         onSuccess: () => {
-          toast.success(`Role updated for ${roleModal.firstName} ${roleModal.lastName}`);
+          toast.success(`Role updated for ${roleModal.first_name} ${roleModal.last_name}`);
           setRoleModal(null);
         },
         onError: () => {
@@ -149,7 +149,7 @@ export default function AdminUsersPage() {
               ? [...Array(5)].map((_, i) => <TableRowSkeleton key={i} cols={7} />)
               : filtered.map((u) => (
                   <tr key={u.id} className="border-b hover:bg-muted/30">
-                    <td className="px-4 py-3 font-medium">{u.firstName} {u.lastName}</td>
+                    <td className="px-4 py-3 font-medium">{u.first_name} {u.last_name}</td>
                     <td className="px-4 py-3 text-muted-foreground">{u.email}</td>
                     <td className="px-4 py-3 text-muted-foreground">{u.organisation_id || "—"}</td>
                     <td className="px-4 py-3"><RoleBadge role={u.role} /></td>
@@ -176,7 +176,7 @@ export default function AdminUsersPage() {
       <Dialog open={!!roleModal} onOpenChange={(o) => !o && setRoleModal(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Change Role — {roleModal?.firstName} {roleModal?.lastName}</DialogTitle>
+            <DialogTitle>Change Role — {roleModal?.first_name} {roleModal?.last_name}</DialogTitle>
           </DialogHeader>
           <Select value={newRole} onValueChange={(v) => v && setNewRole(v as AdminUser['role'])}>
             <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>

@@ -1,4 +1,12 @@
 import { apiClient } from './client';
+import type { ApiResponse } from '../types/common';
+
+async function unwrapResponse<T>(
+  request: Promise<{ data: ApiResponse<T> }>
+): Promise<{ data: T }> {
+  const response = await request;
+  return { data: response.data.data };
+}
 
 export interface AdminLoginRequest {
   email: string;
@@ -36,31 +44,40 @@ export const adminAuthApi = {
    * Admin login - only for super admin users
    */
   login: (data: AdminLoginRequest) =>
-    apiClient.post<AdminAuthResponse>('/admin/auth/login', data),
+    unwrapResponse(
+      apiClient.post<ApiResponse<AdminAuthResponse>>('/admin/auth/login', data)
+    ),
 
   /**
    * Verify MFA code and complete admin login
    */
   verifyMfa: (data: VerifyMfaRequest) =>
-    apiClient.post<AdminAuthResponse>('/admin/auth/verify-mfa', data),
+    unwrapResponse(
+      apiClient.post<ApiResponse<AdminAuthResponse>>('/admin/auth/verify-mfa', data)
+    ),
 
   /**
    * Refresh admin access token
    */
   refresh: (refreshToken: string) =>
-    apiClient.post<{ accessToken: string; expiresIn: number }>(
-      '/admin/auth/refresh',
-      { refreshToken }
+    unwrapResponse(
+      apiClient.post<ApiResponse<{ accessToken: string; expiresIn: number }>>(
+        '/admin/auth/refresh',
+        { refreshToken }
+      )
     ),
 
   /**
    * Admin logout - revoke refresh token
    */
   logout: (refreshToken: string) =>
-    apiClient.post('/admin/auth/logout', { refreshToken }),
+    apiClient.post<void>('/admin/auth/logout', { refreshToken }),
 
   /**
    * Get admin profile
    */
-  getProfile: () => apiClient.get<AdminUserProfile>('/admin/auth/me'),
+  getProfile: () =>
+    unwrapResponse(
+      apiClient.get<ApiResponse<AdminUserProfile>>('/admin/auth/me')
+    ),
 };

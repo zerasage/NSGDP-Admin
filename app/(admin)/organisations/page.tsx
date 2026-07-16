@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import { Plus } from "lucide-react";
 import { useOrganisations } from "@/lib/hooks/useOrganisations";
 import { Button } from "@/components/ui/button";
@@ -84,9 +85,11 @@ export default function AdminOrganisationsPage() {
                         </Badge>
                       </td>
                       <td className="px-4 py-3">
-                        <Button size="sm" variant="outline" onClick={() => toast.info(`View details for ${o.name}`)}>
-                          View Details
-                        </Button>
+                        <Link href={`/organisations/${o.slug}`}>
+                          <Button size="sm" variant="outline">
+                            View Details
+                          </Button>
+                        </Link>
                       </td>
                     </tr>
                   );

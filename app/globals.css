@@ -1,26 +1,328 @@
 @import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+@import "leaflet/dist/leaflet.css";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+@custom-variant dark (&:is(.dark *));
+
+/*
+  NSPHCDA Data Portal — Design Tokens
+  Brand: Primary Green (#1B5E20) · Mid Green (#2E7D32) · Accent Amber (#E8A020)
+*/
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
+  --font-heading: var(--font-sans);
+
+  /* shadcn core tokens */
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  /* Government brand + semantic tokens (PRD §4.1) */
+  --color-brand: var(--brand);
+  --color-brand-foreground: var(--brand-foreground);
+  --color-teal: var(--teal);
+  --color-teal-foreground: var(--teal-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-info: var(--info);
+  --color-info-foreground: var(--info-foreground);
+  --color-admin: var(--admin);
+  --color-admin-foreground: var(--admin-foreground);
+
+  /* charts (analytics) */
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+
+  /* sidebar (admin shell) */
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+:root {
+  color-scheme: light;
+  --radius: 0.5rem;
+
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.205 0.01 160);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.205 0.01 160);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.205 0.01 160);
+
+  /* Primary = NSPHCDA deep green (#1B5E20) */
+  --primary: #1B5E20;
+  --primary-foreground: #FFFFFF;
+
+  --secondary: #E8F5E9;
+  --secondary-foreground: #1B5E20;
+  --muted: #F1F8F2;
+  --muted-foreground: #4A6350;
+  /* Accent = Amber (#E8A020) */
+  --accent: #FEF3C7;
+  --accent-foreground: #92400E;
+
+  --destructive: oklch(0.577 0.245 27.325);
+  --border: #DDE8DE;
+  --input: #DDE8DE;
+  --ring: #2E7D32;
+
+  --brand: #1B5E20;
+  --brand-foreground: #FFFFFF;
+  --teal: #E8A020;
+  --teal-foreground: oklch(0.985 0 0);
+  --success: oklch(0.58 0.13 150);        /* PUBLIC */
+  --success-foreground: oklch(0.985 0 0);
+  --warning: oklch(0.78 0.16 78);         /* RESTRICTED */
+  --warning-foreground: oklch(0.28 0.05 78);
+  --info: oklch(0.6 0.13 250);            /* Submitted / under review */
+  --info-foreground: oklch(0.985 0 0);
+  --admin: oklch(0.27 0.02 160);          /* admin shell */
+  --admin-foreground: oklch(0.985 0 0);
+
+  /* charts: green, teal, amber, blue, red */
+  --chart-1: #1B5E20;
+  --chart-2: #2E7D32;
+  --chart-3: oklch(0.78 0.16 78);
+  --chart-4: oklch(0.6 0.13 250);
+  --chart-5: oklch(0.577 0.245 27.325);
+
+  /* sidebar = admin shell (dark) */
+  --sidebar: oklch(0.27 0.02 160);
+  --sidebar-foreground: oklch(0.95 0.005 160);
+  --sidebar-primary: oklch(0.6 0.1 185);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.34 0.025 160);
+  --sidebar-accent-foreground: oklch(0.985 0 0);
+  --sidebar-border: oklch(0.34 0.025 160);
+  --sidebar-ring: oklch(0.6 0.1 185);
+}
+
+.dark {
+  color-scheme: dark;
+  --background: oklch(0.145 0.012 155);
+  --foreground: oklch(0.97 0.005 155);
+  --card: oklch(0.185 0.014 155);
+  --card-foreground: oklch(0.97 0.005 155);
+  --popover: oklch(0.185 0.014 155);
+  --popover-foreground: oklch(0.97 0.005 155);
+
+  /* Primary green — lighter for dark surfaces */
+  --primary: #4CAF50;
+  --primary-foreground: #0D1F0E;
+
+  --secondary: oklch(0.24 0.025 155);
+  --secondary-foreground: oklch(0.97 0.005 155);
+  --muted: oklch(0.22 0.018 155);
+  --muted-foreground: oklch(0.68 0.025 155);
+  --accent: oklch(0.32 0.06 78);
+  --accent-foreground: oklch(0.92 0.06 78);
+
+  --destructive: oklch(0.65 0.2 25);
+  --border: oklch(0.28 0.018 155);
+  --input: oklch(0.28 0.018 155);
+  --ring: #66BB6A;
+
+  --brand: #4CAF50;
+  --brand-foreground: #0D1F0E;
+  --teal: #E8A020;
+  --teal-foreground: oklch(0.15 0.02 78);
+  --success: oklch(0.62 0.14 150);
+  --success-foreground: oklch(0.15 0.02 150);
+  --warning: oklch(0.72 0.14 78);
+  --warning-foreground: oklch(0.92 0.06 78);
+  --info: oklch(0.62 0.12 250);
+  --info-foreground: oklch(0.97 0.005 250);
+  --admin: oklch(0.2 0.015 160);
+  --admin-foreground: oklch(0.97 0.005 160);
+
+  --chart-1: #66BB6A;
+  --chart-2: #4CAF50;
+  --chart-3: oklch(0.72 0.14 78);
+  --chart-4: oklch(0.62 0.12 250);
+  --chart-5: oklch(0.65 0.2 25);
+
+  --sidebar: oklch(0.16 0.012 160);
+  --sidebar-foreground: oklch(0.95 0.005 160);
+  --sidebar-primary: oklch(0.62 0.12 150);
+  --sidebar-primary-foreground: oklch(0.15 0.02 150);
+  --sidebar-accent: oklch(0.24 0.018 160);
+  --sidebar-accent-foreground: oklch(0.97 0.005 160);
+  --sidebar-border: oklch(0.28 0.018 160);
+  --sidebar-ring: oklch(0.62 0.12 150);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  html {
+    @apply font-sans;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+@layer components {
+  /* Navbar */
+  .navbar {
+    @apply shadow-sm;
+  }
+
+  .navbar-container {
+    @apply h-full;
+  }
+
+  .navbar-logo {
+    @apply hover:opacity-85 transition-opacity;
+  }
+
+  .logo-icon {
+    @apply shadow-sm;
+  }
+
+  .navbar-search {
+    @apply mx-4;
+  }
+
+  .navbar-nav {
+    @apply gap-1.5;
+  }
+
+  .user-menu-trigger {
+    @apply outline-none focus:ring-2 focus:ring-primary/30;
+  }
+
+  /* Homepage sections */
+  .hero-section {
+    @apply border-b border-border/50;
+  }
+
+  .stat-card {
+    @apply rounded-lg bg-card p-4 shadow-sm border border-border/50 transition-all hover:shadow-md;
+  }
+
+  /* Hero overlays — inputs/buttons on photo or gradient heroes (theme-independent) */
+  .hero-input {
+    @apply border-white/50 bg-white/95 text-neutral-900 shadow-md placeholder:text-neutral-500;
+    @apply focus-visible:border-white/80 focus-visible:ring-white/30;
+    @apply dark:border-white/50 dark:bg-white/95 dark:text-neutral-900 dark:placeholder:text-neutral-500;
+  }
+
+  .hero-input-icon {
+    @apply text-neutral-500;
+  }
+
+  .hero-btn-solid {
+    @apply bg-white/95 text-primary shadow-md hover:bg-white;
+    @apply dark:bg-white/95 dark:text-primary dark:hover:bg-white;
+  }
+
+  .hero-btn-outline {
+    @apply border-white/70 bg-white/10 text-white backdrop-blur-sm;
+    @apply hover:bg-white/20 hover:border-white hover:text-white;
+    @apply dark:border-white/70 dark:bg-white/10 dark:text-white dark:hover:bg-white/20;
+  }
+
+  .hero-stat-chip {
+    @apply rounded-lg border border-white/25 bg-white/90 px-4 py-3 text-center shadow-lg;
+    @apply dark:border-white/25 dark:bg-white/90;
+  }
+
+  .hero-stat-value {
+    @apply text-2xl font-bold text-primary sm:text-3xl;
+  }
+
+  .hero-stat-label {
+    @apply mt-0.5 text-xs text-neutral-600 sm:text-sm;
+  }
+
+  .hero-control-outline {
+    @apply border-white/30 bg-white/10 text-white hover:bg-white/20 hover:text-white;
+    @apply dark:border-white/30 dark:bg-white/10 dark:text-white dark:hover:bg-white/20;
+  }
+
+  .credibility-section {
+    @apply border-b border-border/50;
+  }
+
+  .trust-feature {
+    @apply rounded-lg p-0 transition-all hover:bg-background/50;
+  }
+
+  .featured-section {
+    @apply border-b border-border/50;
+  }
+
+  .topics-section {
+    @apply border-b border-border/50;
+  }
+
+  .cta-section {
+    /* padding and styling handled inline */
+  }
+
+  /* Topic tiles */
+  .topic-tile {
+    @apply shadow-sm;
+  }
+
+  .topic-title {
+    @apply group-hover:text-white transition-colors;
+  }
+
+  .topic-count {
+    @apply group-hover:text-white/95;
+  }
+
+  /* Dataset card refinements */
+  .dataset-org-header {
+    @apply pb-0;
+  }
+
+  .dataset-topics {
+    @apply mb-2;
+  }
+
+  .dataset-formats {
+    @apply mb-2;
+  }
+
+  .dataset-footer {
+    @apply mt-auto;
+  }
 }

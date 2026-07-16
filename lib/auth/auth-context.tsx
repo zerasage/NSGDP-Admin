@@ -115,6 +115,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       setUser(response.user);
       toast.success("Logged in successfully");
+      
+      // Use window.location for reliable redirect
+      window.location.href = "/";
     } catch (error: unknown) {
       if (error instanceof Error && error.message === "MFA_REQUIRED") {
         throw error;

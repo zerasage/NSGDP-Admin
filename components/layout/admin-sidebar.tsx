@@ -28,13 +28,13 @@ export const adminNavItems: Array<{
   icon: typeof LayoutDashboard;
   exact?: boolean;
 }> = [
-  { href: "/admin", label: "Platform Dashboard", icon: LayoutDashboard, exact: true },
-  { href: "/admin/datasets", label: "All Datasets", icon: FileCheck },
-  { href: "/admin/organisations", label: "Organisations", icon: Building2 },
-  { href: "/admin/users", label: "All Users", icon: Users },
+  { href: "/", label: "Platform Dashboard", icon: LayoutDashboard, exact: true },
+  { href: "/datasets", label: "All Datasets", icon: FileCheck },
+  { href: "/organisations", label: "Organisations", icon: Building2 },
+  { href: "/users", label: "All Users", icon: Users },
   // TODO: Enable when analytics backend is ready (post-MS2)
-  // { href: "/admin/analytics", label: "Platform Analytics", icon: BarChart3 },
-  { href: "/admin/audit-logs", label: "Audit Log", icon: ScrollText },
+  // { href: "/analytics", label: "Platform Analytics", icon: BarChart3 },
+  { href: "/audit-logs", label: "Audit Log", icon: ScrollText },
 ];
 
 function AdminNavLinks({ onNavigate }: { onNavigate?: () => void }) {

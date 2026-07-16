@@ -17,14 +17,15 @@ interface ApiResponse<T> {
 export interface AdminUser {
   id: string;
   email: string;
-  firstName: string;
-  lastName: string;
+  first_name: string;
+  last_name: string;
   role: 'viewer' | 'contributor' | 'data_manager' | 'admin' | 'super_admin';
   status: 'active' | 'suspended' | 'archived';
   organisation_id: string | null;
   created_at: string;
   updated_at: string;
   last_login_at: string | null;
+  phone_number?: string | null;
 }
 
 export interface UserStats {
@@ -156,6 +157,13 @@ export async function updateUserStatus(
 }
 
 /**
+ * Soft delete a user account (admin only)
+ */
+export async function removeUser(userId: string): Promise<void> {
+  await apiClient.delete(`/admin/users/${userId}`);
+}
+
+/**
  * Get dataset review queue
  */
 export async function getReviewQueue(
@@ -238,8 +246,149 @@ export async function exportAuditLogs(
 }
 
 /**
+ * Invites
+ */
+export enum InviteRole {
+  CONTRIBUTOR = 'contributor',
+  ADMIN = 'admin',
+}
+
+export enum InviteStatus {
+  PENDING = 'pending',
+  ACCEPTED = 'accepted',
+  EXPIRED = 'expired',
+  REVOKED = 'revoked',
+}
+
+export interface OrganisationInvite {
+  id: string;
+  organisationId: string;
+  organisationName: string;
+  invitedEmail: string;
+  invitedByEmail: string;
+  invitedByName: string;
+  role: InviteRole;
+  status: InviteStatus;
+  expiresAt: string;
+  acceptedAt: string | null;
+  createdAt: string;
+}
+
+export interface CreateInviteDto {
+  invitedEmail: string;
+  role: InviteRole;
+  message?: string;
+}
+
+/**
+ * Get invites for an organisation
+ */
+export async function getOrganisationInvites(
+  organisationId: string
+): Promise<OrganisationInvite[]> {
+  const response = await apiClient.get<ApiResponse<OrganisationInvite[]>>(
+    `/admin/organisations/${organisationId}/invites`
+  );
+  return response.data.data;
+}
+
+/**
+ * Create an invite for an organisation
+ */
+export async function createInvite(
+  organisationId: string,
+  data: CreateInviteDto
+): Promise<OrganisationInvite> {
+  const response = await apiClient.post<ApiResponse<OrganisationInvite>>(
+    `/admin/organisations/${organisationId}/invites`,
+    data
+  );
+  return response.data.data;
+}
+
+/**
+ * Revoke an invite
+ */
+export async function revokeInvite(
+  organisationId: string,
+  inviteId: string
+): Promise<{ message: string }> {
+  const response = await apiClient.delete<ApiResponse<{ message: string }>>(
+    `/admin/organisations/${organisationId}/invites/${inviteId}`
+  );
+  return response.data.data;
+}
+
+/**
+ * Resend an invite
+ */
+export async function resendInvite(
+  organisationId: string,
+  inviteId: string
+): Promise<{ message: string }> {
+  const response = await apiClient.post<ApiResponse<{ message: string }>>(
+    `/admin/organisations/${organisationId}/invites/${inviteId}/resend`
+  );
+  return response.data.data;
+}
+
+/**
+ * Permanently delete an invite
+ */
+export async function deleteInvite(inviteId: string): Promise<void> {
+  await apiClient.delete(`/admin/invites/${inviteId}/permanent`);
+}
+
+/**
  * Dashboard statistics
  */
+interface DashboardStatsResponse {
+  datasets: {
+    total: number;
+    pending: number;
+    byStatus: Record<string, number>;
+    byOrganisation: Array<{ orgId: string; orgName: string; count: number }>;
+  };
+  users: {
+    total: number;
+  };
+  organisations: number;
+  downloads: {
+    total: number;
+    thisMonth: number;
+    thisWeek: number;
+    topDatasets: Array<{ datasetId: string; title: string; count: number }>;
+  };
+  uploads: {
+    thisMonth: number;
+    thisWeek: number;
+  };
+  recentActivity: Array<{
+    id: string;
+    type: string;
+    user: { id: string; name: string };
+    dataset?: { id: string; title: string };
+    timestamp: string;
+  }>;
+}
+
+/**
+ * Soft delete a dataset (admin only) - can be restored
+ */
+export async function deleteDataset(datasetSlug: string): Promise<void> {
+  await apiClient.delete(`/admin/datasets/${datasetSlug}`);
+}
+
+/**
+ * Archive a dataset (changes status to ARCHIVED)
+ */
+export async function archiveDataset(datasetSlug: string): Promise<Dataset> {
+  const response = await apiClient.post<ApiResponse<Dataset>>(
+    `/datasets/${datasetSlug}/archive`
+  );
+  return response.data.data;
+}
+
 export interface DashboardStats {
   totalUsers: number;
   totalOrganisations: number;
@@ -276,8 +425,53 @@ export interface DashboardStats {
  * Get dashboard statistics
  */
 export async function getDashboardStats(): Promise<DashboardStats> {
-  const response = await apiClient.get<ApiResponse<DashboardStats>>(
+  const response = await apiClient.get<ApiResponse<DashboardStatsResponse>>(
     '/admin/dashboard/stats'
   );
-  return response.data.data;
+  const stats = response.data.data;
+
+  return {
+    totalUsers: stats.users.total,
+    totalOrganisations: stats.organisations,
+    totalDatasets: stats.datasets.total,
+    pendingDatasets: stats.datasets.pending,
+    totalDownloads: stats.downloads.total,
+    datasetStats: {
+      byStatus: stats.datasets.byStatus,
+      byOrganisation: stats.datasets.byOrganisation.map((organisation) => ({
+        organisationId: organisation.orgId,
+        organisationName: organisation.orgName,
+        count: organisation.count,
+      })),
+    },
+    downloadStats: {
+      total: stats.downloads.total,
+      thisMonth: stats.downloads.thisMonth,
+      thisWeek: stats.downloads.thisWeek,
+      topDatasets: stats.downloads.topDatasets.map((dataset) => ({
+        datasetId: dataset.datasetId,
+        datasetTitle: dataset.title,
+        downloads: dataset.count,
+      })),
+    },
+    uploadStats: {
+      total: stats.datasets.total,
+      thisMonth: stats.uploads.thisMonth,
+      thisWeek: stats.uploads.thisWeek,
+    },
+    recentActivity: stats.recentActivity.map((activity) => ({
+      id: activity.id,
+      action: activity.type,
+      userId: activity.user.id,
+      userName: activity.user.name,
+      entityType: activity.dataset ? 'dataset' : 'user',
+      entityId: activity.dataset?.id ?? activity.user.id,
+      timestamp: activity.timestamp,
+    })),
+  };
 }
+
+/**
+ * Export a generic admin API client for custom requests
+ */
+export const adminApi = apiClient;
