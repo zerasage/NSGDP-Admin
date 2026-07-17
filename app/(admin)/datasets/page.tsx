@@ -76,14 +76,14 @@ export default function DatasetsReviewPage() {
   const [reviewAction, setReviewAction] = useState<'approve' | 'reject' | null>(null);
   const [comment, setComment] = useState('');
   const [reason, setReason] = useState('');
-  const [selectedOrgId, setSelectedOrgId] = useState<string>('all');
+  const [selectedOrgId, setSelectedOrgId] = useState<string | null>('all');
 
   // Fetch organizations for filter
   const { data: organisationsData } = useQuery({
     queryKey: ['admin', 'organisations'],
     queryFn: async () => {
-      const response = await adminApi.get('/admin/organisations?page=1&limit=100');
-      return response.data.data as { data: Organisation[]; meta: any };
+      const response = await adminApi.get<{ data: { data: Organisation[]; meta: any } }>('/admin/organisations?page=1&limit=100');
+      return response.data.data;
     },
   });
 
@@ -103,8 +103,8 @@ export default function DatasetsReviewPage() {
   const { data: pendingData, isLoading: pendingLoading } = useQuery({
     queryKey: ['admin', 'datasets', 'pending', selectedOrgId],
     queryFn: async () => {
-      const response = await adminApi.get(`/admin/review-queue?${buildQueryParams()}`);
-      return response.data.data as { data: Dataset[]; meta: any };
+      const response = await adminApi.get<{ data: { data: Dataset[]; meta: any } }>(`/admin/review-queue?${buildQueryParams()}`);
+      return response.data.data;
     },
   });
 
@@ -112,8 +112,8 @@ export default function DatasetsReviewPage() {
   const { data: underReviewData, isLoading: underReviewLoading } = useQuery({
     queryKey: ['admin', 'datasets', 'under-review', selectedOrgId],
     queryFn: async () => {
-      const response = await adminApi.get(`/admin/review-queue/under-review?${buildQueryParams()}`);
-      return response.data.data as { data: Dataset[]; meta: any };
+      const response = await adminApi.get<{ data: { data: Dataset[]; meta: any } }>(`/admin/review-queue/under-review?${buildQueryParams()}`);
+      return response.data.data;
     },
   });
 
@@ -121,8 +121,8 @@ export default function DatasetsReviewPage() {
   const { data: approvedData, isLoading: approvedLoading } = useQuery({
     queryKey: ['admin', 'datasets', 'approved', selectedOrgId],
     queryFn: async () => {
-      const response = await adminApi.get(`/admin/datasets?${buildQueryParams('approved')}`);
-      return response.data.data as { data: Dataset[]; meta: any };
+      const response = await adminApi.get<{ data: { data: Dataset[]; meta: any } }>(`/admin/datasets?${buildQueryParams('approved')}`);
+      return response.data.data;
     },
   });
 
@@ -130,8 +130,8 @@ export default function DatasetsReviewPage() {
   const { data: rejectedData, isLoading: rejectedLoading } = useQuery({
     queryKey: ['admin', 'datasets', 'rejected', selectedOrgId],
     queryFn: async () => {
-      const response = await adminApi.get(`/admin/datasets?${buildQueryParams('rejected')}`);
-      return response.data.data as { data: Dataset[]; meta: any };
+      const response = await adminApi.get<{ data: { data: Dataset[]; meta: any } }>(`/admin/datasets?${buildQueryParams('rejected')}`);
+      return response.data.data;
     },
   });
 
@@ -139,8 +139,8 @@ export default function DatasetsReviewPage() {
   const { data: allData, isLoading: allLoading } = useQuery({
     queryKey: ['admin', 'datasets', 'all', selectedOrgId],
     queryFn: async () => {
-      const response = await adminApi.get(`/admin/datasets?${buildQueryParams()}`);
-      return response.data.data as { data: Dataset[]; meta: any };
+      const response = await adminApi.get<{ data: { data: Dataset[]; meta: any } }>(`/admin/datasets?${buildQueryParams()}`);
+      return response.data.data;
     },
   });
 

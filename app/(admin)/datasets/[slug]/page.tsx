@@ -58,8 +58,8 @@ export default function DatasetDetailPage({
   const { data: dataset, isLoading, error } = useQuery({
     queryKey: ['dataset', slug],
     queryFn: async () => {
-      const response = await apiClient.get<any>(`/admin/datasets/${slug}`);
-      return response.data.data as Dataset;
+      const response = await apiClient.get<{ data: Dataset }>(`/admin/datasets/${slug}`);
+      return response.data.data;
     },
   });
 
