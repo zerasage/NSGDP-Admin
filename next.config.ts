@@ -2,6 +2,9 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  output: 'standalone',
+  compress: true,
+  poweredByHeader: false,
   env: {
     NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL,
     NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL,
@@ -17,7 +20,12 @@ const nextConfig: NextConfig = {
       },
       {
         protocol: 'https',
-        hostname: '*.nigerstate-geohealth.ng',
+        hostname: '*.nigerstatephcda.org',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 's3.us-west-004.backblazeb2.com',
         pathname: '/**',
       },
     ],
