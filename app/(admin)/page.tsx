@@ -109,7 +109,9 @@ export default function AdminDashboardPage() {
               <ul className="space-y-3">
                 {stats.recentActivity.slice(0, 5).map((item) => (
                   <li key={item.id} className="text-sm">
-                    <p className="font-medium">{item.action.replace(/_/g, ' ')}</p>
+                    <p className="font-medium">
+                      {item.description || item.datasetTitle || `${item.action} on ${item.entityType}`}
+                    </p>
                     <p className="text-xs text-muted-foreground mt-0.5">
                       {item.userName} · {new Date(item.timestamp).toLocaleString()}
                     </p>
