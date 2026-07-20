@@ -1,18 +1,14 @@
 import { cn } from "@/lib/utils";
-import type { DatasetStatus } from "@/types";
+import type { DatasetStatus } from "@/lib/api/datasets";
 
 const CONFIG: Record<DatasetStatus, { label: string; className: string }> = {
   draft: { label: "Draft", className: "bg-muted text-muted-foreground" },
-  submitted: { label: "Submitted", className: "bg-info text-info-foreground" },
+  pending: { label: "Pending", className: "bg-info text-info-foreground" },
   under_review: {
     label: "Under Review",
     className: "bg-info text-info-foreground",
   },
-  needs_revision: {
-    label: "Needs Revision",
-    className: "bg-warning text-warning-foreground",
-  },
-  published: {
+  approved: {
     label: "Published",
     className: "bg-success text-success-foreground",
   },

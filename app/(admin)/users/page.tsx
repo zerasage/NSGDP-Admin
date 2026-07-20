@@ -110,13 +110,10 @@ export default function AdminUsersPage() {
           <SelectTrigger className="w-48"><SelectValue placeholder="Filter by role" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All roles</SelectItem>
+            <SelectItem value="public">Public</SelectItem>
             <SelectItem value="registered">Registered</SelectItem>
             <SelectItem value="contributor">Contributor</SelectItem>
-            <SelectItem value="contributor">Custodian</SelectItem>
-            <SelectItem value="contributor">Validator</SelectItem>
-            <SelectItem value="admin">Org Admin</SelectItem>
-            <SelectItem value="admin">Repo Admin</SelectItem>
-            <SelectItem value="admin">ICT Admin</SelectItem>
+            <SelectItem value="admin">Administrator</SelectItem>
             <SelectItem value="super_admin">Super Admin</SelectItem>
           </SelectContent>
         </Select>
@@ -124,9 +121,10 @@ export default function AdminUsersPage() {
           <SelectTrigger className="w-40"><SelectValue placeholder="Status" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All statuses</SelectItem>
+            <SelectItem value="pending">Pending</SelectItem>
             <SelectItem value="active">Active</SelectItem>
             <SelectItem value="suspended">Suspended</SelectItem>
-            <SelectItem value="banned">Banned</SelectItem>
+            <SelectItem value="archived">Archived</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -182,8 +180,8 @@ export default function AdminUsersPage() {
             <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
             <SelectContent>
               {(isOrgScoped
-                ? (["viewer", "contributor", "data_manager"] as AdminUser['role'][])
-                : (["viewer", "contributor", "data_manager", "admin", "super_admin"] as AdminUser['role'][])
+                ? (["public", "registered", "contributor"] as AdminUser['role'][])
+                : (["public", "registered", "contributor", "admin", "super_admin"] as AdminUser['role'][])
               ).map((r) => (
                 <SelectItem key={r} value={r}>{r.replace(/_/g, " ")}</SelectItem>
               ))}

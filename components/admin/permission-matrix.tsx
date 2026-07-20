@@ -1,26 +1,19 @@
+"use client";
+
 import { Check, Minus, Star } from "lucide-react";
-import type { PermissionAction } from "@/types/permissions";
 import { PERMISSION_ACTION_LABELS } from "@/types/permissions";
+import type { PermissionActionKey } from "@/lib/api/permissions";
+import { usePermissionMatrix } from "@/lib/hooks/usePermissionGroups";
+import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 
-const ROLE_DEFINITIONS: Array<{
-  role: string;
-  label: string;
-  basePermissions: PermissionAction[];
-  delegatable: boolean;
-}> = [
-  { role: "public",      label: "Public Visitor",           basePermissions: [],                                                                                           delegatable: false },
-  { role: "registered",  label: "Registered User",          basePermissions: [],                                                                                           delegatable: true  },
-  { role: "contributor", label: "Data Contributor",         basePermissions: ["upload:programs"],                                                                          delegatable: true  },
-  { role: "contributor",   label: "Dataset Custodian",        basePermissions: ["upload:programs", "archive:datasets"],                                                      delegatable: true  },
-  { role: "contributor",   label: "Data Validator",           basePermissions: ["approve:datasets", "view:restricted"],                                                      delegatable: true  },
-  { role: "admin",   label: "Organisation Admin",       basePermissions: ["create:programs", "edit:programs", "upload:programs", "approve:datasets", "manage:users", "view:restricted"], delegatable: true  },
-  { role: "admin",  label: "Repository Admin",         basePermissions: ["create:programs", "edit:programs", "delete:programs", "upload:programs", "approve:datasets", "publish:datasets", "archive:datasets", "view:restricted", "download:restricted"], delegatable: false },
-  { role: "admin",   label: "ICT Administrator",        basePermissions: ["manage:users", "view:restricted"],                                                          delegatable: false },
-  { role: "super_admin", label: "Super Admin (Owner)",      basePermissions: Object.keys(PERMISSION_ACTION_LABELS) as PermissionAction[],                                  delegatable: false },
-];
-
-const ALL_ACTIONS = Object.keys(PERMISSION_ACTION_LABELS) as PermissionAction[];
+const ROLE_LABELS: Record<string, string> = {
+  public: "Public Visitor",
+  registered: "Registered User",
+  contributor: "Contributor",
+  admin: "Administrator",
+  super_admin: "Super Admin (Owner)",
+};
 
 function Cell({ has, isDelegatable }: { has: boolean; isDelegatable?: boolean }) {
   return (
@@ -43,6 +36,14 @@ function Cell({ has, isDelegatable }: { has: boolean; isDelegatable?: boolean })
 }
 
 export function PermissionMatrix() {
+  const { data, isLoading } = usePermissionMatrix();
+
+  if (isLoading || !data) {
+    return <Skeleton className="h-64" />;
+  }
+
+  const actions = data.actions.map((a) => a.key);
+
   return (
     <div className="space-y-3">
       <div className="flex items-center gap-4 text-xs text-muted-foreground flex-wrap">
@@ -50,7 +51,7 @@ export function PermissionMatrix() {
           <Check className="size-3.5 text-emerald-600" /> Base permission (always granted)
         </span>
         <span className="flex items-center gap-1.5">
-          <Star className="size-3 text-amber-400" /> Delegatable (Super Admin may grant)
+          <Star className="size-3 text-amber-400" /> Delegatable (Super Admin may grant to a group)
         </span>
         <span className="flex items-center gap-1.5">
           <Minus className="size-3 text-muted-foreground/40" /> Not available for this role
@@ -64,7 +65,7 @@ export function PermissionMatrix() {
               <th className="sticky left-0 z-10 bg-muted/60 border-b border-r px-4 py-3 text-left font-semibold">
                 Role
               </th>
-              {ALL_ACTIONS.map((action) => (
+              {actions.map((action) => (
                 <th
                   key={action}
                   className="border-b border-r px-3 py-3 text-center font-medium last:border-r-0 max-w-24"
@@ -77,7 +78,7 @@ export function PermissionMatrix() {
             </tr>
           </thead>
           <tbody>
-            {ROLE_DEFINITIONS.map((def, i) => (
+            {data.roles.map((def, i) => (
               <tr
                 key={def.role}
                 className={cn(
@@ -90,20 +91,41 @@ export function PermissionMatrix() {
                   i % 2 === 0 ? "bg-background" : "bg-muted/10",
                   def.role === "super_admin" && "bg-primary/5"
                 )}>
-                  {def.label}
+                  {ROLE_LABELS[def.role] ?? def.role}
                 </td>
-                {ALL_ACTIONS.map((action) => {
-                  const has = def.basePermissions.includes(action);
-                  const canDelegate = !has && def.delegatable;
-                  return (
-                    <Cell key={action} has={has} isDelegatable={canDelegate} />
-                  );
+                {actions.map((action) => {
+                  const has = def.actions[action];
+                  const canDelegate = !has && def.role !== "super_admin";
+                  return <Cell key={action} has={has} isDelegatable={canDelegate} />;
                 })}
               </tr>
             ))}
           </tbody>
         </table>
       </div>
+
+      {data.delegations.length > 0 && (
+        <div className="rounded-lg border p-4">
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            Active delegations by group
+          </p>
+          <ul className="space-y-1.5 text-sm">
+            {data.delegations.map((group) => (
+              <li key={group.id}>
+                <span className="font-medium">{group.name}</span>
+                {group.actions.length > 0 ? (
+                  <span className="text-muted-foreground">
+                    {" "}
+                    — {group.actions.map((a: PermissionActionKey) => PERMISSION_ACTION_LABELS[a]).join(", ")}
+                  </span>
+                ) : (
+                  <span className="text-muted-foreground italic"> — no active grants</span>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </div>
   );
 }

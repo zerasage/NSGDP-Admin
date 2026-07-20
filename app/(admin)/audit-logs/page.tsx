@@ -25,43 +25,37 @@ const ACTION_GROUPS: Array<{ label: string; actions: Array<{ value: string; labe
     actions: [
       { value: "upload", label: "Upload" },
       { value: "download", label: "Download" },
-      { value: "version_update", label: "Version Update" },
-      { value: "archive", label: "Archive" },
+      { value: "export", label: "Export" },
     ],
   },
   {
     label: "Approval Actions",
     actions: [
       { value: "approve", label: "Approve" },
-      { value: "publish", label: "Publish" },
       { value: "reject", label: "Reject" },
-      { value: "revise", label: "Request Revision" },
     ],
   },
   {
-    label: "Access & Security",
+    label: "Record Actions",
+    actions: [
+      { value: "create", label: "Create" },
+      { value: "update", label: "Update" },
+      { value: "delete", label: "Delete" },
+    ],
+  },
+  {
+    label: "Access",
     actions: [
       { value: "login", label: "Login" },
       { value: "logout", label: "Logout" },
-      { value: "failed_login", label: "Failed Login" },
-      { value: "access_request", label: "Access Request" },
-      { value: "access_grant", label: "Access Grant" },
-    ],
-  },
-  {
-    label: "Administration",
-    actions: [
-      { value: "role_change", label: "Role Change" },
-      { value: "permission_grant", label: "Permission Grant" },
-      { value: "permission_revoke", label: "Permission Revoke" },
-      { value: "register", label: "Register" },
-      { value: "suspend", label: "Suspend" },
     ],
   },
 ];
 
-const RISK_ACTIONS: string[] = ["failed_login", "suspend", "permission_grant", "permission_revoke"];
-const SUCCESS_ACTIONS: string[] = ["publish", "approve", "access_grant"];
+const ENTITY_TYPES = ["dataset", "user", "organisation"];
+
+const RISK_ACTIONS: string[] = ["delete", "reject"];
+const SUCCESS_ACTIONS: string[] = ["approve", "create"];
 
 function ActionBadge({ action }: { action: string }) {
   const isRisk = RISK_ACTIONS.includes(action);
@@ -86,6 +80,7 @@ export default function AdminAuditLogsPage() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
   const [action, setAction] = useState<string>("all");
+  const [entityType, setEntityType] = useState<string>("all");
   const [query, setQuery] = useState("");
 
   // Fetch audit logs with filters
@@ -93,8 +88,9 @@ export default function AdminAuditLogsPage() {
     page,
     limit: pageSize,
     action: action !== "all" ? action : undefined,
+    entityType: entityType !== "all" ? entityType : undefined,
     search: query || undefined,
-  }), [page, pageSize, action, query]);
+  }), [page, pageSize, action, entityType, query]);
 
   const { data, isLoading } = useAuditLogs(params);
 
@@ -106,6 +102,7 @@ export default function AdminAuditLogsPage() {
     try {
       await downloadAuditLogsCsv({
         action: action !== "all" ? action : undefined,
+        entityType: entityType !== "all" ? entityType : undefined,
       });
       toast.success("Audit logs exported successfully");
     } catch (error) {
@@ -150,6 +147,15 @@ export default function AdminAuditLogsPage() {
             ))}
           </SelectContent>
         </Select>
+        <Select value={entityType} onValueChange={(v) => { if (v) { setEntityType(v); setPage(1); } }}>
+          <SelectTrigger className="w-44"><SelectValue placeholder="Entity type" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All entities</SelectItem>
+            {ENTITY_TYPES.map((type) => (
+              <SelectItem key={type} value={type} className="capitalize">{type}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       <div className="rounded-lg border overflow-x-auto">
@@ -175,10 +181,10 @@ export default function AdminAuditLogsPage() {
                     )}
                   >
                     <td className="px-4 py-3 whitespace-nowrap">{new Date(e.created_at).toLocaleString()}</td>
-                    <td className="px-4 py-3">{e.userId}</td>
+                    <td className="px-4 py-3">{e.user_email || e.user_id || "—"}</td>
                     <td className="px-4 py-3"><ActionBadge action={e.action} /></td>
-                    <td className="px-4 py-3 max-w-xs truncate font-sans">{e.entityType}/{e.entityId}</td>
-                    <td className="px-4 py-3 text-muted-foreground">{e.ipAddress}</td>
+                    <td className="px-4 py-3 max-w-xs truncate font-sans">{e.entity_type}{e.entity_id ? `/${e.entity_id}` : ""}</td>
+                    <td className="px-4 py-3 text-muted-foreground">{e.ip_address || "—"}</td>
                   </tr>
                 ))}
           </tbody>

@@ -1,6 +1,7 @@
 import { apiClient } from './client';
 import type { PaginatedResponse } from '../types/common';
 import type { Dataset as BackendDataset } from './datasets';
+import type { UserRole } from '@/types';
 
 // Use the Dataset type from datasets.ts for the review queue
 type Dataset = BackendDataset;
@@ -19,8 +20,8 @@ export interface AdminUser {
   email: string;
   first_name: string;
   last_name: string;
-  role: 'viewer' | 'contributor' | 'data_manager' | 'admin' | 'super_admin';
-  status: 'active' | 'suspended' | 'archived';
+  role: UserRole;
+  status: 'pending' | 'active' | 'suspended' | 'archived';
   organisation_id: string | null;
   created_at: string;
   updated_at: string;
@@ -44,11 +45,11 @@ export interface UserListParams {
 }
 
 export interface UpdateUserRoleDto {
-  role: 'viewer' | 'contributor' | 'data_manager' | 'admin' | 'super_admin';
+  role: UserRole;
 }
 
 export interface UpdateUserStatusDto {
-  status: 'active' | 'suspended' | 'archived';
+  status: AdminUser['status'];
 }
 
 export interface ReviewQueueParams {
@@ -73,15 +74,32 @@ export interface ReviseDatasetDto {
   comment: string;
 }
 
+// Mirrors nsgdp-backend AuditAction enum (src/modules/admin/entities/audit-log.entity.ts)
+export type AuditAction =
+  | 'create'
+  | 'update'
+  | 'delete'
+  | 'login'
+  | 'logout'
+  | 'approve'
+  | 'reject'
+  | 'download'
+  | 'upload'
+  | 'export';
+
 export interface AuditLog {
   id: string;
-  userId: string;
-  action: string;
-  entityType: string;
-  entityId: string;
-  details: Record<string, unknown>;
-  ipAddress: string;
-  userAgent: string;
+  user_id: string | null;
+  user_email: string | null;
+  action: AuditAction;
+  entity_type: string;
+  entity_id: string | null;
+  description: string | null;
+  old_values: Record<string, unknown> | null;
+  new_values: Record<string, unknown> | null;
+  ip_address: string | null;
+  user_agent: string | null;
+  metadata: Record<string, unknown> | null;
   created_at: string;
 }
 
@@ -208,11 +226,11 @@ export async function rejectDataset(
  * Request dataset revision
  */
 export async function requestRevision(
-  datasetId: string,
+  datasetSlug: string,
   data: ReviseDatasetDto
 ): Promise<Dataset> {
   const response = await apiClient.post<ApiResponse<Dataset>>(
-    `/admin/datasets/${datasetId}/revise`,
+    `/admin/datasets/${datasetSlug}/request-revision`,
     data
   );
   return response.data.data;
@@ -418,6 +436,8 @@ export interface DashboardStats {
     entityType: string;
     entityId: string;
     timestamp: string;
+    description?: string;
+    datasetTitle?: string;
   }>;
 }
 

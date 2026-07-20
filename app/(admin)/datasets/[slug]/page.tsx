@@ -1,26 +1,16 @@
 "use client";
 
-import { use, useState } from "react";
+import { use } from "react";
 import { useRouter } from "next/navigation";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Calendar, Download, Eye, FileText, MapPin, Tag, User, CheckCircle2, XCircle, Loader2 } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { ArrowLeft, Calendar, Download, History, MapPin, Tag } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
 import { apiClient } from "@/lib/api/client";
-import { useToast } from "@/lib/hooks/use-toast";
+import { useDatasetVersions } from "@/lib/hooks/useDatasets";
 
 interface Dataset {
   id: string;
@@ -47,12 +37,6 @@ export default function DatasetDetailPage({
 }) {
   const { slug } = use(params);
   const router = useRouter();
-  const { toast } = useToast();
-  const queryClient = useQueryClient();
-
-  const [reviewAction, setReviewAction] = useState<'approve' | 'reject' | null>(null);
-  const [comment, setComment] = useState('');
-  const [reason, setReason] = useState('');
 
   // Fetch dataset details (using admin endpoint to see all statuses)
   const { data: dataset, isLoading, error } = useQuery({
@@ -63,67 +47,7 @@ export default function DatasetDetailPage({
     },
   });
 
-  // Approve mutation
-  const approveMutation = useMutation({
-    mutationFn: ({ slug, comment }: { slug: string; comment?: string }) =>
-      apiClient.post(`/admin/datasets/${slug}/approve`, { comment }),
-    onSuccess: () => {
-      toast({
-        title: 'Success',
-        description: 'Dataset approved successfully',
-      });
-      queryClient.invalidateQueries({ queryKey: ['dataset', slug] });
-      setReviewAction(null);
-      setComment('');
-    },
-    onError: (error: any) => {
-      toast({
-        title: 'Error',
-        description: error.message || 'Failed to approve dataset',
-        variant: 'destructive',
-      });
-    },
-  });
-
-  // Reject mutation
-  const rejectMutation = useMutation({
-    mutationFn: ({ slug, reason }: { slug: string; reason: string }) =>
-      apiClient.post(`/admin/datasets/${slug}/reject`, { reason }),
-    onSuccess: () => {
-      toast({
-        title: 'Success',
-        description: 'Dataset rejected',
-      });
-      queryClient.invalidateQueries({ queryKey: ['dataset', slug] });
-      setReviewAction(null);
-      setReason('');
-    },
-    onError: (error: any) => {
-      toast({
-        title: 'Error',
-        description: error.message || 'Failed to reject dataset',
-        variant: 'destructive',
-      });
-    },
-  });
-
-  const handleConfirmReview = () => {
-    if (!dataset) return;
-
-    if (reviewAction === 'approve') {
-      approveMutation.mutate({ slug: dataset.slug, comment });
-    } else if (reviewAction === 'reject') {
-      if (reason.length < 20) {
-        toast({
-          title: 'Error',
-          description: 'Rejection reason must be at least 20 characters',
-          variant: 'destructive',
-        });
-        return;
-      }
-      rejectMutation.mutate({ slug: dataset.slug, reason });
-    }
-  };
+  const { data: versionHistory } = useDatasetVersions(slug);
 
   if (isLoading) {
     return (
@@ -147,7 +71,7 @@ export default function DatasetDetailPage({
         </Button>
         <Alert variant="destructive">
           <AlertDescription>
-            Dataset not found or you don't have permission to view it.
+            Dataset not found or you don&apos;t have permission to view it.
           </AlertDescription>
         </Alert>
       </div>
@@ -184,29 +108,10 @@ export default function DatasetDetailPage({
           <Badge className={statusColors[dataset.status] || "bg-gray-100 text-gray-800"}>
             {dataset.status.replace('_', ' ').toUpperCase()}
           </Badge>
-          
-          {/* Show approve/reject buttons for pending or under_review datasets */}
           {(dataset.status === 'pending' || dataset.status === 'under_review') && (
-            <>
-              <Button
-                variant="default"
-                size="sm"
-                onClick={() => setReviewAction('approve')}
-                disabled={approveMutation.isPending}
-              >
-                <CheckCircle2 className="h-4 w-4 mr-1" />
-                Approve
-              </Button>
-              <Button
-                variant="destructive"
-                size="sm"
-                onClick={() => setReviewAction('reject')}
-                disabled={rejectMutation.isPending}
-              >
-                <XCircle className="h-4 w-4 mr-1" />
-                Reject
-              </Button>
-            </>
+            <Button size="sm" onClick={() => router.push(`/datasets/${slug}/review`)}>
+              Review
+            </Button>
           )}
         </div>
       </div>
@@ -316,6 +221,32 @@ export default function DatasetDetailPage({
             </CardContent>
           </Card>
 
+          {versionHistory && versionHistory.versions.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <History className="size-4" />
+                  Version History
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ul className="space-y-3">
+                  {versionHistory.versions.map((v) => (
+                    <li key={v.id} className="text-sm border-l-2 border-muted pl-3">
+                      <div className="flex items-center justify-between">
+                        <span className="font-medium">v{v.version}</span>
+                        <span className="text-xs text-muted-foreground">
+                          {new Date(v.created_at).toLocaleDateString()}
+                        </span>
+                      </div>
+                      <p className="text-muted-foreground mt-0.5">{v.changes}</p>
+                    </li>
+                  ))}
+                </ul>
+              </CardContent>
+            </Card>
+          )}
+
           {dataset.status === 'draft' && (
             <Card className="border-amber-200 bg-amber-50">
               <CardContent className="pt-6">
@@ -337,96 +268,6 @@ export default function DatasetDetailPage({
           )}
         </div>
       </div>
-
-      {/* Review Dialog */}
-      <Dialog open={reviewAction !== null} onOpenChange={() => {
-        setReviewAction(null);
-        setComment('');
-        setReason('');
-      }}>
-        <DialogContent className="sm:max-w-[525px]">
-          <DialogHeader>
-            <DialogTitle>
-              {reviewAction === 'approve' ? 'Approve Dataset' : 'Reject Dataset'}
-            </DialogTitle>
-            <DialogDescription>
-              {dataset.title}
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-4 py-4">
-            {reviewAction === 'approve' ? (
-              <div className="space-y-2">
-                <Label htmlFor="comment">Comment (Optional)</Label>
-                <Textarea
-                  id="comment"
-                  placeholder="Add any notes or feedback for the submitter..."
-                  value={comment}
-                  onChange={(e) => setComment(e.target.value)}
-                  rows={4}
-                />
-              </div>
-            ) : (
-              <div className="space-y-2">
-                <Label htmlFor="reason">
-                  Rejection Reason <span className="text-destructive">*</span>
-                </Label>
-                <Textarea
-                  id="reason"
-                  placeholder="Provide a detailed reason for rejection (minimum 20 characters)..."
-                  value={reason}
-                  onChange={(e) => setReason(e.target.value)}
-                  rows={6}
-                  className={reason.length > 0 && reason.length < 20 ? 'border-destructive' : ''}
-                />
-                <p className="text-sm text-muted-foreground">
-                  {reason.length}/20 characters minimum
-                </p>
-              </div>
-            )}
-          </div>
-
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => {
-                setReviewAction(null);
-                setComment('');
-                setReason('');
-              }}
-            >
-              Cancel
-            </Button>
-            <Button
-              variant={reviewAction === 'approve' ? 'default' : 'destructive'}
-              onClick={handleConfirmReview}
-              disabled={
-                approveMutation.isPending ||
-                rejectMutation.isPending ||
-                (reviewAction === 'reject' && reason.length < 20)
-              }
-            >
-              {(approveMutation.isPending || rejectMutation.isPending) ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <>
-                  {reviewAction === 'approve' ? (
-                    <>
-                      <CheckCircle2 className="h-4 w-4 mr-2" />
-                      Approve Dataset
-                    </>
-                  ) : (
-                    <>
-                      <XCircle className="h-4 w-4 mr-2" />
-                      Reject Dataset
-                    </>
-                  )}
-                </>
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
