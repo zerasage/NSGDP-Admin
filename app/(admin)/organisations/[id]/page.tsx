@@ -29,10 +29,13 @@ import {
   Archive,
 } from "lucide-react";
 import { useOrganisationBySlug } from "@/lib/hooks/useOrganisationBySlug";
+import { useToggleOrganisationStatus } from "@/lib/hooks/useOrganisations";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { getUsers, getOrganisationInvites, revokeInvite, resendInvite, deleteInvite, updateUserStatus, deleteDataset, archiveDataset, removeUser } from "@/lib/api/admin";
 import { InviteMemberModal } from "@/components/admin/invite-member-modal";
 import { UploadDatasetModal } from "@/components/admin/upload-dataset-modal";
+import { OrganisationAgreementCard } from "@/components/admin/organisation-agreement-card";
+import { EditOrganisationModal } from "@/components/admin/edit-organisation-modal";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -81,12 +84,15 @@ export default function OrganisationDetailPage({
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [archiveConfirmOpen, setArchiveConfirmOpen] = useState(false);
   const [removeMemberConfirmOpen, setRemoveMemberConfirmOpen] = useState(false);
+  const [statusConfirmOpen, setStatusConfirmOpen] = useState(false);
+  const [editModalOpen, setEditModalOpen] = useState(false);
   const [datasetToDelete, setDatasetToDelete] = useState<{ slug: string; title: string } | null>(null);
   const [datasetToArchive, setDatasetToArchive] = useState<{ slug: string; title: string } | null>(null);
   const [memberToRemove, setMemberToRemove] = useState<{ id: string; name: string } | null>(null);
 
   // Fetch organization data by slug
   const { data: orgData, isLoading: orgLoading } = useOrganisationBySlug(slug);
+  const toggleStatusMutation = useToggleOrganisationStatus(slug);
   
   // Get the actual org ID (UUID) from the fetched data
   // The API returns { organisation: {...}, datasets: [] }
@@ -356,6 +362,40 @@ export default function OrganisationDetailPage({
         loading={removeUserMutation.isPending}
       />
 
+      <ConfirmDialog
+        open={statusConfirmOpen}
+        onOpenChange={setStatusConfirmOpen}
+        title={org.is_active ? "Deactivate Organisation" : "Activate Organisation"}
+        description={
+          org.is_active
+            ? `Deactivating "${org.name}" will hide it from public listings. Organisations with active (approved) datasets cannot be deactivated until those datasets are archived or transferred.`
+            : `Reactivate "${org.name}"? It will become visible in public listings again.`
+        }
+        confirmLabel={org.is_active ? "Deactivate" : "Activate"}
+        cancelLabel="Cancel"
+        variant={org.is_active ? "destructive" : "default"}
+        onConfirm={() =>
+          toggleStatusMutation.mutate(
+            { id: orgId!, isActive: !org.is_active },
+            {
+              onSuccess: () => toast.success(org.is_active ? "Organisation deactivated" : "Organisation activated"),
+              onError: (error: unknown) => {
+                const err = error as { message?: string };
+                toast.error(err?.message || "Failed to update organisation status");
+              },
+            }
+          )
+        }
+        loading={toggleStatusMutation.isPending}
+      />
+
+      <EditOrganisationModal
+        open={editModalOpen}
+        onClose={() => setEditModalOpen(false)}
+        org={org}
+        slug={slug}
+      />
+
       {/* Member Detail Dialog */}
       <Dialog open={memberDetailOpen} onOpenChange={setMemberDetailOpen}>
         <DialogContent className="max-w-md">
@@ -499,9 +539,9 @@ export default function OrganisationDetailPage({
           </Button>
           
           <div className="flex items-start gap-4">
-            {org.logoUrl ? (
-              <img 
-                src={org.logoUrl} 
+            {org.logo_url ? (
+              <img
+                src={org.logo_url}
                 alt={org.name}
                 className="size-16 rounded-lg object-cover border"
               />
@@ -510,18 +550,21 @@ export default function OrganisationDetailPage({
                 <Building2 className="size-8 text-muted-foreground" />
               </div>
             )}
-            
+
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
                 <h1 className="text-2xl font-bold">{org.name}</h1>
-                <Badge 
-                  variant="secondary" 
+                {org.acronym && (
+                  <span className="text-muted-foreground text-sm font-medium">({org.acronym})</span>
+                )}
+                <Badge
+                  variant="secondary"
                   className={cn("border-0 capitalize", typeStyle)}
                 >
                   {org.type}
                 </Badge>
-                <Badge variant={org.isActive ? "default" : "secondary"}>
-                  {org.isActive ? "Active" : "Inactive"}
+                <Badge variant={org.is_active ? "default" : "secondary"}>
+                  {org.is_active ? "Active" : "Inactive"}
                 </Badge>
               </div>
               {org.description && (
@@ -532,16 +575,18 @@ export default function OrganisationDetailPage({
         </div>
 
         <div className="flex gap-2">
-          <Button variant="outline" size="sm">
+          <Button variant="outline" size="sm" onClick={() => setEditModalOpen(true)}>
             <Edit className="size-4" />
             Edit
           </Button>
-          <Button 
-            variant={org.isActive ? "destructive" : "default"} 
+          <Button
+            variant={org.is_active ? "destructive" : "default"}
             size="sm"
+            onClick={() => setStatusConfirmOpen(true)}
+            disabled={toggleStatusMutation.isPending}
           >
             <Power className="size-4" />
-            {org.isActive ? "Deactivate" : "Activate"}
+            {org.is_active ? "Deactivate" : "Activate"}
           </Button>
         </div>
       </div>
@@ -672,6 +717,8 @@ export default function OrganisationDetailPage({
           </div>
         </CardContent>
       </Card>
+
+      <OrganisationAgreementCard org={org} orgId={orgId!} slug={slug} />
 
       {/* Tabs */}
       <Tabs defaultValue="members" className="space-y-6">

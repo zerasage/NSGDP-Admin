@@ -2,12 +2,11 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { Plus } from "lucide-react";
+import { Plus, FileText, FileWarning } from "lucide-react";
 import { useOrganisations } from "@/lib/hooks/useOrganisations";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { TableRowSkeleton } from "@/components/feedback/skeletons";
-import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { statusPill } from "@/lib/constants/status-surfaces";
 import { CreateOrganisationModal } from "@/components/admin/create-organisation-modal";
@@ -49,26 +48,32 @@ export default function AdminOrganisationsPage() {
           <thead>
             <tr className="border-b bg-muted/50 text-left">
               <th className="px-4 py-3 font-medium">Name</th>
+              <th className="px-4 py-3 font-medium">Acronym</th>
               <th className="px-4 py-3 font-medium">Type</th>
-              <th className="px-4 py-3 font-medium">Website</th>
               <th className="px-4 py-3 font-medium">Email</th>
+              <th className="px-4 py-3 font-medium">Website</th>
+              <th className="px-4 py-3 font-medium">Datasets</th>
+              <th className="px-4 py-3 font-medium">Agreement</th>
               <th className="px-4 py-3 font-medium">Status</th>
+              <th className="px-4 py-3 font-medium">Created</th>
               <th className="px-4 py-3 font-medium">Actions</th>
             </tr>
           </thead>
           <tbody>
             {isLoading
-              ? [...Array(5)].map((_, i) => <TableRowSkeleton key={i} cols={6} />)
+              ? [...Array(5)].map((_, i) => <TableRowSkeleton key={i} cols={10} />)
               : orgs.map((o) => {
                   const typeStyle = TYPE_STYLES[o.type as keyof typeof TYPE_STYLES] || statusPill.blue;
                   return (
                     <tr key={o.id} className="border-b hover:bg-muted/30">
                       <td className="px-4 py-3 font-medium">{o.name}</td>
+                      <td className="px-4 py-3 text-muted-foreground">{o.acronym || "—"}</td>
                       <td className="px-4 py-3">
                         <Badge variant="secondary" className={cn("border-0 capitalize text-xs", typeStyle)}>
                           {o.type}
                         </Badge>
                       </td>
+                      <td className="px-4 py-3 text-muted-foreground">{o.email ?? "—"}</td>
                       <td className="px-4 py-3 text-muted-foreground">
                         {o.website ? (
                           <a href={o.website} target="_blank" rel="noopener noreferrer" className="hover:underline">
@@ -78,11 +83,27 @@ export default function AdminOrganisationsPage() {
                           "—"
                         )}
                       </td>
-                      <td className="px-4 py-3 text-muted-foreground">{o.email ?? "—"}</td>
+                      <td className="px-4 py-3 text-muted-foreground">{o.dataset_count ?? 0}</td>
                       <td className="px-4 py-3">
-                        <Badge variant={o.isActive ? "default" : "secondary"} className="text-xs">
-                          {o.isActive ? "Active" : "Inactive"}
+                        {o.agreement_file_path ? (
+                          <Badge variant="outline" className="text-xs gap-1 text-emerald-700 border-emerald-300">
+                            <FileText className="size-3" />
+                            Signed
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline" className="text-xs gap-1 text-muted-foreground">
+                            <FileWarning className="size-3" />
+                            Missing
+                          </Badge>
+                        )}
+                      </td>
+                      <td className="px-4 py-3">
+                        <Badge variant={o.is_active ? "default" : "secondary"} className="text-xs">
+                          {o.is_active ? "Active" : "Inactive"}
                         </Badge>
+                      </td>
+                      <td className="px-4 py-3 text-muted-foreground">
+                        {new Date(o.created_at).toLocaleDateString()}
                       </td>
                       <td className="px-4 py-3">
                         <Link href={`/organisations/${o.slug}`}>
@@ -98,9 +119,9 @@ export default function AdminOrganisationsPage() {
         </table>
       </div>
 
-      <CreateOrganisationModal 
-        open={createModalOpen} 
-        onClose={() => setCreateModalOpen(false)} 
+      <CreateOrganisationModal
+        open={createModalOpen}
+        onClose={() => setCreateModalOpen(false)}
       />
     </div>
   );

@@ -6,16 +6,14 @@ import { Search, Archive, Eye } from 'lucide-react';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Badge } from '@/components/ui/badge';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
-import { LifecycleBadge } from '@/components/data/lifecycle-badge';
 import { StatusBadge } from '@/components/data/status-badge';
 import { AgeBadge } from '@/components/data/age-badge';
-import { FreshnessIndicator } from '@/components/data/freshness-indicator';
 import { TableRowSkeleton } from '@/components/feedback/skeletons';
 import { useToast } from '@/lib/hooks/use-toast';
 import { adminApi, archiveDataset } from '@/lib/api/admin';
 import type { DatasetStatus } from '@/lib/api/datasets';
-import { toLifecycleStage } from '@/lib/utils/lifecycle-stage';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
 
@@ -151,10 +149,10 @@ export default function DatasetsReviewPage() {
               </th>
               <th className="px-4 py-3 font-medium">Dataset Title</th>
               <th className="px-4 py-3 font-medium">Organisation</th>
-              <th className="px-4 py-3 font-medium">Stage</th>
-              <th className="px-4 py-3 font-medium">Freshness</th>
-              <th className="px-4 py-3 font-medium">Age</th>
+              <th className="px-4 py-3 font-medium">Format</th>
+              <th className="px-4 py-3 font-medium">Visibility</th>
               <th className="px-4 py-3 font-medium">Status</th>
+              <th className="px-4 py-3 font-medium">Age</th>
               <th className="px-4 py-3 font-medium">Actions</th>
             </tr>
           </thead>
@@ -187,16 +185,16 @@ export default function DatasetsReviewPage() {
                     </td>
                     <td className="px-4 py-3 text-muted-foreground">{org ? org.name : 'Unknown'}</td>
                     <td className="px-4 py-3">
-                      <LifecycleBadge stage={toLifecycleStage(dataset.status)} />
+                      <Badge variant="outline">{dataset.format?.toUpperCase()}</Badge>
                     </td>
                     <td className="px-4 py-3">
-                      <FreshnessIndicator lastUpdated={dataset.updated_at} />
-                    </td>
-                    <td className="px-4 py-3">
-                      <AgeBadge submittedAt={dataset.submitted_at || dataset.created_at} />
+                      <Badge variant="secondary" className="capitalize">{dataset.visibility}</Badge>
                     </td>
                     <td className="px-4 py-3">
                       <StatusBadge status={dataset.status} />
+                    </td>
+                    <td className="px-4 py-3">
+                      <AgeBadge submittedAt={dataset.submitted_at || dataset.created_at} />
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex gap-1">

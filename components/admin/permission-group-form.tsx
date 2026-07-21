@@ -6,11 +6,15 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import type { PermissionGroup } from "@/lib/api/permissions";
+import { Checkbox } from "@/components/ui/checkbox";
+import type { PermissionGroup, PermissionActionKey } from "@/lib/api/permissions";
+import { PERMISSION_ACTION_LABELS, PERMISSION_ACTION_DESCRIPTIONS } from "@/types/permissions";
+
+const ALL_ACTIONS = Object.keys(PERMISSION_ACTION_LABELS) as PermissionActionKey[];
 
 interface PermissionGroupFormProps {
   initial?: PermissionGroup;
-  onSave: (payload: { name: string; description?: string }) => void;
+  onSave: (payload: { name: string; description?: string; initialActions?: PermissionActionKey[] }) => void;
   onCancel: () => void;
   isSaving?: boolean;
 }
@@ -18,10 +22,24 @@ interface PermissionGroupFormProps {
 export function PermissionGroupForm({ initial, onSave, onCancel, isSaving }: PermissionGroupFormProps) {
   const [name, setName] = useState(initial?.name ?? "");
   const [description, setDescription] = useState(initial?.description ?? "");
+  const [selectedActions, setSelectedActions] = useState<Set<PermissionActionKey>>(new Set());
+
+  const toggleAction = (action: PermissionActionKey) => {
+    setSelectedActions((prev) => {
+      const next = new Set(prev);
+      if (next.has(action)) next.delete(action);
+      else next.add(action);
+      return next;
+    });
+  };
 
   const handleSave = () => {
     if (!name.trim()) return;
-    onSave({ name: name.trim(), description: description.trim() || undefined });
+    onSave({
+      name: name.trim(),
+      description: description.trim() || undefined,
+      ...(initial ? {} : { initialActions: Array.from(selectedActions) }),
+    });
   };
 
   return (
@@ -60,9 +78,37 @@ export function PermissionGroupForm({ initial, onSave, onCancel, isSaving }: Per
           />
         </div>
 
-        <p className="text-xs text-muted-foreground">
-          Members and delegated permissions are managed after the group is created.
-        </p>
+        {initial ? (
+          <p className="text-xs text-muted-foreground">
+            Members and delegated permissions are managed on the group card below.
+          </p>
+        ) : (
+          <div>
+            <p className="mb-1.5 block text-sm font-medium">
+              Delegated Permissions <span className="text-muted-foreground font-normal">(optional)</span>
+            </p>
+            <p className="text-xs text-muted-foreground mb-3">
+              Grant atomic permissions now, or skip this and delegate later from this group&apos;s card.
+            </p>
+            <div className="rounded-lg border bg-muted/30 p-4 space-y-3">
+              {ALL_ACTIONS.map((action) => (
+                <label key={action} className="flex items-start gap-3 cursor-pointer">
+                  <Checkbox
+                    checked={selectedActions.has(action)}
+                    onCheckedChange={() => toggleAction(action)}
+                    className="mt-0.5"
+                  />
+                  <div>
+                    <p className="text-sm font-medium">{PERMISSION_ACTION_LABELS[action]}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {PERMISSION_ACTION_DESCRIPTIONS[action]}
+                    </p>
+                  </div>
+                </label>
+              ))}
+            </div>
+          </div>
+        )}
 
         <div className="flex justify-end gap-2">
           <Button variant="outline" onClick={onCancel}>Cancel</Button>

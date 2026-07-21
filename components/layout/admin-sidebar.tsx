@@ -29,7 +29,7 @@ export const adminNavItems: Array<{
   exact?: boolean;
 }> = [
   { href: "/", label: "Platform Dashboard", icon: LayoutDashboard, exact: true },
-  { href: "/datasets", label: "All Datasets", icon: FileCheck },
+  { href: "/datasets", label: "Review Queue", icon: FileCheck },
   { href: "/organisations", label: "Organisations", icon: Building2 },
   { href: "/users", label: "All Users", icon: Users },
   { href: "/user-groups", label: "User Groups", icon: UsersRound },

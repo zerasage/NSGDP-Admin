@@ -25,33 +25,43 @@ import { cn } from "@/lib/utils";
 const ALL_ACTIONS = Object.keys(PERMISSION_ACTION_LABELS) as PermissionActionKey[];
 
 function GroupPermissions({ group }: { group: PermissionGroup }) {
-  const { data: detail } = usePermissionGroup(group.id);
+  const { data: detail, refetch } = usePermissionGroup(group.id);
   const grant = useGrantPermission();
   const revoke = useRevokePermission();
   const { toast } = useToast();
 
   if (!detail) return <Skeleton className="h-40" />;
 
+  // detail.grants includes revoked history too, and is keyed by raw
+  // resource_type/action columns, not the composite PermissionActionKey used
+  // in the UI — only active grants map to a checkbox via permission_key.
   const grantedActions = new Map(
-    detail.grants.filter((g) => g.is_granted).map((g) => [g.action, g.id] as const)
+    detail.grants
+      .filter((g) => g.is_granted && g.permission_key)
+      .map((g) => [g.permission_key as PermissionActionKey, g.id] as const)
   );
 
   const togglePermission = (action: PermissionActionKey) => {
     const existingGrantId = grantedActions.get(action);
+
     if (existingGrantId) {
       revoke.mutate(
         { groupId: group.id, grantId: existingGrantId },
         {
-          onSuccess: () =>
-            toast({ title: `Revoked "${PERMISSION_ACTION_LABELS[action]}" for ${group.name}` }),
+          onSuccess: () => {
+            toast({ title: `Revoked "${PERMISSION_ACTION_LABELS[action]}" for ${group.name}` });
+            refetch();
+          },
         }
       );
     } else {
       grant.mutate(
         { groupId: group.id, action },
         {
-          onSuccess: () =>
-            toast({ title: `Granted "${PERMISSION_ACTION_LABELS[action]}" for ${group.name}` }),
+          onSuccess: () => {
+            toast({ title: `Granted "${PERMISSION_ACTION_LABELS[action]}" for ${group.name}` });
+            refetch();
+          },
           onError: (error: unknown) =>
             toast({
               title: "Error",

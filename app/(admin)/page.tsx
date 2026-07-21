@@ -12,9 +12,8 @@ import {
   Upload,
   Building2,
 } from "lucide-react";
-import { useDashboardStats } from "@/lib/hooks/useDashboard";
+import { useDashboardStats, useDashboardActivity } from "@/lib/hooks/useDashboard";
 import { ActivityGraph } from "@/components/charts/activity-graph";
-import { generateActivityData } from "@/lib/mock/activity";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -25,6 +24,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 export default function AdminDashboardPage() {
   const { data: stats, isLoading, isError, error, refetch, isFetching } =
     useDashboardStats();
+  const { data: activity, isLoading: isActivityLoading } = useDashboardActivity();
 
   if (isLoading) {
     return (
@@ -145,16 +145,17 @@ export default function AdminDashboardPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Platform Activity (Mock Data)</CardTitle>
+          <CardTitle className="text-base">Platform Activity</CardTitle>
         </CardHeader>
         <CardContent>
-          <ActivityGraph
-            data7d={generateActivityData(7)}
-            data30d={generateActivityData(30)}
-          />
-          <p className="text-xs text-muted-foreground mt-4">
-            Note: Activity graph uses mock data. Real-time activity tracking will be added in a future update.
-          </p>
+          {isActivityLoading ? (
+            <Skeleton className="h-64" />
+          ) : (
+            <ActivityGraph
+              data7d={activity?.data7d ?? []}
+              data30d={activity?.data30d ?? []}
+            />
+          )}
         </CardContent>
       </Card>
 

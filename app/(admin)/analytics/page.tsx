@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Download } from "lucide-react";
 import { getAdminAnalytics } from "@/lib/mock";
+import { useDashboardStats } from "@/lib/hooks/useDashboard";
 import {
   UploadsOverTimeChart,
   DownloadsByDatasetChart,
@@ -25,15 +26,19 @@ export default function AdminAnalyticsPage() {
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<Awaited<ReturnType<typeof getAdminAnalytics>> | null>(null);
   const [range, setRange] = useState("6m");
+  const { data: stats, isLoading: statsLoading } = useDashboardStats();
 
   useEffect(() => {
+    // Uploads Over Time / New Users Over Time still have no real backend
+    // aggregation (would need monthly-bucketed queries) — left on mock for
+    // now. KPIs and Top Downloads below use real data via useDashboardStats.
     getAdminAnalytics().then((d) => {
       setData(d);
       setLoading(false);
     });
   }, []);
 
-  if (loading) {
+  if (loading || statsLoading) {
     return (
       <div className="space-y-6">
         <PageHeaderSkeleton />
@@ -70,10 +75,10 @@ export default function AdminAnalyticsPage() {
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {[
-          { label: "Total Users", value: data?.kpis.totalUsers },
-          { label: "Total Datasets", value: data?.kpis.totalDatasets },
-          { label: "Downloads (Month)", value: data?.kpis.downloadsThisMonth?.toLocaleString() },
-          { label: "Pending Review", value: data?.kpis.pendingReview },
+          { label: "Total Users", value: stats?.totalUsers },
+          { label: "Total Datasets", value: stats?.totalDatasets },
+          { label: "Downloads (Month)", value: stats?.downloadStats.thisMonth?.toLocaleString() },
+          { label: "Pending Review", value: stats?.pendingDatasets },
         ].map(({ label, value }) => (
           <Card key={label}>
             <CardContent className="pt-6">
@@ -102,7 +107,12 @@ export default function AdminAnalyticsPage() {
       <Card>
         <CardHeader><CardTitle className="text-base">Top 10 Downloads by Dataset</CardTitle></CardHeader>
         <CardContent>
-          <DownloadsByDatasetChart data={data?.downloadsByDataset ?? []} />
+          <DownloadsByDatasetChart
+            data={(stats?.downloadStats.topDatasets ?? []).map((d) => ({
+              name: d.datasetTitle,
+              downloads: d.downloads,
+            }))}
+          />
         </CardContent>
       </Card>
     </div>

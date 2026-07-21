@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Building2, Loader2 } from "lucide-react";
@@ -23,13 +23,16 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { FormError } from "@/components/forms/form-error";
-import { useCreateOrganisation } from "@/lib/hooks/useOrganisations";
+import { useUpdateOrganisation } from "@/lib/hooks/useOrganisations";
 import { organisationFormSchema, type OrganisationFormData } from "@/lib/schemas/organisation";
+import type { Organisation } from "@/lib/api/organisations";
 import { toast } from "sonner";
 
-interface CreateOrganisationModalProps {
+interface EditOrganisationModalProps {
   open: boolean;
   onClose: () => void;
+  org: Organisation;
+  slug: string;
 }
 
 const ORG_TYPES = [
@@ -41,9 +44,8 @@ const ORG_TYPES = [
   { value: "community", label: "Community Organisation" },
 ] as const;
 
-export function CreateOrganisationModal({ open, onClose }: CreateOrganisationModalProps) {
-  const [loading, setLoading] = useState(false);
-  const createMutation = useCreateOrganisation();
+export function EditOrganisationModal({ open, onClose, org, slug }: EditOrganisationModalProps) {
+  const updateMutation = useUpdateOrganisation(slug);
 
   const {
     register,
@@ -54,41 +56,61 @@ export function CreateOrganisationModal({ open, onClose }: CreateOrganisationMod
   } = useForm<OrganisationFormData>({
     resolver: zodResolver(organisationFormSchema),
     defaultValues: {
-      type: "government",
+      name: org.name,
+      acronym: org.acronym ?? "",
+      type: org.type,
+      description: org.description ?? "",
+      website: org.website ?? "",
+      email: org.email ?? "",
+      phone: org.phone ?? "",
+      address: org.address ?? "",
+      logoUrl: org.logo_url ?? "",
     },
   });
 
-  const onSubmit = async (data: OrganisationFormData) => {
-    setLoading(true);
+  // Re-sync the form whenever a different organisation's modal is opened
+  useEffect(() => {
+    reset({
+      name: org.name,
+      acronym: org.acronym ?? "",
+      type: org.type,
+      description: org.description ?? "",
+      website: org.website ?? "",
+      email: org.email ?? "",
+      phone: org.phone ?? "",
+      address: org.address ?? "",
+      logoUrl: org.logo_url ?? "",
+    });
+  }, [org, reset]);
 
+  const onSubmit = async (data: OrganisationFormData) => {
     try {
-      await createMutation.mutateAsync({
-        name: data.name,
-        acronym: data.acronym || undefined,
-        type: data.type,
-        description: data.description || undefined,
-        website: data.website || undefined,
-        email: data.email || undefined,
-        phone: data.phone || undefined,
-        address: data.address || undefined,
-        logoUrl: data.logoUrl || undefined,
+      await updateMutation.mutateAsync({
+        id: org.id,
+        data: {
+          name: data.name,
+          acronym: data.acronym || undefined,
+          type: data.type,
+          description: data.description || undefined,
+          website: data.website || undefined,
+          email: data.email || undefined,
+          phone: data.phone || undefined,
+          address: data.address || undefined,
+          logoUrl: data.logoUrl || undefined,
+        },
       });
 
-      toast.success(`Organisation "${data.name}" created successfully`);
-      reset();
+      toast.success(`Organisation "${data.name}" updated successfully`);
       onClose();
     } catch (error) {
       const err = error as { response?: { data?: { message?: string } }; message?: string };
-      const errorMessage = err?.response?.data?.message || err?.message || "Failed to create organisation";
+      const errorMessage = err?.response?.data?.message || err?.message || "Failed to update organisation";
       toast.error(errorMessage);
-    } finally {
-      setLoading(false);
     }
   };
 
   const handleClose = () => {
-    if (!loading) {
-      reset();
+    if (!updateMutation.isPending) {
       onClose();
     }
   };
@@ -99,39 +121,32 @@ export function CreateOrganisationModal({ open, onClose }: CreateOrganisationMod
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Building2 className="size-5" />
-            Create New Organisation
+            Edit Organisation
           </DialogTitle>
           <DialogDescription>
-            Add a new partner organisation to the platform. All fields except name and type are optional.
+            Update this organisation&apos;s details.
           </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-          {/* Name - Required */}
           <div>
-            <label htmlFor="name" className="block text-sm font-medium mb-1.5">
+            <label htmlFor="edit-name" className="block text-sm font-medium mb-1.5">
               Organisation Name <span className="text-destructive">*</span>
             </label>
-            <Input
-              id="name"
-              placeholder="e.g. Niger State Primary Health Care Agency"
-              {...register("name")}
-            />
+            <Input id="edit-name" {...register("name")} />
             <FormError message={errors.name?.message} />
           </div>
 
-          {/* Acronym - Optional */}
           <div>
-            <label htmlFor="acronym" className="block text-sm font-medium mb-1.5">
+            <label htmlFor="edit-acronym" className="block text-sm font-medium mb-1.5">
               Acronym <span className="text-muted-foreground font-normal">(optional)</span>
             </label>
-            <Input id="acronym" placeholder="E.g. NSPHCDA" {...register("acronym")} />
+            <Input id="edit-acronym" placeholder="E.g. NSPHCDA" {...register("acronym")} />
             <FormError message={errors.acronym?.message} />
           </div>
 
-          {/* Type - Required */}
           <div>
-            <label htmlFor="type" className="block text-sm font-medium mb-1.5">
+            <label htmlFor="edit-type" className="block text-sm font-medium mb-1.5">
               Organisation Type <span className="text-destructive">*</span>
             </label>
             <Controller
@@ -155,109 +170,73 @@ export function CreateOrganisationModal({ open, onClose }: CreateOrganisationMod
             <FormError message={errors.type?.message} />
           </div>
 
-          {/* Description - Optional */}
           <div>
-            <label htmlFor="description" className="block text-sm font-medium mb-1.5">
+            <label htmlFor="edit-description" className="block text-sm font-medium mb-1.5">
               Description
             </label>
             <Textarea
-              id="description"
+              id="edit-description"
               rows={3}
               maxLength={500}
-              placeholder="Brief description of the organisation..."
               {...register("description")}
             />
-            <p className="text-xs text-muted-foreground mt-1">
-              Optional · Max 500 characters
-            </p>
             <FormError message={errors.description?.message} />
           </div>
 
-          {/* Contact Information Grid */}
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
-              <label htmlFor="email" className="block text-sm font-medium mb-1.5">
+              <label htmlFor="edit-email" className="block text-sm font-medium mb-1.5">
                 Email
               </label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="contact@example.org"
-                {...register("email")}
-              />
+              <Input id="edit-email" type="email" {...register("email")} />
               <FormError message={errors.email?.message} />
             </div>
 
             <div>
-              <label htmlFor="phone" className="block text-sm font-medium mb-1.5">
+              <label htmlFor="edit-phone" className="block text-sm font-medium mb-1.5">
                 Phone
               </label>
-              <Input
-                id="phone"
-                type="tel"
-                placeholder="+234 803 123 4567"
-                {...register("phone")}
-              />
+              <Input id="edit-phone" type="tel" {...register("phone")} />
               <FormError message={errors.phone?.message} />
             </div>
           </div>
 
-          {/* Website */}
           <div>
-            <label htmlFor="website" className="block text-sm font-medium mb-1.5">
+            <label htmlFor="edit-website" className="block text-sm font-medium mb-1.5">
               Website
             </label>
-            <Input
-              id="website"
-              type="url"
-              placeholder="https://example.org"
-              {...register("website")}
-            />
+            <Input id="edit-website" type="url" {...register("website")} />
             <FormError message={errors.website?.message} />
           </div>
 
-          {/* Address */}
           <div>
-            <label htmlFor="address" className="block text-sm font-medium mb-1.5">
+            <label htmlFor="edit-address" className="block text-sm font-medium mb-1.5">
               Physical Address
             </label>
-            <Input
-              id="address"
-              placeholder="123 Main Street, City, State"
-              {...register("address")}
-            />
+            <Input id="edit-address" {...register("address")} />
             <FormError message={errors.address?.message} />
           </div>
 
-          {/* Logo URL */}
           <div>
-            <label htmlFor="logoUrl" className="block text-sm font-medium mb-1.5">
+            <label htmlFor="edit-logoUrl" className="block text-sm font-medium mb-1.5">
               Logo URL
             </label>
-            <Input
-              id="logoUrl"
-              type="url"
-              placeholder="https://example.com/logo.png"
-              {...register("logoUrl")}
-            />
-            <p className="text-xs text-muted-foreground mt-1">
-              Direct link to logo image (future: file upload)
-            </p>
+            <Input id="edit-logoUrl" type="url" {...register("logoUrl")} />
             <FormError message={errors.logoUrl?.message} />
           </div>
 
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={handleClose} disabled={loading}>
+            <Button type="button" variant="outline" onClick={handleClose} disabled={updateMutation.isPending}>
               Cancel
             </Button>
-            <Button type="submit" disabled={loading}>
-              {loading ? (
+            <Button type="submit" disabled={updateMutation.isPending}>
+              {updateMutation.isPending ? (
                 <>
                   <Loader2 className="size-4 mr-2 animate-spin" />
-                  Creating...
+                  Saving...
                 </>
               ) : (
-                "Create Organisation"
+                "Save Changes"
               )}
             </Button>
           </DialogFooter>

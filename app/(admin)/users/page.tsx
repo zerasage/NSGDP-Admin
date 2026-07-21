@@ -1,10 +1,11 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Download } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { useUsers, useUpdateUserRole } from "@/lib/hooks/useAdmin";
-import type { AdminUser } from "@/lib/api/admin";
+import { adminApi, type AdminUser } from "@/lib/api/admin";
 import { RoleBadge } from "@/components/data/role-badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -46,6 +47,18 @@ export default function AdminUsersPage() {
   });
 
   const updateRoleMutation = useUpdateUserRole();
+
+  const { data: organisationsData } = useQuery({
+    queryKey: ["admin", "organisations"],
+    queryFn: async () => {
+      const response = await adminApi.get<{ data: { data: { id: string; name: string }[] } }>(
+        "/admin/organisations?page=1&limit=100"
+      );
+      return response.data.data;
+    },
+  });
+  const orgName = (id: string | null) =>
+    organisationsData?.data?.find((o) => o.id === id)?.name ?? "—";
 
   const users = useMemo(() => {
     return usersData?.data || [];
@@ -149,7 +162,7 @@ export default function AdminUsersPage() {
                   <tr key={u.id} className="border-b hover:bg-muted/30">
                     <td className="px-4 py-3 font-medium">{u.first_name} {u.last_name}</td>
                     <td className="px-4 py-3 text-muted-foreground">{u.email}</td>
-                    <td className="px-4 py-3 text-muted-foreground">{u.organisation_id || "—"}</td>
+                    <td className="px-4 py-3 text-muted-foreground">{orgName(u.organisation_id)}</td>
                     <td className="px-4 py-3"><RoleBadge role={u.role} /></td>
                     <td className="px-4 py-3 capitalize">{u.status}</td>
                     <td className="px-4 py-3 text-muted-foreground">

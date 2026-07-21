@@ -165,7 +165,7 @@ export default function AdminAuditLogsPage() {
               <th className="px-4 py-3 font-medium">Timestamp</th>
               <th className="px-4 py-3 font-medium">User</th>
               <th className="px-4 py-3 font-medium">Action</th>
-              <th className="px-4 py-3 font-medium">Entity</th>
+              <th className="px-4 py-3 font-medium">Resource / Detail</th>
               <th className="px-4 py-3 font-medium">IP Address</th>
             </tr>
           </thead>
@@ -183,7 +183,9 @@ export default function AdminAuditLogsPage() {
                     <td className="px-4 py-3 whitespace-nowrap">{new Date(e.created_at).toLocaleString()}</td>
                     <td className="px-4 py-3">{e.user_email || e.user_id || "—"}</td>
                     <td className="px-4 py-3"><ActionBadge action={e.action} /></td>
-                    <td className="px-4 py-3 max-w-xs truncate font-sans">{e.entity_type}{e.entity_id ? `/${e.entity_id}` : ""}</td>
+                    <td className="px-4 py-3 max-w-xs truncate font-sans" title={e.description ?? undefined}>
+                      {e.description || `${e.entity_type}${e.entity_id ? `/${e.entity_id}` : ""}`}
+                    </td>
                     <td className="px-4 py-3 text-muted-foreground">{e.ip_address || "—"}</td>
                   </tr>
                 ))}

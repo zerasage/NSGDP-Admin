@@ -383,9 +383,11 @@ interface DashboardStatsResponse {
   };
   recentActivity: Array<{
     id: string;
-    type: string;
-    user: { id: string; name: string };
-    dataset?: { id: string; title: string };
+    action: string;
+    entityType: string;
+    description?: string;
+    userName: string;
+    datasetTitle?: string;
     timestamp: string;
   }>;
 }
@@ -400,9 +402,10 @@ export async function deleteDataset(datasetSlug: string): Promise<void> {
 /**
  * Archive a dataset (changes status to ARCHIVED)
  */
-export async function archiveDataset(datasetSlug: string): Promise<Dataset> {
+export async function archiveDataset(datasetSlug: string, reason?: string): Promise<Dataset> {
   const response = await apiClient.post<ApiResponse<Dataset>>(
-    `/datasets/${datasetSlug}/archive`
+    `/datasets/${datasetSlug}/archive`,
+    reason ? { reason } : undefined
   );
   return response.data.data;
 }
@@ -431,10 +434,8 @@ export interface DashboardStats {
   recentActivity: Array<{
     id: string;
     action: string;
-    userId: string;
     userName: string;
     entityType: string;
-    entityId: string;
     timestamp: string;
     description?: string;
     datasetTitle?: string;
@@ -481,14 +482,33 @@ export async function getDashboardStats(): Promise<DashboardStats> {
     },
     recentActivity: stats.recentActivity.map((activity) => ({
       id: activity.id,
-      action: activity.type,
-      userId: activity.user.id,
-      userName: activity.user.name,
-      entityType: activity.dataset ? 'dataset' : 'user',
-      entityId: activity.dataset?.id ?? activity.user.id,
+      action: activity.action,
+      userName: activity.userName,
+      entityType: activity.entityType,
+      description: activity.description,
+      datasetTitle: activity.datasetTitle,
       timestamp: activity.timestamp,
     })),
   };
+}
+
+export interface ActivityDataPoint {
+  date: string;
+  views: number;
+  downloads: number;
+}
+
+/**
+ * Get real daily views/downloads series for the platform activity graph
+ */
+export async function getDashboardActivity(): Promise<{
+  data7d: ActivityDataPoint[];
+  data30d: ActivityDataPoint[];
+}> {
+  const response = await apiClient.get<ApiResponse<{ data7d: ActivityDataPoint[]; data30d: ActivityDataPoint[] }>>(
+    '/admin/dashboard/activity'
+  );
+  return response.data.data;
 }
 
 /**

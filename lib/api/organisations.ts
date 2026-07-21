@@ -1,4 +1,4 @@
-import { apiClient } from './client';
+import { apiClient, apiUpload } from './client';
 import type { PaginatedResponse } from '../types/common';
 
 interface ApiResponse<T> {
@@ -23,19 +23,22 @@ export interface Organisation {
   slug: string;
   description?: string;
   type: OrganisationType;
-  /** Alias for `type` — used by the centralized @/types Organisation */
-  sector: string;
   website: string | null;
   email: string | null;
   phone: string | null;
   address: string | null;
-  logoUrl?: string;
-  brandColor?: string;
+  logo_url?: string;
   acronym?: string;
-  isActive: boolean;
-  datasetCount: number;
-  createdAt: string;
-  updatedAt: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+  agreement_file_path?: string | null;
+  agreement_file_name?: string | null;
+  agreement_signed_at?: string | null;
+  agreement_uploaded_by?: string | null;
+  agreement_uploaded_at?: string | null;
+  /** Only present on GET /admin/organisations (list), not the single-org endpoint */
+  dataset_count?: number;
 }
 
 export interface OrganisationWithDatasets {
@@ -57,12 +60,15 @@ export interface GetOrganisationsParams {
 }
 
 /**
- * Get all organisations with pagination
+ * Get all organisations with pagination (admin view — includes inactive
+ * organisations; the public `/organisations` endpoint filters those out,
+ * which is wrong for the admin app: it made deactivated orgs permanently
+ * unreachable from this list).
  */
 export async function getOrganisations(
   params?: GetOrganisationsParams
 ): Promise<PaginatedResponse<Organisation>> {
-  const response = await apiClient.get<ApiResponse<PaginatedResponse<Organisation>>>('/organisations', {
+  const response = await apiClient.get<ApiResponse<PaginatedResponse<Organisation>>>('/admin/organisations', {
     params: {
       page: params?.page || 1,
       limit: params?.limit || 20,
@@ -83,6 +89,7 @@ export async function getOrganisationBySlug(
 
 export interface CreateOrganisationPayload {
   name: string;
+  acronym?: string;
   description?: string;
   type: OrganisationType;
   website?: string;
@@ -101,6 +108,85 @@ export async function createOrganisation(
   const response = await apiClient.post<ApiResponse<Organisation>>(
     '/organisations',
     payload
+  );
+  return response.data.data;
+}
+
+export interface UpdateOrganisationPayload {
+  name?: string;
+  acronym?: string;
+  description?: string;
+  type?: OrganisationType;
+  website?: string;
+  email?: string;
+  phone?: string;
+  address?: string;
+  logoUrl?: string;
+}
+
+/**
+ * Update an organisation's details (Super Admin, or Admin of their own org)
+ */
+export async function updateOrganisation(
+  id: string,
+  payload: UpdateOrganisationPayload
+): Promise<Organisation> {
+  const response = await apiClient.patch<ApiResponse<Organisation>>(
+    `/organisations/${id}`,
+    payload
+  );
+  return response.data.data;
+}
+
+/**
+ * Enable/disable an organisation (Super Admin only)
+ */
+export async function toggleOrganisationStatus(
+  id: string,
+  isActive: boolean
+): Promise<Organisation> {
+  const response = await apiClient.patch<ApiResponse<Organisation>>(
+    `/organisations/${id}/status`,
+    { isActive }
+  );
+  return response.data.data;
+}
+
+export interface OrganisationAgreement {
+  agreement_file_path: string | null;
+  agreement_file_name: string | null;
+  agreement_signed_at: string | null;
+  agreement_uploaded_by: string | null;
+  agreement_uploaded_at: string | null;
+}
+
+/**
+ * Upload or replace an organisation's signed data-sharing agreement (Super Admin only)
+ */
+export async function uploadOrganisationAgreement(
+  orgId: string,
+  file: File,
+  signedAt?: string
+): Promise<OrganisationAgreement> {
+  const formData = new FormData();
+  formData.append('file', file);
+  if (signedAt) formData.append('signedAt', signedAt);
+
+  const response = await apiUpload<ApiResponse<OrganisationAgreement>>(
+    `/organisations/${orgId}/agreement`,
+    formData
+  );
+  return response.data;
+}
+
+/**
+ * Get a temporary download URL for an organisation's agreement document (Super Admin only)
+ */
+export async function getOrganisationAgreementUrl(
+  orgId: string
+): Promise<{ url: string; fileName: string }> {
+  const response = await apiClient.get<ApiResponse<{ url: string; fileName: string }>>(
+    `/organisations/${orgId}/agreement`
   );
   return response.data.data;
 }

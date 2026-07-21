@@ -19,16 +19,16 @@ export default function PermissionsPage() {
         </p>
       </div>
 
-      <Tabs defaultValue="matrix" className="w-full">
+      <Tabs defaultValue="delegation" className="w-full">
         <TabsList>
-          <TabsTrigger value="matrix">Permission Matrix</TabsTrigger>
           <TabsTrigger value="delegation">Group Delegation</TabsTrigger>
+          <TabsTrigger value="matrix">Permission Matrix</TabsTrigger>
         </TabsList>
-        <TabsContent value="matrix" className="mt-6">
-          <PermissionMatrix />
-        </TabsContent>
         <TabsContent value="delegation" className="mt-6">
           <PermissionDelegationPanel />
+        </TabsContent>
+        <TabsContent value="matrix" className="mt-6">
+          <PermissionMatrix />
         </TabsContent>
       </Tabs>
     </div>

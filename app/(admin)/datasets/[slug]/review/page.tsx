@@ -27,6 +27,7 @@ import { useSaveQAChecklist } from "@/lib/hooks/useQAChecklist";
 import { ApprovalPipeline } from "@/components/admin/approval-pipeline";
 import { LifecycleBadge } from "@/components/data/lifecycle-badge";
 import { QAChecklistItem, type QAResult } from "@/components/data/qa-checklist-item";
+import { DatasetPreviewCard } from "@/components/data/dataset-preview-card";
 import { QA_DIMENSIONS, isQAChecklistPassed } from "@/lib/constants/qa-checklist";
 import { HelpTooltip } from "@/components/feedback/help-tooltip";
 import { toLifecycleStage } from "@/lib/utils/lifecycle-stage";
@@ -171,7 +172,7 @@ export default function DatasetReviewScreenPage({
   };
 
   const handleArchive = () => {
-    archiveDataset(slug)
+    archiveDataset(slug, archiveReason.trim() || undefined)
       .then(() => {
         toast({ title: "Success", description: "Dataset archived" });
         router.push("/datasets");
@@ -258,6 +259,8 @@ export default function DatasetReviewScreenPage({
           </dl>
         </CardContent>
       </Card>
+
+      <DatasetPreviewCard slug={slug} />
 
       <div>
         <div className="flex items-center justify-between mb-3">
@@ -358,7 +361,7 @@ export default function DatasetReviewScreenPage({
               rows={3}
               value={archiveReason}
               onChange={(e) => setArchiveReason(e.target.value)}
-              placeholder="Reason for archiving… (not yet stored by the backend — display only)"
+              placeholder="Reason for archiving… (optional)"
             />
           </div>
           <DialogFooter>

@@ -2,6 +2,8 @@
 // Adds base URL, sends auth cookies, and normalises errors so the UI
 // can map them consistently to toasts / inline messages.
 
+import { getAccessToken, clearTokens } from "@/lib/utils/token-storage";
+
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "/api";
 
 export class ApiError extends Error {
@@ -21,12 +23,17 @@ interface RequestOptions extends Omit<RequestInit, "body"> {
 }
 
 /**
- * Get access token from localStorage
- * Returns null if not found or in SSR context
+ * A 401 on a request that WAS carrying a token means the session died
+ * server-side (expired/revoked) — force a logout instead of letting every
+ * page render the raw "Invalid or expired token" error inline. A 401 with no
+ * token (e.g. a bad-credentials login attempt) is left alone.
  */
-function getAccessToken(): string | null {
-  if (typeof window === "undefined") return null;
-  return localStorage.getItem("accessToken");
+function handleUnauthorized(status: number, hadToken: boolean) {
+  if (status !== 401 || !hadToken) return;
+  clearTokens();
+  if (typeof window !== "undefined" && !window.location.pathname.startsWith("/login")) {
+    window.location.href = "/login";
+  }
 }
 
 export async function apiFetch<T>(
@@ -59,10 +66,45 @@ export async function apiFetch<T>(
     } catch {
       // non-JSON error body — keep statusText
     }
+    handleUnauthorized(res.status, !!accessToken);
     throw new ApiError(res.status, message, details);
   }
 
   if (res.status === 204) return undefined as T;
+  return (await res.json()) as T;
+}
+
+/**
+ * multipart/form-data upload — bypasses apiFetch's JSON-stringify body
+ * handling entirely. Do not set Content-Type manually: the browser needs to
+ * add its own multipart boundary.
+ */
+export async function apiUpload<T>(path: string, formData: FormData): Promise<T> {
+  const accessToken = getAccessToken();
+
+  const res = await fetch(`${BASE_URL}${path}`, {
+    method: "POST",
+    credentials: "include",
+    headers: {
+      ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+    },
+    body: formData,
+  });
+
+  if (!res.ok) {
+    let message = res.statusText;
+    let details: unknown;
+    try {
+      const data = await res.json();
+      message = data?.message ?? message;
+      details = data;
+    } catch {
+      // non-JSON error body — keep statusText
+    }
+    handleUnauthorized(res.status, !!accessToken);
+    throw new ApiError(res.status, message, details);
+  }
+
   return (await res.json()) as T;
 }
 

@@ -5,7 +5,13 @@ export const organisationFormSchema = z.object({
     .string()
     .min(3, "Organisation name must be at least 3 characters")
     .max(100, "Organisation name must not exceed 100 characters"),
-  
+
+  acronym: z
+    .string()
+    .max(20, "Acronym must not exceed 20 characters")
+    .optional()
+    .or(z.literal("")),
+
   type: z.enum([
     "government",
     "ngo",

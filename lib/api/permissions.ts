@@ -50,6 +50,7 @@ export interface PermissionGrant {
   group_id: string;
   action: string;
   resource_type: string;
+  permission_key: PermissionActionKey | null;
   is_granted: boolean;
   expires_at: string | null;
   granted_by: string;
@@ -70,6 +71,7 @@ export interface PermissionMatrix {
 export interface CreatePermissionGroupPayload {
   name: string;
   description?: string;
+  initialActions?: PermissionActionKey[];
 }
 
 export interface UpdatePermissionGroupPayload {
