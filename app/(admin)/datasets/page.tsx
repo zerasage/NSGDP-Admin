@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Search, Archive, Eye } from 'lucide-react';
+import { Search, Archive, Eye, Globe } from 'lucide-react';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -12,7 +12,7 @@ import { StatusBadge } from '@/components/data/status-badge';
 import { AgeBadge } from '@/components/data/age-badge';
 import { TableRowSkeleton } from '@/components/feedback/skeletons';
 import { useToast } from '@/lib/hooks/use-toast';
-import { adminApi, archiveDataset } from '@/lib/api/admin';
+import { adminApi, archiveDataset, publishDataset } from '@/lib/api/admin';
 import type { DatasetStatus } from '@/lib/api/datasets';
 import { cn } from '@/lib/utils';
 import { formatDate } from '@/lib/utils/date';
@@ -67,6 +67,20 @@ export default function DatasetsReviewPage() {
       toast({
         title: 'Error',
         description: error instanceof Error ? error.message : 'Failed to archive dataset',
+        variant: 'destructive',
+      }),
+  });
+
+  const publishMutation = useMutation({
+    mutationFn: (slug: string) => publishDataset(slug),
+    onSuccess: () => {
+      toast({ title: 'Success', description: 'Dataset published to the public catalogue' });
+      queryClient.invalidateQueries({ queryKey: ['admin', 'datasets', 'queue'] });
+    },
+    onError: (error: unknown) =>
+      toast({
+        title: 'Error',
+        description: error instanceof Error ? error.message : 'Failed to publish dataset',
         variant: 'destructive',
       }),
   });
@@ -217,6 +231,18 @@ export default function DatasetsReviewPage() {
                           <Eye className="size-3.5 mr-1" />
                           {dataset.status === 'pending' || dataset.status === 'under_review' ? 'Review' : 'View'}
                         </Link>
+                        {dataset.status === 'approved' && !dataset.published_at && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => publishMutation.mutate(dataset.slug)}
+                            disabled={publishMutation.isPending}
+                            aria-label={`Publish ${dataset.title}`}
+                          >
+                            <Globe className="size-3.5 mr-1" />
+                            Publish
+                          </Button>
+                        )}
                         <Button
                           size="sm"
                           variant="ghost"

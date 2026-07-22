@@ -25,21 +25,13 @@ import {
 import { FormError } from "@/components/forms/form-error";
 import { useCreateOrganisation } from "@/lib/hooks/useOrganisations";
 import { organisationFormSchema, type OrganisationFormData } from "@/lib/schemas/organisation";
+import { ORG_TYPES } from "@/lib/constants/organisation-types";
 import { toast } from "sonner";
 
 interface CreateOrganisationModalProps {
   open: boolean;
   onClose: () => void;
 }
-
-const ORG_TYPES = [
-  { value: "government", label: "Government Agency" },
-  { value: "ngo", label: "Non-Governmental Organisation" },
-  { value: "private", label: "Private Sector" },
-  { value: "international", label: "International Organisation" },
-  { value: "academic", label: "Academic Institution" },
-  { value: "community", label: "Community Organisation" },
-] as const;
 
 export function CreateOrganisationModal({ open, onClose }: CreateOrganisationModalProps) {
   const [loading, setLoading] = useState(false);
@@ -227,23 +219,6 @@ export function CreateOrganisationModal({ open, onClose }: CreateOrganisationMod
               {...register("address")}
             />
             <FormError message={errors.address?.message} />
-          </div>
-
-          {/* Logo URL */}
-          <div>
-            <label htmlFor="logoUrl" className="block text-sm font-medium mb-1.5">
-              Logo URL
-            </label>
-            <Input
-              id="logoUrl"
-              type="url"
-              placeholder="https://example.com/logo.png"
-              {...register("logoUrl")}
-            />
-            <p className="text-xs text-muted-foreground mt-1">
-              Direct link to logo image (future: file upload)
-            </p>
-            <FormError message={errors.logoUrl?.message} />
           </div>
 
           <DialogFooter>

@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 
 export interface UploadedFile {
+  file: File; // the actual File object, needed to upload it
   name: string;
   size: number;
   progress: number;
@@ -15,7 +16,7 @@ export interface UploadedFile {
 
 interface FileUploadAreaProps {
   files: UploadedFile[];
-  onFilesChange: (files: UploadedFile[]) => void;
+  onFilesChange: (update: UploadedFile[] | ((prev: UploadedFile[]) => UploadedFile[])) => void;
   accept?: string;
   maxSizeMB?: number;
   className?: string;
@@ -49,45 +50,45 @@ export function FileUploadArea({
 
   const simulateUpload = useCallback(
     (fileList: File[]) => {
-      fileList.forEach((file) => {
-        if (file.size > maxSizeMB * 1024 * 1024) {
-          onFilesChange([
-            ...files,
-            {
+      // Build every entry up front and append them in one functional update —
+      // calling onFilesChange once per file with a stale `files` snapshot
+      // meant selecting several files at once silently kept only the last one.
+      const newEntries: UploadedFile[] = fileList.map((file) =>
+        file.size > maxSizeMB * 1024 * 1024
+          ? {
+              file,
               name: file.name,
               size: file.size,
               progress: 0,
               error: `File exceeds ${maxSizeMB}MB limit`,
-            },
-          ]);
-          return;
-        }
+            }
+          : {
+              file,
+              name: file.name,
+              size: file.size,
+              progress: 0,
+              format: detectFormat(file.name),
+            }
+      );
 
-        const newFile: UploadedFile = {
-          name: file.name,
-          size: file.size,
-          progress: 0,
-          format: detectFormat(file.name),
-        };
-        onFilesChange([...files, newFile]);
+      onFilesChange((prev) => [...prev, ...newEntries]);
 
-        let progress = 0;
-        const interval = setInterval(() => {
-          progress += 10;
-          onFilesChange(
-            files
-              .concat(newFile)
-              .map((f) =>
-                f.name === file.name
-                  ? { ...f, progress: Math.min(progress, 100) }
-                  : f
+      newEntries
+        .filter((entry) => !entry.error)
+        .forEach((entry) => {
+          let progress = 0;
+          const interval = setInterval(() => {
+            progress += 10;
+            onFilesChange((prev) =>
+              prev.map((f) =>
+                f.name === entry.name ? { ...f, progress: Math.min(progress, 100) } : f
               )
-          );
-          if (progress >= 100) clearInterval(interval);
-        }, 200);
-      });
+            );
+            if (progress >= 100) clearInterval(interval);
+          }, 200);
+        });
     },
-    [files, maxSizeMB, onFilesChange]
+    [maxSizeMB, onFilesChange]
   );
 
   const handleDrop = (e: React.DragEvent) => {

@@ -19,6 +19,8 @@ export const organisationFormSchema = z.object({
     "international",
     "academic",
     "community",
+    "healthcare",
+    "other",
   ]),
   
   description: z

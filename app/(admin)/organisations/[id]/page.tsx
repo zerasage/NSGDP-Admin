@@ -29,11 +29,10 @@ import {
   Archive,
 } from "lucide-react";
 import { useOrganisationBySlug } from "@/lib/hooks/useOrganisationBySlug";
-import { useToggleOrganisationStatus } from "@/lib/hooks/useOrganisations";
+import { useToggleOrganisationStatus, useDeleteOrganisation } from "@/lib/hooks/useOrganisations";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { getUsers, getOrganisationInvites, revokeInvite, resendInvite, deleteInvite, updateUserStatus, deleteDataset, archiveDataset, removeUser } from "@/lib/api/admin";
 import { InviteMemberModal } from "@/components/admin/invite-member-modal";
-import { UploadDatasetModal } from "@/components/admin/upload-dataset-modal";
 import { OrganisationAgreementCard } from "@/components/admin/organisation-agreement-card";
 import { EditOrganisationModal } from "@/components/admin/edit-organisation-modal";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -63,11 +62,13 @@ import { statusPill } from "@/lib/constants/status-surfaces";
 
 const TYPE_STYLES = {
   government: statusPill.emerald,
+  healthcare: statusPill.teal,
   ngo: statusPill.amber,
   private: statusPill.blue,
   international: statusPill.purple,
   academic: statusPill.blue,
   community: statusPill.emerald,
+  other: statusPill.gray,
 };
 
 export default function OrganisationDetailPage({
@@ -79,13 +80,13 @@ export default function OrganisationDetailPage({
   const router = useRouter();
   const queryClient = useQueryClient();
   const [inviteModalOpen, setInviteModalOpen] = useState(false);
-  const [uploadDatasetModalOpen, setUploadDatasetModalOpen] = useState(false);
   const [selectedMember, setSelectedMember] = useState<any>(null);
   const [memberDetailOpen, setMemberDetailOpen] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [archiveConfirmOpen, setArchiveConfirmOpen] = useState(false);
   const [removeMemberConfirmOpen, setRemoveMemberConfirmOpen] = useState(false);
   const [statusConfirmOpen, setStatusConfirmOpen] = useState(false);
+  const [deleteOrgConfirmOpen, setDeleteOrgConfirmOpen] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [datasetToDelete, setDatasetToDelete] = useState<{ slug: string; title: string } | null>(null);
   const [datasetToArchive, setDatasetToArchive] = useState<{ slug: string; title: string } | null>(null);
@@ -94,6 +95,7 @@ export default function OrganisationDetailPage({
   // Fetch organization data by slug
   const { data: orgData, isLoading: orgLoading } = useOrganisationBySlug(slug);
   const toggleStatusMutation = useToggleOrganisationStatus(slug);
+  const deleteOrgMutation = useDeleteOrganisation();
   
   // Get the actual org ID (UUID) from the fetched data
   // The API returns { organisation: {...}, datasets: [] }
@@ -307,22 +309,11 @@ export default function OrganisationDetailPage({
     }
   };
 
-  const handleUploadDataset = () => {
-    setUploadDatasetModalOpen(true);
-  };
-
   return (
     <>
       <InviteMemberModal
         open={inviteModalOpen}
         onClose={() => setInviteModalOpen(false)}
-        organisationId={orgId || ""}
-        organisationName={org?.name || ""}
-      />
-
-      <UploadDatasetModal
-        open={uploadDatasetModalOpen}
-        onClose={() => setUploadDatasetModalOpen(false)}
         organisationId={orgId || ""}
         organisationName={org?.name || ""}
       />
@@ -388,6 +379,31 @@ export default function OrganisationDetailPage({
           )
         }
         loading={toggleStatusMutation.isPending}
+      />
+
+      <ConfirmDialog
+        open={deleteOrgConfirmOpen}
+        onOpenChange={setDeleteOrgConfirmOpen}
+        title="Delete Organisation"
+        description={`Delete "${org.name}"? This will also remove its members, datasets, and any pending invites (soft-deleted, not permanently erased). This cannot be undone from the UI.`}
+        confirmLabel="Delete"
+        cancelLabel="Cancel"
+        variant="destructive"
+        onConfirm={() =>
+          deleteOrgMutation.mutate(orgId!, {
+            onSuccess: (result) => {
+              toast.success(
+                `Organisation deleted — ${result.membersRemoved} member(s), ${result.datasetsRemoved} dataset(s) removed, ${result.invitesRevoked} invite(s) revoked`
+              );
+              router.push("/organisations");
+            },
+            onError: (error: unknown) => {
+              const err = error as { message?: string };
+              toast.error(err?.message || "Failed to delete organisation");
+            },
+          })
+        }
+        loading={deleteOrgMutation.isPending}
       />
 
       <EditOrganisationModal
@@ -580,6 +596,15 @@ export default function OrganisationDetailPage({
           >
             <Power className="size-4" />
             {org.is_active ? "Deactivate" : "Activate"}
+          </Button>
+          <Button
+            variant="destructive"
+            size="sm"
+            onClick={() => setDeleteOrgConfirmOpen(true)}
+            disabled={deleteOrgMutation.isPending}
+          >
+            <Trash2 className="size-4" />
+            Delete
           </Button>
         </div>
       </div>
@@ -996,10 +1021,12 @@ export default function OrganisationDetailPage({
             <p className="text-sm text-muted-foreground">
               Datasets published by this organization
             </p>
-            <Button size="sm" onClick={handleUploadDataset}>
-              <Upload className="size-4" />
-              Upload Dataset
-            </Button>
+            <Link href={`/upload?orgId=${orgId}`}>
+              <Button size="sm">
+                <Upload className="size-4" />
+                Upload Dataset
+              </Button>
+            </Link>
           </div>
 
           <Card>

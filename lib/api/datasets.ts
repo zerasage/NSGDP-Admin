@@ -92,25 +92,27 @@ export interface DatasetListParams {
   sortOrder?: 'ASC' | 'DESC';
 }
 
+// Mirrors the real backend DTO (src/modules/datasets/dto/create-dataset.dto.ts) —
+// camelCase field names, geographicCoverage is a single string not an array.
+// This previously used snake_case field names that don't exist on the
+// backend DTO at all, so calling createDataset() silently dropped them.
 export interface CreateDatasetDto {
   title: string;
   description: string;
-  category_id?: string;
+  categoryId?: string;
   format: DatasetFormat;
   visibility?: DatasetVisibility;
+  status?: DatasetStatus;
   tags?: string[];
-  temporal_coverage_start?: string;
-  temporal_coverage_end?: string;
-  geographic_coverage?: string[];
-  disease_indicators?: string[];
+  temporalCoverageStart?: string;
+  temporalCoverageEnd?: string;
+  geographicCoverage?: string;
+  diseaseIndicators?: string[];
   license?: string;
   methodology?: string;
   limitations?: string;
-  metadata?: Record<string, unknown>;
-  key_attributes?: Record<string, unknown>[];
-  has_spatial_data?: boolean;
-  programme_id?: string;
-  campaign_id?: string;
+  programmeId?: string;
+  organisationId?: string; // Super admin only — create on behalf of an org
 }
 
 export interface UpdateDatasetDto {

@@ -5,6 +5,7 @@ import {
   createOrganisation,
   updateOrganisation,
   toggleOrganisationStatus,
+  deleteOrganisation,
   uploadOrganisationAgreement,
   type CreateOrganisationPayload,
   type UpdateOrganisationPayload,
@@ -77,6 +78,22 @@ export function useToggleOrganisationStatus(slug: string) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['organisation', slug] });
       queryClient.invalidateQueries({ queryKey: ['organisations'] });
+    },
+  });
+}
+
+/**
+ * Soft delete an organisation and everything it owns — members, datasets,
+ * pending invites (Super Admin only)
+ */
+export function useDeleteOrganisation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (id: string) => deleteOrganisation(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['organisations'] });
+      queryClient.invalidateQueries({ queryKey: ['admin', 'users'] });
     },
   });
 }

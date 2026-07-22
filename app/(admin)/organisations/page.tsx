@@ -14,11 +14,13 @@ import { CreateOrganisationModal } from "@/components/admin/create-organisation-
 
 const TYPE_STYLES = {
   government: statusPill.emerald,
+  healthcare: statusPill.teal,
   ngo: statusPill.amber,
   private: statusPill.blue,
   international: statusPill.purple,
   academic: statusPill.blue,
   community: statusPill.emerald,
+  other: statusPill.gray,
 };
 
 export default function AdminOrganisationsPage() {

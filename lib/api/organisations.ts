@@ -9,13 +9,15 @@ interface ApiResponse<T> {
   data: T;
 }
 
-export type OrganisationType = 
-  | 'government' 
-  | 'ngo' 
-  | 'private' 
-  | 'international' 
-  | 'academic' 
-  | 'community';
+export type OrganisationType =
+  | 'government'
+  | 'ngo'
+  | 'private'
+  | 'international'
+  | 'academic'
+  | 'community'
+  | 'healthcare'
+  | 'other';
 
 export interface Organisation {
   id: string;
@@ -148,6 +150,24 @@ export async function toggleOrganisationStatus(
   const response = await apiClient.patch<ApiResponse<Organisation>>(
     `/organisations/${id}/status`,
     { isActive }
+  );
+  return response.data.data;
+}
+
+export interface DeleteOrganisationResult {
+  message: string;
+  membersRemoved: number;
+  datasetsRemoved: number;
+  invitesRevoked: number;
+}
+
+/**
+ * Soft delete an organisation and everything it owns — members, datasets,
+ * pending invites (Super Admin only)
+ */
+export async function deleteOrganisation(id: string): Promise<DeleteOrganisationResult> {
+  const response = await apiClient.delete<ApiResponse<DeleteOrganisationResult>>(
+    `/organisations/${id}`
   );
   return response.data.data;
 }

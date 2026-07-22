@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
 interface InviteMemberModalProps {
@@ -111,29 +112,41 @@ export function InviteMemberModal({
               disabled={inviteMutation.isPending}
               className="space-y-3"
             >
-              <div className="flex items-start space-x-3 rounded-lg border p-4 hover:bg-muted/50 transition-colors">
+              <label
+                htmlFor="contributor"
+                className={cn(
+                  "flex items-start space-x-3 rounded-lg border p-4 transition-colors cursor-pointer",
+                  role === InviteRole.CONTRIBUTOR
+                    ? "border-primary bg-primary/5"
+                    : "hover:bg-muted/50"
+                )}
+              >
                 <RadioGroupItem value={InviteRole.CONTRIBUTOR} id="contributor" className="mt-0.5" />
                 <div className="flex-1 space-y-1">
-                  <Label htmlFor="contributor" className="font-medium cursor-pointer">
-                    Contributor
-                  </Label>
+                  <span className="text-sm font-medium">Contributor</span>
                   <p className="text-sm text-muted-foreground">
                     Can upload and manage their own datasets
                   </p>
                 </div>
-              </div>
+              </label>
 
-              <div className="flex items-start space-x-3 rounded-lg border p-4 hover:bg-muted/50 transition-colors">
+              <label
+                htmlFor="admin"
+                className={cn(
+                  "flex items-start space-x-3 rounded-lg border p-4 transition-colors cursor-pointer",
+                  role === InviteRole.ADMIN
+                    ? "border-primary bg-primary/5"
+                    : "hover:bg-muted/50"
+                )}
+              >
                 <RadioGroupItem value={InviteRole.ADMIN} id="admin" className="mt-0.5" />
                 <div className="flex-1 space-y-1">
-                  <Label htmlFor="admin" className="font-medium cursor-pointer">
-                    Organisation Admin
-                  </Label>
+                  <span className="text-sm font-medium">Organisation Admin</span>
                   <p className="text-sm text-muted-foreground">
                     Can manage all datasets and invite new members
                   </p>
                 </div>
-              </div>
+              </label>
             </RadioGroup>
           </div>
 

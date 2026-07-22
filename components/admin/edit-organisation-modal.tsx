@@ -25,6 +25,7 @@ import {
 import { FormError } from "@/components/forms/form-error";
 import { useUpdateOrganisation } from "@/lib/hooks/useOrganisations";
 import { organisationFormSchema, type OrganisationFormData } from "@/lib/schemas/organisation";
+import { ORG_TYPES } from "@/lib/constants/organisation-types";
 import type { Organisation } from "@/lib/api/organisations";
 import { toast } from "sonner";
 
@@ -34,15 +35,6 @@ interface EditOrganisationModalProps {
   org: Organisation;
   slug: string;
 }
-
-const ORG_TYPES = [
-  { value: "government", label: "Government Agency" },
-  { value: "ngo", label: "Non-Governmental Organisation" },
-  { value: "private", label: "Private Sector" },
-  { value: "international", label: "International Organisation" },
-  { value: "academic", label: "Academic Institution" },
-  { value: "community", label: "Community Organisation" },
-] as const;
 
 export function EditOrganisationModal({ open, onClose, org, slug }: EditOrganisationModalProps) {
   const updateMutation = useUpdateOrganisation(slug);
@@ -215,14 +207,6 @@ export function EditOrganisationModal({ open, onClose, org, slug }: EditOrganisa
             </label>
             <Input id="edit-address" {...register("address")} />
             <FormError message={errors.address?.message} />
-          </div>
-
-          <div>
-            <label htmlFor="edit-logoUrl" className="block text-sm font-medium mb-1.5">
-              Logo URL
-            </label>
-            <Input id="edit-logoUrl" type="url" {...register("logoUrl")} />
-            <FormError message={errors.logoUrl?.message} />
           </div>
 
           <DialogFooter>
