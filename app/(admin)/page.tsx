@@ -18,6 +18,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { cn } from "@/lib/utils";
+import { formatDateTime } from "@/lib/utils/date";
 import { PageHeaderSkeleton } from "@/components/feedback/skeletons";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -113,7 +114,7 @@ export default function AdminDashboardPage() {
                       {item.description || item.datasetTitle || `${item.action} on ${item.entityType}`}
                     </p>
                     <p className="text-xs text-muted-foreground mt-0.5">
-                      {item.userName} · {new Date(item.timestamp).toLocaleString()}
+                      {item.userName} · {formatDateTime(item.timestamp)}
                     </p>
                   </li>
                 ))}

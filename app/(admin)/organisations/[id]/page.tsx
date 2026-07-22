@@ -58,6 +58,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { formatDate } from "@/lib/utils/date";
 import { statusPill } from "@/lib/constants/status-surfaces";
 
 const TYPE_STYLES = {
@@ -447,11 +448,7 @@ export default function OrganisationDetailPage({
                 <div>
                   <p className="text-sm font-medium mb-1">Member Since</p>
                   <p className="text-sm text-muted-foreground">
-                    {new Date(selectedMember.created_at).toLocaleDateString('en-US', {
-                      year: 'numeric',
-                      month: 'long',
-                      day: 'numeric'
-                    })}
+                    {formatDate(selectedMember.created_at)}
                   </p>
                 </div>
 
@@ -459,11 +456,7 @@ export default function OrganisationDetailPage({
                   <div>
                     <p className="text-sm font-medium mb-1">Last Login</p>
                     <p className="text-sm text-muted-foreground">
-                      {new Date(selectedMember.last_login_at).toLocaleDateString('en-US', {
-                        year: 'numeric',
-                        month: 'long',
-                        day: 'numeric'
-                      })}
+                      {formatDate(selectedMember.last_login_at)}
                     </p>
                   </div>
                 )}
@@ -807,7 +800,7 @@ export default function OrganisationDetailPage({
                           </Badge>
                         </td>
                         <td className="px-4 py-3 text-muted-foreground text-xs">
-                          {new Date(member.created_at).toLocaleDateString()}
+                          {formatDate(member.created_at)}
                         </td>
                         <td className="px-4 py-3">
                           <DropdownMenu>
@@ -933,13 +926,13 @@ export default function OrganisationDetailPage({
                             {invite.invitedByName}
                           </td>
                           <td className="px-4 py-3 text-muted-foreground text-xs">
-                            {new Date(invite.createdAt).toLocaleDateString()}
+                            {formatDate(invite.createdAt)}
                           </td>
                           <td className="px-4 py-3 text-muted-foreground text-xs">
                             {isExpired && isPending ? (
                               <span className="text-destructive font-medium">Expired</span>
                             ) : (
-                              new Date(invite.expiresAt).toLocaleDateString()
+                              formatDate(invite.expiresAt)
                             )}
                           </td>
                           <td className="px-4 py-3">
@@ -1047,7 +1040,7 @@ export default function OrganisationDetailPage({
                           {dataset.downloadCount || 0}
                         </td>
                         <td className="px-4 py-3 text-muted-foreground text-xs">
-                          {dataset.created_at ? new Date(dataset.created_at).toLocaleDateString() : '—'}
+                          {formatDate(dataset.created_at)}
                         </td>
                         <td className="px-4 py-3">
                           <DropdownMenu>

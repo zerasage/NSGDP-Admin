@@ -27,6 +27,7 @@ import { useSaveQAChecklist } from "@/lib/hooks/useQAChecklist";
 import { ApprovalPipeline } from "@/components/admin/approval-pipeline";
 import { LifecycleBadge } from "@/components/data/lifecycle-badge";
 import { QAChecklistItem, type QAResult } from "@/components/data/qa-checklist-item";
+import { formatDate } from "@/lib/utils/date";
 import { DatasetPreviewCard } from "@/components/data/dataset-preview-card";
 import { QA_DIMENSIONS, isQAChecklistPassed } from "@/lib/constants/qa-checklist";
 import { HelpTooltip } from "@/components/feedback/help-tooltip";
@@ -248,7 +249,7 @@ export default function DatasetReviewScreenPage({
               ["Format", dataset.format?.toUpperCase()],
               ["Visibility", dataset.visibility],
               ["License", dataset.license ?? "—"],
-              ["Submitted", dataset.submitted_at ? new Date(dataset.submitted_at).toLocaleDateString() : new Date(dataset.created_at).toLocaleDateString()],
+              ["Submitted", dataset.submitted_at ? formatDate(dataset.submitted_at) : formatDate(dataset.created_at)],
               ["Coverage", dataset.geographic_coverage?.length ? `${dataset.geographic_coverage.length} location(s)` : "—"],
             ].map(([label, value]) => (
               <div key={label}>

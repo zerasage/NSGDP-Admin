@@ -15,6 +15,7 @@ import { useToast } from '@/lib/hooks/use-toast';
 import { adminApi, archiveDataset } from '@/lib/api/admin';
 import type { DatasetStatus } from '@/lib/api/datasets';
 import { cn } from '@/lib/utils';
+import { formatDate } from '@/lib/utils/date';
 import Link from 'next/link';
 
 interface Dataset {
@@ -30,6 +31,7 @@ interface Dataset {
   submitted_at: string;
   created_at: string;
   updated_at: string;
+  published_at: string | null;
 }
 
 interface Organisation {
@@ -42,7 +44,7 @@ const TABS: Array<{ key: DatasetStatus | 'all'; label: string }> = [
   { key: 'all', label: 'All' },
   { key: 'pending', label: 'Pending' },
   { key: 'under_review', label: 'Under Review' },
-  { key: 'approved', label: 'Approved & Published' },
+  { key: 'approved', label: 'Approved' },
   { key: 'rejected', label: 'Rejected' },
   { key: 'archived', label: 'Archived' },
 ];
@@ -191,10 +193,16 @@ export default function DatasetsReviewPage() {
                       <Badge variant="secondary" className="capitalize">{dataset.visibility}</Badge>
                     </td>
                     <td className="px-4 py-3">
-                      <StatusBadge status={dataset.status} />
+                      <StatusBadge status={dataset.status} publishedAt={dataset.published_at} />
                     </td>
                     <td className="px-4 py-3">
-                      <AgeBadge submittedAt={dataset.submitted_at || dataset.created_at} />
+                      {dataset.status === 'pending' || dataset.status === 'under_review' ? (
+                        <AgeBadge submittedAt={dataset.submitted_at || dataset.created_at} />
+                      ) : (
+                        <span className="text-muted-foreground text-xs">
+                          {formatDate(dataset.submitted_at || dataset.created_at)}
+                        </span>
+                      )}
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex gap-1">

@@ -11,7 +11,7 @@ const ROLE_LABELS: Record<string, string> = {
   public: "Public Visitor",
   registered: "Registered User",
   contributor: "Contributor",
-  admin: "Administrator",
+  admin: "Org Admin",
   super_admin: "Super Admin (Owner)",
 };
 

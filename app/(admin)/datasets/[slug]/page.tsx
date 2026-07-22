@@ -10,7 +10,9 @@ import {
   Calendar,
   Download,
   Eye,
+  FileStack,
   FolderOpen,
+  Globe,
   History,
   MapPin,
   MessageSquareWarning,
@@ -24,11 +26,25 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { apiClient } from "@/lib/api/client";
-import { adminApi, archiveDataset, getUserById } from "@/lib/api/admin";
+import { adminApi, archiveDataset, getUserById, publishDataset, unpublishDataset } from "@/lib/api/admin";
 import { getCategories } from "@/lib/api/categories";
-import { useDatasetVersions } from "@/lib/hooks/useDatasets";
+import { useDatasetVersions, useDownloadDataset, useDatasetFiles } from "@/lib/hooks/useDatasets";
+import type { DatasetFile } from "@/lib/api/datasets";
 import { useToast } from "@/lib/hooks/use-toast";
 import { DatasetPreviewCard } from "@/components/data/dataset-preview-card";
+import { formatDate } from "@/lib/utils/date";
+
+function formatFileSize(bytes: number | null): string {
+  if (!bytes) return "—";
+  const units = ["B", "KB", "MB", "GB"];
+  let value = bytes;
+  let unitIndex = 0;
+  while (value >= 1024 && unitIndex < units.length - 1) {
+    value /= 1024;
+    unitIndex++;
+  }
+  return `${value.toFixed(unitIndex === 0 ? 0 : 1)} ${units[unitIndex]}`;
+}
 
 interface Dataset {
   id: string;
@@ -52,6 +68,8 @@ interface Dataset {
   review_comment: string | null;
   approved_by: string | null;
   approved_at: string | null;
+  published_by: string | null;
+  published_at: string | null;
   archived_by: string | null;
   archived_at: string | null;
   archived_reason: string | null;
@@ -93,6 +111,7 @@ export default function DatasetDetailPage({
   });
 
   const { data: versionHistory } = useDatasetVersions(slug);
+  const { data: files } = useDatasetFiles(slug);
 
   const { data: organisationsData } = useQuery({
     queryKey: ["admin", "organisations"],
@@ -141,6 +160,102 @@ export default function DatasetDetailPage({
       }),
   });
 
+  const publishMutation = useMutation({
+    mutationFn: () => publishDataset(slug),
+    onSuccess: () => {
+      toast({ title: "Success", description: "Dataset published to the public catalogue" });
+      queryClient.invalidateQueries({ queryKey: ["dataset", slug] });
+    },
+    onError: (error: unknown) =>
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to publish dataset",
+        variant: "destructive",
+      }),
+  });
+
+  const unpublishMutation = useMutation({
+    mutationFn: () => unpublishDataset(slug),
+    onSuccess: () => {
+      toast({ title: "Success", description: "Dataset unpublished — no longer visible to the public" });
+      queryClient.invalidateQueries({ queryKey: ["dataset", slug] });
+    },
+    onError: (error: unknown) =>
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to unpublish dataset",
+        variant: "destructive",
+      }),
+  });
+
+  const downloadMutation = useDownloadDataset();
+
+  const handleView = () => {
+    downloadMutation.mutate(
+      { slug, mode: "view" },
+      {
+        onSuccess: (data) => window.open(data.downloadUrl, "_blank", "noopener,noreferrer"),
+        onError: (error: unknown) =>
+          toast({
+            title: "Error",
+            description: error instanceof Error ? error.message : "Failed to open file",
+            variant: "destructive",
+          }),
+      }
+    );
+  };
+
+  const handleDownload = () => {
+    downloadMutation.mutate(
+      { slug, mode: "download" },
+      {
+        onSuccess: (data) => {
+          window.open(data.downloadUrl, "_blank", "noopener,noreferrer");
+          toast({ title: "Success", description: `Downloading ${data.fileName}` });
+        },
+        onError: (error: unknown) =>
+          toast({
+            title: "Error",
+            description: error instanceof Error ? error.message : "Failed to generate download link",
+            variant: "destructive",
+          }),
+      }
+    );
+  };
+
+  const handleFileView = (file: DatasetFile) => {
+    downloadMutation.mutate(
+      { slug, mode: "view", fileId: file.id },
+      {
+        onSuccess: (data) => window.open(data.downloadUrl, "_blank", "noopener,noreferrer"),
+        onError: (error: unknown) =>
+          toast({
+            title: "Error",
+            description: error instanceof Error ? error.message : "Failed to open file",
+            variant: "destructive",
+          }),
+      }
+    );
+  };
+
+  const handleFileDownload = (file: DatasetFile) => {
+    downloadMutation.mutate(
+      { slug, mode: "download", fileId: file.id },
+      {
+        onSuccess: (data) => {
+          window.open(data.downloadUrl, "_blank", "noopener,noreferrer");
+          toast({ title: "Success", description: `Downloading ${data.fileName}` });
+        },
+        onError: (error: unknown) =>
+          toast({
+            title: "Error",
+            description: error instanceof Error ? error.message : "Failed to generate download link",
+            variant: "destructive",
+          }),
+      }
+    );
+  };
+
   if (isLoading) {
     return (
       <div className="space-y-6">
@@ -188,14 +303,65 @@ export default function DatasetDetailPage({
           <p className="text-muted-foreground mt-1">Dataset Details</p>
         </div>
         <div className="flex items-center gap-2">
-          <Badge className={statusColors[dataset.status] || "bg-gray-100 text-gray-800"}>
-            {dataset.status.replace('_', ' ').toUpperCase()}
+          <Badge
+            className={
+              dataset.status === 'approved' && !dataset.published_at
+                ? "bg-amber-100 text-amber-800 border-amber-300"
+                : statusColors[dataset.status] || "bg-gray-100 text-gray-800"
+            }
+          >
+            {dataset.status === 'approved'
+              ? (dataset.published_at ? 'PUBLISHED' : 'APPROVED (NOT PUBLISHED)')
+              : dataset.status.replace('_', ' ').toUpperCase()}
           </Badge>
           {(dataset.status === 'pending' || dataset.status === 'under_review') && (
             <Button size="sm" onClick={() => router.push(`/datasets/${slug}/review`)}>
               <Eye className="size-4 mr-1" />
               Review
             </Button>
+          )}
+          {dataset.status === 'approved' && !dataset.published_at && (
+            <Button
+              size="sm"
+              onClick={() => publishMutation.mutate()}
+              disabled={publishMutation.isPending}
+            >
+              <Globe className="size-4 mr-1" />
+              Publish
+            </Button>
+          )}
+          {dataset.status === 'approved' && dataset.published_at && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => unpublishMutation.mutate()}
+              disabled={unpublishMutation.isPending}
+            >
+              <Globe className="size-4 mr-1" />
+              Unpublish
+            </Button>
+          )}
+          {(!files || files.length <= 1) && (
+            <>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handleView}
+                disabled={downloadMutation.isPending}
+              >
+                <Eye className="size-4 mr-1" />
+                View File
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handleDownload}
+                disabled={downloadMutation.isPending}
+              >
+                <Download className="size-4 mr-1" />
+                Download
+              </Button>
+            </>
           )}
           {dataset.status !== 'archived' && (
             <Button size="sm" variant="outline" onClick={() => setArchiveOpen(true)}>
@@ -221,6 +387,57 @@ export default function DatasetDetailPage({
 
           <DatasetPreviewCard slug={slug} />
 
+          {files && files.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <FileStack className="size-4" />
+                  Files
+                  {files.length > 1 && (
+                    <Badge variant="secondary" className="ml-1">{files.length}</Badge>
+                  )}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ul className="divide-y">
+                  {files.map((file) => (
+                    <li key={file.id} className="flex items-center justify-between gap-3 py-3 first:pt-0 last:pb-0">
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium truncate">{file.file_name}</p>
+                        <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
+                          <Badge variant="secondary" className="uppercase text-[10px]">
+                            {file.format}
+                          </Badge>
+                          <span>{formatFileSize(file.file_size)}</span>
+                          <span>·</span>
+                          <span>{formatDate(file.created_at)}</span>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => handleFileView(file)}
+                          disabled={downloadMutation.isPending}
+                        >
+                          <Eye className="size-4" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => handleFileDownload(file)}
+                          disabled={downloadMutation.isPending}
+                        >
+                          <Download className="size-4" />
+                        </Button>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </CardContent>
+            </Card>
+          )}
+
           {(dataset.status === 'rejected' || dataset.review_comment) && (
             <Card className="border-destructive/30 bg-destructive/5">
               <CardHeader>
@@ -233,7 +450,7 @@ export default function DatasetDetailPage({
                 <p className="text-sm">{dataset.review_comment || 'No comment provided.'}</p>
                 {reviewer && dataset.reviewed_at && (
                   <p className="text-xs text-muted-foreground">
-                    {reviewer.first_name} {reviewer.last_name} · {new Date(dataset.reviewed_at).toLocaleDateString()}
+                    {reviewer.first_name} {reviewer.last_name} · {formatDate(dataset.reviewed_at)}
                   </p>
                 )}
               </CardContent>
@@ -252,7 +469,7 @@ export default function DatasetDetailPage({
                 <p className="text-sm">{dataset.archived_reason || 'No reason provided.'}</p>
                 {archiver && dataset.archived_at && (
                   <p className="text-xs text-muted-foreground">
-                    {archiver.first_name} {archiver.last_name} · {new Date(dataset.archived_at).toLocaleDateString()}
+                    {archiver.first_name} {archiver.last_name} · {formatDate(dataset.archived_at)}
                   </p>
                 )}
               </CardContent>
@@ -356,15 +573,26 @@ export default function DatasetDetailPage({
                 <Calendar className="size-4" />
                 <span>
                   {dataset.submitted_at
-                    ? `Submitted ${new Date(dataset.submitted_at).toLocaleDateString()}`
-                    : `Created ${new Date(dataset.created_at).toLocaleDateString()}`}
+                    ? `Submitted ${formatDate(dataset.submitted_at)}`
+                    : `Created ${formatDate(dataset.created_at)}`}
                 </span>
               </div>
 
               {dataset.approved_at && (
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <Calendar className="size-4" />
-                  <span>Approved {new Date(dataset.approved_at).toLocaleDateString()}</span>
+                  <span>Approved {formatDate(dataset.approved_at)}</span>
+                </div>
+              )}
+
+              {dataset.status === 'approved' && (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Globe className="size-4" />
+                  <span>
+                    {dataset.published_at
+                      ? `Published ${formatDate(dataset.published_at)}`
+                      : 'Not yet published'}
+                  </span>
                 </div>
               )}
             </CardContent>
@@ -385,7 +613,7 @@ export default function DatasetDetailPage({
                       <div className="flex items-center justify-between">
                         <span className="font-medium">v{v.version}</span>
                         <span className="text-xs text-muted-foreground">
-                          {new Date(v.created_at).toLocaleDateString()}
+                          {formatDate(v.created_at)}
                         </span>
                       </div>
                       <p className="text-muted-foreground mt-0.5">{v.changes}</p>

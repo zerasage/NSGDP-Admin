@@ -45,6 +45,7 @@ import {
 } from "@/lib/hooks/useAccessRequests";
 import type { AccessRequest, AccessRequestStatus } from "@/lib/api/access-requests";
 import { cn } from "@/lib/utils";
+import { formatDate } from "@/lib/utils/date";
 
 const STATUS_BADGE: Record<AccessRequestStatus, string> = {
   pending: "bg-amber-100 text-amber-800 border-amber-300",
@@ -181,7 +182,7 @@ export default function AccessRequestsPage() {
                       </Badge>
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">
-                      {new Date(request.created_at).toLocaleDateString()}
+                      {formatDate(request.created_at)}
                     </TableCell>
                     <TableCell className="text-right">
                       {request.status === "pending" ? (

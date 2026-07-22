@@ -1,5 +1,6 @@
 import { Clock } from "lucide-react";
 import type { DatasetVersion } from "@/types";
+import { formatDate } from "@/lib/utils/date";
 
 interface VersionHistoryPanelProps {
   versions: DatasetVersion[];
@@ -26,7 +27,7 @@ export function VersionHistoryPanel({ versions }: VersionHistoryPanelProps) {
             <div className="min-w-0 flex-1">
               <p className="text-sm">{v.changeNote}</p>
               <p className="mt-0.5 text-xs text-muted-foreground">
-                {v.publishedBy} · {new Date(v.publishedAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
+                {v.publishedBy} · {formatDate(v.publishedAt)}
               </p>
             </div>
             {i === 0 && (

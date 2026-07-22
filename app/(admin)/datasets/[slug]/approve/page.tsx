@@ -44,13 +44,16 @@ export default function DatasetApproveScreenPage({
 
   const { approveMutation, rejectMutation } = useDatasetReview([["dataset", slug]]);
 
-  const handlePublish = () => {
+  const handleApprove = () => {
     approveMutation.mutate(
       { slug },
       {
         onSuccess: () => {
-          toast({ title: "Success", description: "Dataset published to public catalogue" });
-          router.push("/datasets");
+          toast({
+            title: "Success",
+            description: "Dataset approved — publish it from the dataset page to make it public",
+          });
+          router.push(`/datasets/${slug}`);
         },
         onError: (error: unknown) =>
           toast({
@@ -58,7 +61,7 @@ export default function DatasetApproveScreenPage({
             description:
               error instanceof Error
                 ? error.message
-                : "You may not have publishing permission for this action.",
+                : "You may not have approval permission for this action.",
             variant: "destructive",
           }),
       }
@@ -129,7 +132,8 @@ export default function DatasetApproveScreenPage({
         <CardContent className="pt-6">
           <p className="text-sm text-emerald-800 dark:text-emerald-200">
             This dataset passed the 8-dimension QA checklist in a single review session and is
-            awaiting director sign-off. Once published it will be visible in the public catalogue.
+            awaiting director sign-off. Approving does not make it public — publish it separately
+            from the dataset page when it's ready to go live.
           </p>
         </CardContent>
       </Card>
@@ -164,13 +168,13 @@ export default function DatasetApproveScreenPage({
           <XCircle className="size-4 mr-1.5" />
           Reject
         </Button>
-        <Button className="ml-auto" onClick={handlePublish} disabled={approveMutation.isPending}>
+        <Button className="ml-auto" onClick={handleApprove} disabled={approveMutation.isPending}>
           {approveMutation.isPending ? (
             <Loader2 className="size-4 animate-spin mr-1.5" />
           ) : (
             <Globe className="size-4 mr-1.5" />
           )}
-          Approve & Publish
+          Approve
         </Button>
       </div>
     </div>

@@ -237,6 +237,28 @@ export async function requestRevision(
 }
 
 /**
+ * Publish an approved dataset to the public catalogue
+ */
+export async function publishDataset(datasetSlug: string): Promise<Dataset> {
+  const response = await apiClient.post<ApiResponse<Dataset>>(
+    `/admin/datasets/${datasetSlug}/publish`,
+    {}
+  );
+  return response.data.data;
+}
+
+/**
+ * Unpublish a dataset from the public catalogue (stays approved)
+ */
+export async function unpublishDataset(datasetSlug: string): Promise<Dataset> {
+  const response = await apiClient.post<ApiResponse<Dataset>>(
+    `/admin/datasets/${datasetSlug}/unpublish`,
+    {}
+  );
+  return response.data.data;
+}
+
+/**
  * Get audit logs
  */
 export async function getAuditLogs(

@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { formatDate } from "@/lib/utils/date";
 import type { PermissionGroup, PermissionActionKey } from "@/lib/api/permissions";
 import {
   usePermissionGroups,
@@ -107,11 +108,7 @@ function GroupPermissions({ group }: { group: PermissionGroup }) {
           Manage members
         </Link>{" "}
         · Created{" "}
-        {new Date(detail.created_at).toLocaleDateString("en-GB", {
-          day: "numeric",
-          month: "short",
-          year: "numeric",
-        })}
+        {formatDate(detail.created_at)}
       </p>
     </>
   );

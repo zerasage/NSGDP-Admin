@@ -17,6 +17,7 @@ import {
 import { TableRowSkeleton } from "@/components/feedback/skeletons";
 import { statusPill } from "@/lib/constants/status-surfaces";
 import { cn } from "@/lib/utils";
+import { formatDateTime } from "@/lib/utils/date";
 import { toast } from "sonner";
 
 const ACTION_GROUPS: Array<{ label: string; actions: Array<{ value: string; label: string }> }> = [
@@ -180,7 +181,7 @@ export default function AdminAuditLogsPage() {
                       RISK_ACTIONS.includes(e.action) && "bg-destructive/5"
                     )}
                   >
-                    <td className="px-4 py-3 whitespace-nowrap">{new Date(e.created_at).toLocaleString()}</td>
+                    <td className="px-4 py-3 whitespace-nowrap">{formatDateTime(e.created_at)}</td>
                     <td className="px-4 py-3">{e.user_email || e.user_id || "—"}</td>
                     <td className="px-4 py-3"><ActionBadge action={e.action} /></td>
                     <td className="px-4 py-3 max-w-xs truncate font-sans" title={e.description ?? undefined}>

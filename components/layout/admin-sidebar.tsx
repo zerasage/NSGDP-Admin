@@ -14,6 +14,7 @@ import {
   ShieldCheck,
   UsersRound,
   ActivitySquare,
+  Bell,
   LogOut,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -38,6 +39,7 @@ export const adminNavItems: Array<{
   // TODO: Enable when analytics backend is ready (post-MS2)
   // { href: "/analytics", label: "Platform Analytics", icon: BarChart3 },
   { href: "/audit-logs", label: "Audit Log", icon: ScrollText },
+  { href: "/notifications", label: "Notifications", icon: Bell },
 ];
 
 function AdminNavLinks({ onNavigate }: { onNavigate?: () => void }) {

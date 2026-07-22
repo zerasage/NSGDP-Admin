@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/dialog";
 import { useUploadAgreement } from "@/lib/hooks/useOrganisations";
 import { getOrganisationAgreementUrl, type Organisation } from "@/lib/api/organisations";
+import { formatDate } from "@/lib/utils/date";
 import { toast } from "sonner";
 
 interface OrganisationAgreementCardProps {
@@ -82,10 +83,10 @@ export function OrganisationAgreementCard({ org, orgId, slug }: OrganisationAgre
                 <p className="text-sm font-medium">{org.agreement_file_name}</p>
                 <p className="text-xs text-muted-foreground">
                   {org.agreement_signed_at
-                    ? `Signed ${new Date(org.agreement_signed_at).toLocaleDateString()}`
+                    ? `Signed ${formatDate(org.agreement_signed_at)}`
                     : "Signed date not recorded"}
                   {org.agreement_uploaded_at &&
-                    ` · Uploaded ${new Date(org.agreement_uploaded_at).toLocaleDateString()}`}
+                    ` · Uploaded ${formatDate(org.agreement_uploaded_at)}`}
                 </p>
               </div>
             </div>

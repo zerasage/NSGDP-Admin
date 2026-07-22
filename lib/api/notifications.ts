@@ -9,16 +9,31 @@ interface ApiResponse<T> {
   data: T;
 }
 
+// Mirrors backend NotificationType (src/modules/notifications/entities/notification.entity.ts)
+export type NotificationType =
+  | 'dataset_approved'
+  | 'dataset_rejected'
+  | 'dataset_revision_requested'
+  | 'account_approved'
+  | 'account_suspended'
+  | 'new_dataset_available'
+  | 'system_announcement'
+  | 'dataset_published'
+  | 'new_organisation'
+  | 'new_user'
+  | 'admin_invited';
+
 export interface Notification {
   id: string;
   user_id: string;
   title: string;
   message: string;
-  type: 'info' | 'success' | 'warning' | 'error';
+  type: NotificationType;
+  link: string | null;
   is_read: boolean;
   read_at: string | null;
   created_at: string;
-  metadata?: Record<string, unknown>;
+  data?: Record<string, unknown>;
 }
 
 export interface NotificationsResponse {

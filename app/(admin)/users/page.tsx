@@ -25,6 +25,7 @@ import {
 import { TableRowSkeleton } from "@/components/feedback/skeletons";
 import { alertSurface } from "@/lib/constants/status-surfaces";
 import { cn } from "@/lib/utils";
+import { formatDate } from "@/lib/utils/date";
 import { toast } from "sonner";
 
 export default function AdminUsersPage() {
@@ -71,7 +72,49 @@ export default function AdminUsersPage() {
   });
 
   const exportCsv = () => {
-    toast.info("CSV export functionality coming soon");
+    if (filtered.length === 0) {
+      toast.error("No users to export");
+      return;
+    }
+
+    const headers = [
+      "First Name",
+      "Last Name",
+      "Email",
+      "Phone",
+      "Role",
+      "Status",
+      "Organisation",
+      "Last Login",
+      "Created",
+    ];
+    const rows = filtered.map((u) => [
+      u.first_name,
+      u.last_name,
+      u.email,
+      u.phone_number ?? "",
+      u.role,
+      u.status,
+      orgName(u.organisation_id),
+      u.last_login_at ? formatDate(u.last_login_at) : "Never",
+      formatDate(u.created_at),
+    ]);
+
+    const csvContent = [headers, ...rows]
+      .map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(","))
+      .join("\n");
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `users-${new Date().toISOString().split("T")[0]}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    toast.success(`Exported ${filtered.length} user${filtered.length !== 1 ? "s" : ""}`);
   };
 
   const changeRole = () => {
@@ -126,7 +169,7 @@ export default function AdminUsersPage() {
             <SelectItem value="public">Public</SelectItem>
             <SelectItem value="registered">Registered</SelectItem>
             <SelectItem value="contributor">Contributor</SelectItem>
-            <SelectItem value="admin">Administrator</SelectItem>
+            <SelectItem value="admin">Org Admin</SelectItem>
             <SelectItem value="super_admin">Super Admin</SelectItem>
           </SelectContent>
         </Select>
@@ -166,7 +209,7 @@ export default function AdminUsersPage() {
                     <td className="px-4 py-3"><RoleBadge role={u.role} /></td>
                     <td className="px-4 py-3 capitalize">{u.status}</td>
                     <td className="px-4 py-3 text-muted-foreground">
-                      {u.last_login_at ? new Date(u.last_login_at).toLocaleDateString() : "Never"}
+                      {u.last_login_at ? formatDate(u.last_login_at) : "Never"}
                     </td>
                     <td className="px-4 py-3">
                       <Button

@@ -9,6 +9,7 @@ import {
   downloadDataset,
   getDatasetVersions,
   getDatasetPreview,
+  getDatasetFiles,
   type DatasetListParams,
   type CreateDatasetDto,
   type UpdateDatasetDto,
@@ -107,11 +108,34 @@ export function useDownloadDataset() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (slug: string) => downloadDataset(slug),
-    onSuccess: (_, slug) => {
-      // Invalidate to update download count
-      queryClient.invalidateQueries({ queryKey: ['dataset', slug] });
+    mutationFn: ({
+      slug,
+      mode,
+      fileId,
+    }: {
+      slug: string;
+      mode?: 'download' | 'view';
+      fileId?: string;
+    }) => downloadDataset(slug, mode, fileId),
+    onSuccess: (_, { slug, mode }) => {
+      // Only the download_count changes server-side; skip for view-mode opens
+      if (mode !== 'view') {
+        queryClient.invalidateQueries({ queryKey: ['dataset', slug] });
+      }
     },
+  });
+}
+
+/**
+ * Hook to fetch every file uploaded to a dataset (a dataset can receive
+ * more than one upload over time)
+ */
+export function useDatasetFiles(slug: string) {
+  return useQuery({
+    queryKey: ['dataset-files', slug],
+    queryFn: () => getDatasetFiles(slug),
+    enabled: !!slug,
+    staleTime: 60 * 1000,
   });
 }
 

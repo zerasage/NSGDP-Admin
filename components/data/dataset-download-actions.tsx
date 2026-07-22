@@ -73,7 +73,7 @@ export function DatasetDownloadActions({
   }, [visibility, isAuthenticated, accessState]);
 
   const handleDownload = async () => {
-    downloadMutation.mutate(datasetSlug, {
+    downloadMutation.mutate({ slug: datasetSlug }, {
       onSuccess: (data) => {
         // Backend returns { downloadUrl, expiresIn, fileName }
         // Trigger browser download

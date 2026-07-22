@@ -22,6 +22,7 @@ const SECTION_LABELS: Array<{ href: string; label: string; exact?: boolean }> = 
   { href: "/admin/analytics", label: "Analytics" },
   { href: "/admin/governance", label: "Governance" },
   { href: "/admin/audit-logs", label: "Audit Log" },
+  { href: "/admin/notifications", label: "Notifications" },
 ];
 
 function getSectionLabel(pathname: string): string {
@@ -105,7 +106,7 @@ export function AdminSidebarBrand() {
 
   const roleLabels: Record<string, string> = {
     super_admin: "Super Admin",
-    admin: "Organization Admin",
+    admin: "Org Admin",
     contributor: "Contributor",
     registered: "Registered User",
     public: "Guest",

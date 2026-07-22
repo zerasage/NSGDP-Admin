@@ -8,6 +8,7 @@ export function useNotifications(page = 1, limit = 20, unreadOnly = false) {
   return useQuery({
     queryKey: ['notifications', page, limit, unreadOnly],
     queryFn: () => getNotifications(page, limit, unreadOnly),
+    refetchInterval: 30_000, // near-live unread count / bell dropdown
   });
 }
 
