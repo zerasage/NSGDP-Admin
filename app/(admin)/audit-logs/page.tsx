@@ -83,6 +83,8 @@ export default function AdminAuditLogsPage() {
   const [action, setAction] = useState<string>("all");
   const [entityType, setEntityType] = useState<string>("all");
   const [query, setQuery] = useState("");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
 
   // Fetch audit logs with filters
   const params = useMemo(() => ({
@@ -91,7 +93,9 @@ export default function AdminAuditLogsPage() {
     action: action !== "all" ? action : undefined,
     entityType: entityType !== "all" ? entityType : undefined,
     search: query || undefined,
-  }), [page, pageSize, action, entityType, query]);
+    startDate: startDate || undefined,
+    endDate: endDate || undefined,
+  }), [page, pageSize, action, entityType, query, startDate, endDate]);
 
   const { data, isLoading } = useAuditLogs(params);
 
@@ -104,6 +108,8 @@ export default function AdminAuditLogsPage() {
       await downloadAuditLogsCsv({
         action: action !== "all" ? action : undefined,
         entityType: entityType !== "all" ? entityType : undefined,
+        startDate: startDate || undefined,
+        endDate: endDate || undefined,
       });
       toast.success("Audit logs exported successfully");
     } catch (error) {
@@ -157,6 +163,29 @@ export default function AdminAuditLogsPage() {
             ))}
           </SelectContent>
         </Select>
+        <Input
+          type="date"
+          aria-label="From date"
+          value={startDate}
+          onChange={(e) => { setStartDate(e.target.value); setPage(1); }}
+          className="w-40"
+        />
+        <Input
+          type="date"
+          aria-label="To date"
+          value={endDate}
+          onChange={(e) => { setEndDate(e.target.value); setPage(1); }}
+          className="w-40"
+        />
+        {(startDate || endDate) && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => { setStartDate(""); setEndDate(""); setPage(1); }}
+          >
+            Clear dates
+          </Button>
+        )}
       </div>
 
       <div className="rounded-lg border overflow-x-auto">

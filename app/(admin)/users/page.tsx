@@ -4,7 +4,7 @@ import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Download } from "lucide-react";
 import { useAuth } from "@/lib/auth";
-import { useUsers, useUpdateUserRole } from "@/lib/hooks/useAdmin";
+import { useUsers, useUpdateUserRole, useUpdateUserStatus } from "@/lib/hooks/useAdmin";
 import { adminApi, type AdminUser } from "@/lib/api/admin";
 import { RoleBadge } from "@/components/data/role-badge";
 import { Button } from "@/components/ui/button";
@@ -22,6 +22,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { TableRowSkeleton } from "@/components/feedback/skeletons";
 import { alertSurface } from "@/lib/constants/status-surfaces";
 import { cn } from "@/lib/utils";
@@ -35,6 +36,7 @@ export default function AdminUsersPage() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [roleModal, setRoleModal] = useState<AdminUser | null>(null);
   const [newRole, setNewRole] = useState<AdminUser['role']>("contributor");
+  const [suspendTarget, setSuspendTarget] = useState<AdminUser | null>(null);
 
   // Super admin sees all users
   const isOrgScoped = false; // Admin portal is super_admin only
@@ -48,6 +50,7 @@ export default function AdminUsersPage() {
   });
 
   const updateRoleMutation = useUpdateUserRole();
+  const updateStatusMutation = useUpdateUserStatus();
 
   const { data: organisationsData } = useQuery({
     queryKey: ["admin", "organisations"],
@@ -138,6 +141,22 @@ export default function AdminUsersPage() {
     );
   };
 
+  const changeStatus = (u: AdminUser, status: AdminUser["status"]) => {
+    updateStatusMutation.mutate(
+      { userId: u.id, data: { status } },
+      {
+        onSuccess: () => {
+          const verb = status === "active" ? "Approved" : status === "suspended" ? "Suspended" : "Reactivated";
+          toast.success(`${verb} ${u.first_name} ${u.last_name}`);
+          setSuspendTarget(null);
+        },
+        onError: () => {
+          toast.error("Failed to update status");
+        },
+      }
+    );
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
@@ -212,14 +231,46 @@ export default function AdminUsersPage() {
                       {u.last_login_at ? formatDate(u.last_login_at) : "Never"}
                     </td>
                     <td className="px-4 py-3">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        disabled={isOrgScoped && u.organisation_id !== orgId}
-                        onClick={() => { setRoleModal(u); setNewRole(u.role); }}
-                      >
-                        Change Role
-                      </Button>
+                      <div className="flex gap-1.5">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={isOrgScoped && u.organisation_id !== orgId}
+                          onClick={() => { setRoleModal(u); setNewRole(u.role); }}
+                        >
+                          Change Role
+                        </Button>
+                        {u.id !== user?.id && u.status === "pending" && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            disabled={updateStatusMutation.isPending}
+                            onClick={() => changeStatus(u, "active")}
+                          >
+                            Approve
+                          </Button>
+                        )}
+                        {u.id !== user?.id && u.status === "active" && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            disabled={updateStatusMutation.isPending}
+                            onClick={() => setSuspendTarget(u)}
+                          >
+                            Suspend
+                          </Button>
+                        )}
+                        {u.id !== user?.id && u.status === "suspended" && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            disabled={updateStatusMutation.isPending}
+                            onClick={() => changeStatus(u, "active")}
+                          >
+                            Reactivate
+                          </Button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -251,6 +302,20 @@ export default function AdminUsersPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <ConfirmDialog
+        open={!!suspendTarget}
+        onOpenChange={(open) => !open && setSuspendTarget(null)}
+        title="Suspend user?"
+        description={`"${suspendTarget?.first_name} ${suspendTarget?.last_name}" will immediately lose access and be unable to log in until reactivated.`}
+        confirmLabel="Suspend"
+        variant="destructive"
+        loading={updateStatusMutation.isPending}
+        onConfirm={() => {
+          if (!suspendTarget) return;
+          changeStatus(suspendTarget, "suspended");
+        }}
+      />
     </div>
   );
 }
