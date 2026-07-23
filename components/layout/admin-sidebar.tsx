@@ -12,7 +12,6 @@ import {
   BarChart3,
   ScrollText,
   ShieldCheck,
-  UsersRound,
   ActivitySquare,
   Bell,
   LogOut,
@@ -33,8 +32,7 @@ export const adminNavItems: Array<{
   { href: "/datasets", label: "Review Queue", icon: FileCheck },
   { href: "/organisations", label: "Organisations", icon: Building2 },
   { href: "/users", label: "All Users", icon: Users },
-  { href: "/user-groups", label: "User Groups", icon: UsersRound },
-  { href: "/permissions", label: "Permissions", icon: ShieldCheck },
+  { href: "/permission-groups", label: "Permission Groups", icon: ShieldCheck },
   { href: "/access-requests", label: "Access Requests", icon: KeyRound },
   // TODO: Enable when analytics backend is ready (post-MS2)
   // { href: "/analytics", label: "Platform Analytics", icon: BarChart3 },

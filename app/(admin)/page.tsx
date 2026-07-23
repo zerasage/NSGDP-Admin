@@ -13,6 +13,7 @@ import {
   Building2,
 } from "lucide-react";
 import { useDashboardStats, useDashboardActivity } from "@/lib/hooks/useDashboard";
+import { useNotifications } from "@/lib/hooks/useNotifications";
 import { ActivityGraph } from "@/components/charts/activity-graph";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -26,6 +27,7 @@ export default function AdminDashboardPage() {
   const { data: stats, isLoading, isError, error, refetch, isFetching } =
     useDashboardStats();
   const { data: activity, isLoading: isActivityLoading } = useDashboardActivity();
+  const { data: notifications } = useNotifications(1, 5);
 
   if (isLoading) {
     return (
@@ -102,19 +104,21 @@ export default function AdminDashboardPage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle className="text-base">Recent Activity</CardTitle>
+            <Link href="/admin/notifications" className="text-xs text-primary hover:underline">
+              View all
+            </Link>
           </CardHeader>
           <CardContent>
-            {!stats?.recentActivity || stats.recentActivity.length === 0 ? (
+            {!notifications?.data || notifications.data.length === 0 ? (
               <p className="text-sm text-muted-foreground">No recent activity</p>
             ) : (
               <ul className="space-y-3">
-                {stats.recentActivity.slice(0, 5).map((item) => (
+                {notifications.data.map((item) => (
                   <li key={item.id} className="text-sm">
-                    <p className="font-medium">
-                      {item.description || item.datasetTitle || `${item.action} on ${item.entityType}`}
-                    </p>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      {item.userName} · {formatDateTime(item.timestamp)}
+                    <p className="font-medium">{item.title}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{item.message}</p>
+                    <p className="text-xs text-muted-foreground/60 mt-0.5">
+                      {formatDateTime(item.created_at)}
                     </p>
                   </li>
                 ))}
@@ -146,7 +150,7 @@ export default function AdminDashboardPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Platform Activity</CardTitle>
+          <CardTitle className="text-base">Views &amp; Downloads</CardTitle>
         </CardHeader>
         <CardContent>
           {isActivityLoading ? (
