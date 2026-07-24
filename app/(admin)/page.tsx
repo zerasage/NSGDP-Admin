@@ -104,7 +104,7 @@ export default function AdminDashboardPage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle className="text-base">Recent Activity</CardTitle>
-            <Link href="/admin/notifications" className="text-xs text-primary hover:underline">
+            <Link href="/notifications" className="text-xs text-primary hover:underline">
               View all
             </Link>
           </CardHeader>
@@ -224,7 +224,7 @@ export default function AdminDashboardPage() {
             ].map(({ href, label, icon: Icon }) => (
               <Link
                 key={href}
-                href={href}
+                href={`${process.env.NEXT_PUBLIC_PORTAL_URL}${href}`}
                 className={cn(
                   buttonVariants({ variant: "outline", size: "sm" }),
                   "gap-1.5"
