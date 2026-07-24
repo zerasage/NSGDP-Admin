@@ -11,29 +11,24 @@ import { useAuth } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 
 const SECTION_LABELS: Array<{ href: string; label: string; exact?: boolean }> = [
-  { href: "/admin", label: "Dashboard", exact: true },
-  { href: "/admin/datasets", label: "Review Queue" },
-  { href: "/admin/users", label: "Users" },
-  { href: "/admin/permission-groups", label: "Permission Groups" },
-  { href: "/admin/organisations", label: "Organisations" },
-  { href: "/admin/groups", label: "Groups" },
-  { href: "/admin/access-requests", label: "Access Requests" },
-  { href: "/admin/analytics", label: "Analytics" },
-  { href: "/admin/governance", label: "Governance" },
-  { href: "/admin/audit-logs", label: "Audit Log" },
-  { href: "/admin/notifications", label: "Notifications" },
+  { href: "/", label: "Dashboard", exact: true },
+  { href: "/datasets", label: "Review Queue" },
+  { href: "/users", label: "Users" },
+  { href: "/permission-groups", label: "Permission Groups" },
+  { href: "/organisations", label: "Organisations" },
+  { href: "/access-requests", label: "Access Requests" },
+  { href: "/analytics", label: "Analytics" },
+  { href: "/audit-logs", label: "Audit Log" },
+  { href: "/notifications", label: "Notifications" },
 ];
 
 function getSectionLabel(pathname: string): string {
-  if (pathname.includes("/admin/datasets/") && pathname.includes("/review")) {
+  if (pathname.includes("/datasets/") && pathname.includes("/review")) {
     return "Dataset Review";
   }
-  if (pathname.includes("/admin/datasets/") && pathname.includes("/approve")) {
+  if (pathname.includes("/datasets/") && pathname.includes("/approve")) {
     return "Dataset Approval";
   }
-  if (pathname.startsWith("/admin/governance/health")) return "Governance · Health Metrics";
-  if (pathname.startsWith("/admin/governance/sops")) return "Governance · SOPs";
-  if (pathname.startsWith("/admin/governance")) return "Governance";
 
   const match = SECTION_LABELS.find(({ href, exact }) =>
     exact ? pathname === href : pathname.startsWith(href)
@@ -137,10 +132,11 @@ export function AdminSidebarBrand() {
 
 /** Footer link strip for leaving admin */
 export function AdminPortalLinks({ onNavigate }: { onNavigate?: () => void }) {
+  const portalUrl = process.env.NEXT_PUBLIC_PORTAL_URL;
   const links = [
-    { href: "/", label: "Portal Home", icon: ArrowLeft },
-    { href: "/dataportal", label: "Browse Datasets", icon: ExternalLink },
-    { href: "/dashboard", label: "My Dashboard", icon: ExternalLink },
+    { href: `${portalUrl}/`, label: "Portal Home", icon: ArrowLeft },
+    { href: `${portalUrl}/dataportal`, label: "Browse Datasets", icon: ExternalLink },
+    { href: `${portalUrl}/dashboard`, label: "My Dashboard", icon: ExternalLink },
   ];
 
   return (
