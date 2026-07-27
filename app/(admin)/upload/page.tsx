@@ -253,7 +253,24 @@ export default function AdminUploadDatasetPage() {
             </div>
 
             <div className="space-y-2">
-              <Label>LGA Coverage</Label>
+              <div className="flex items-center justify-between">
+                <Label>LGA Coverage</Label>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    if (selectedLGAs.length === NIGER_STATE_LGAS.length) {
+                      setSelectedLGAs([]);
+                    } else {
+                      setSelectedLGAs([...NIGER_STATE_LGAS]);
+                    }
+                  }}
+                  className="text-xs h-8 font-medium"
+                >
+                  {selectedLGAs.length === NIGER_STATE_LGAS.length ? "Clear All" : "Select All (25)"}
+                </Button>
+              </div>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-48 overflow-y-auto p-4 rounded-lg border">
                 {NIGER_STATE_LGAS.map((lga) => (
                   <label key={lga} className="flex items-center gap-2 text-sm">
@@ -270,6 +287,9 @@ export default function AdminUploadDatasetPage() {
                   </label>
                 ))}
               </div>
+              <p className="text-xs text-muted-foreground">
+                {selectedLGAs.length} of {NIGER_STATE_LGAS.length} LGAs selected
+              </p>
             </div>
 
             <div className="flex justify-end pt-4">
