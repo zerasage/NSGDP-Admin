@@ -2,7 +2,7 @@
 // Adds base URL, sends auth cookies, and normalises errors so the UI
 // can map them consistently to toasts / inline messages.
 
-import { getAccessToken, clearTokens } from "@/lib/utils/token-storage";
+import { getAccessToken, getRefreshToken, updateAccessToken, clearTokens } from "@/lib/utils/token-storage";
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "/api";
 
@@ -23,10 +23,53 @@ interface RequestOptions extends Omit<RequestInit, "body"> {
 }
 
 /**
- * A 401 on a request that WAS carrying a token means the session died
- * server-side (expired/revoked) — force a logout instead of letting every
- * page render the raw "Invalid or expired token" error inline. A 401 with no
- * token (e.g. a bad-credentials login attempt) is left alone.
+ * The access token is short-lived (15m) by design — a 401 mid-session is the
+ * normal, expected way to find out it expired, not proof the session is
+ * dead. Every caller routes through this so a refresh only ever happens
+ * once even if several requests 401 at the same moment.
+ */
+let refreshPromise: Promise<string | null> | null = null;
+
+async function refreshAccessToken(): Promise<string | null> {
+  if (refreshPromise) return refreshPromise;
+
+  refreshPromise = (async () => {
+    const refreshToken = getRefreshToken();
+    if (!refreshToken) return null;
+
+    try {
+      const res = await fetch(`${BASE_URL}/admin/auth/refresh`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ refreshToken }),
+      });
+      if (!res.ok) return null;
+
+      const json = await res.json();
+      const { accessToken, expiresIn } = json.data ?? json;
+      if (!accessToken) return null;
+
+      updateAccessToken(accessToken, expiresIn);
+      return accessToken as string;
+    } catch {
+      return null;
+    }
+  })();
+
+  try {
+    return await refreshPromise;
+  } finally {
+    refreshPromise = null;
+  }
+}
+
+/**
+ * A 401 that survives a refresh attempt means the session is genuinely
+ * dead (refresh token itself expired/revoked) — force a logout instead of
+ * letting every page render the raw "Invalid or expired token" error
+ * inline. A 401 with no token to begin with (e.g. a bad-credentials login
+ * attempt) is left alone.
  */
 function handleUnauthorized(status: number, hadToken: boolean) {
   if (status !== 401 || !hadToken) return;
@@ -36,16 +79,13 @@ function handleUnauthorized(status: number, hadToken: boolean) {
   }
 }
 
-export async function apiFetch<T>(
+async function doFetch(
   path: string,
-  options: RequestOptions = {},
-): Promise<T> {
-  const { body, headers, token, ...rest } = options;
-
-  // Use provided token or get from localStorage
-  const accessToken = token ?? getAccessToken();
-
-  const res = await fetch(`${BASE_URL}${path}`, {
+  options: RequestOptions,
+  accessToken: string | null,
+): Promise<Response> {
+  const { body, headers, ...rest } = options;
+  return fetch(`${BASE_URL}${path}`, {
     ...rest,
     credentials: "include", // send httpOnly session cookie
     headers: {
@@ -55,6 +95,26 @@ export async function apiFetch<T>(
     },
     body: body !== undefined ? JSON.stringify(body) : undefined,
   });
+}
+
+export async function apiFetch<T>(
+  path: string,
+  options: RequestOptions = {},
+): Promise<T> {
+  const { token } = options;
+  let accessToken = token ?? getAccessToken();
+
+  let res = await doFetch(path, options, accessToken);
+
+  // Don't try to refresh a login/refresh call itself — an infinite loop
+  // waiting to happen — only a request that was actually carrying a token.
+  if (res.status === 401 && accessToken && !token) {
+    const newToken = await refreshAccessToken();
+    if (newToken) {
+      accessToken = newToken;
+      res = await doFetch(path, options, accessToken);
+    }
+  }
 
   if (!res.ok) {
     let message = res.statusText;
@@ -79,10 +139,8 @@ export async function apiFetch<T>(
  * handling entirely. Do not set Content-Type manually: the browser needs to
  * add its own multipart boundary.
  */
-export async function apiUpload<T>(path: string, formData: FormData): Promise<T> {
-  const accessToken = getAccessToken();
-
-  const res = await fetch(`${BASE_URL}${path}`, {
+async function doUpload(path: string, formData: FormData, accessToken: string | null): Promise<Response> {
+  return fetch(`${BASE_URL}${path}`, {
     method: "POST",
     credentials: "include",
     headers: {
@@ -90,6 +148,20 @@ export async function apiUpload<T>(path: string, formData: FormData): Promise<T>
     },
     body: formData,
   });
+}
+
+export async function apiUpload<T>(path: string, formData: FormData): Promise<T> {
+  let accessToken = getAccessToken();
+
+  let res = await doUpload(path, formData, accessToken);
+
+  if (res.status === 401 && accessToken) {
+    const newToken = await refreshAccessToken();
+    if (newToken) {
+      accessToken = newToken;
+      res = await doUpload(path, formData, accessToken);
+    }
+  }
 
   if (!res.ok) {
     let message = res.statusText;
