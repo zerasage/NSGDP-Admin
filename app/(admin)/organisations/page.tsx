@@ -4,6 +4,8 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { Plus, FileText, FileWarning } from "lucide-react";
 import { useOrganisations } from "@/lib/hooks/useOrganisations";
+import { useAuth } from "@/lib/auth";
+import { usePermissions } from "@/lib/hooks/usePermissions";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { TableRowSkeleton } from "@/components/feedback/skeletons";
@@ -24,6 +26,11 @@ const TYPE_STYLES = {
 };
 
 export default function AdminOrganisationsPage() {
+  const { user } = useAuth();
+  const { hasPermission } = usePermissions();
+  const isSuperAdmin = user?.role === "super_admin";
+  const canCreate = isSuperAdmin || hasPermission("create:organisations");
+
   const { data, isLoading } = useOrganisations(1, 100);
   const [createModalOpen, setCreateModalOpen] = useState(false);
 
@@ -40,10 +47,12 @@ export default function AdminOrganisationsPage() {
             {orgs.length} organisations · manage partner organisations
           </p>
         </div>
-        <Button onClick={() => setCreateModalOpen(true)}>
-          <Plus className="size-4" />
-          Add New Org
-        </Button>
+        {canCreate && (
+          <Button onClick={() => setCreateModalOpen(true)}>
+            <Plus className="size-4" />
+            Add New Org
+          </Button>
+        )}
       </div>
 
       <div className="rounded-lg border overflow-x-auto">

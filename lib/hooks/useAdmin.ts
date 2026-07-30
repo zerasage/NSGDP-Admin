@@ -92,9 +92,7 @@ export function useUpdateUserStatus() {
 }
 
 /**
- * Hook to suspend a user via the delegatable endpoint (super_admin or staff
- * with deactivate:users). Use this instead of useUpdateUserStatus wherever
- * the actor might be staff — the status endpoint has no delegation path.
+ * Hook to suspend a user — super_admin only, not delegatable.
  */
 export function useDeactivateUserDelegated() {
   const queryClient = useQueryClient();

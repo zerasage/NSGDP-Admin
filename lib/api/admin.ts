@@ -177,9 +177,47 @@ export async function updateUserStatus(
 }
 
 /**
- * Suspend a user account via the delegatable endpoint — reachable by
- * super_admin or staff holding the deactivate:users permission. One-directional
- * (always suspends); there is no delegated "reactivate" or "approve" action.
+ * Promote a user to admin of their own organisation — the only role change
+ * exposed anywhere in the UI. Reachable by super_admin or staff/admin
+ * holding the promote:org-admin permission. Server-side only allows
+ * promoting within the user's existing organisation, never cross-org and
+ * never to super_admin.
+ */
+export async function promoteToOrgAdmin(userId: string): Promise<AdminUser> {
+  const response = await apiClient.post<ApiResponse<{ user: AdminUser }>>(
+    `/admin/users/${userId}/promote-org-admin`,
+    {}
+  );
+  return response.data.data.user;
+}
+
+/**
+ * Demote an org admin back to contributor — counterpart to promoteToOrgAdmin.
+ * Reachable by super_admin or staff/admin holding demote:org-admin. Server-side
+ * blocks demoting the last remaining admin of an organisation.
+ */
+export async function demoteFromOrgAdmin(userId: string): Promise<AdminUser> {
+  const response = await apiClient.post<ApiResponse<{ user: AdminUser }>>(
+    `/admin/users/${userId}/demote-org-admin`,
+    {}
+  );
+  return response.data.data.user;
+}
+
+/**
+ * Remove a member from an organisation — detaches them (organisation_id ->
+ * null) without touching the account itself. Reachable by that org's own
+ * admin, super_admin, or staff holding remove:org-members.
+ */
+export async function removeOrgMember(orgId: string, userId: string): Promise<void> {
+  await apiClient.patch<ApiResponse<{ message: string }>>(
+    `/organisations/${orgId}/members/${userId}/remove`,
+    {}
+  );
+}
+
+/**
+ * Suspend a user account — super_admin only, not delegatable.
  */
 export async function deactivateUserDelegated(
   userId: string,

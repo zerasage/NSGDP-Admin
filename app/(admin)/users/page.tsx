@@ -5,7 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Download, Lock } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { usePermissions } from "@/lib/hooks/usePermissions";
-import { useUsers, useUpdateUserRole, useUpdateUserStatus, useDeactivateUserDelegated } from "@/lib/hooks/useAdmin";
+import { useUsers, useUpdateUserStatus, useDeactivateUserDelegated } from "@/lib/hooks/useAdmin";
 import { adminApi, type AdminUser } from "@/lib/api/admin";
 import { RoleBadge } from "@/components/data/role-badge";
 import { EmptyState } from "@/components/feedback/empty-state";
@@ -17,13 +17,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { TableRowSkeleton } from "@/components/feedback/skeletons";
 import { alertSurface } from "@/lib/constants/status-surfaces";
@@ -33,15 +26,16 @@ import { toast } from "sonner";
 
 export default function AdminUsersPage() {
   const { user } = useAuth();
-  const { hasAnyPermission, hasPermission, isLoading: permissionsLoading } = usePermissions();
+  const { hasAnyPermission, isLoading: permissionsLoading } = usePermissions();
   const isSuperAdmin = user?.role === "super_admin";
-  const canViewUsers = isSuperAdmin || hasAnyPermission("invite:users", "deactivate:users", "promote:org-admin");
-  const canSuspend = isSuperAdmin || hasPermission("deactivate:users");
+  const canViewUsers =
+    isSuperAdmin ||
+    hasAnyPermission("invite:users", "promote:org-admin", "demote:org-admin", "remove:org-members");
+  // Deactivating a user is super_admin only — not delegatable.
+  const canSuspend = isSuperAdmin;
 
   const [roleFilter, setRoleFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [roleModal, setRoleModal] = useState<AdminUser | null>(null);
-  const [newRole, setNewRole] = useState<AdminUser['role']>("contributor");
   const [suspendTarget, setSuspendTarget] = useState<AdminUser | null>(null);
 
   // Super admin sees all users
@@ -55,7 +49,6 @@ export default function AdminUsersPage() {
     organisationId: isOrgScoped ? orgId : undefined,
   }, canViewUsers);
 
-  const updateRoleMutation = useUpdateUserRole();
   const updateStatusMutation = useUpdateUserStatus();
   const deactivateMutation = useDeactivateUserDelegated();
 
@@ -127,27 +120,6 @@ export default function AdminUsersPage() {
     toast.success(`Exported ${filtered.length} user${filtered.length !== 1 ? "s" : ""}`);
   };
 
-  const changeRole = () => {
-    if (!roleModal) return;
-    if (isOrgScoped && roleModal.organisation_id !== orgId) {
-      toast.error("You can only manage users within your organisation");
-      return;
-    }
-    
-    updateRoleMutation.mutate(
-      { userId: roleModal.id, data: { role: newRole } },
-      {
-        onSuccess: () => {
-          toast.success(`Role updated for ${roleModal.first_name} ${roleModal.last_name}`);
-          setRoleModal(null);
-        },
-        onError: () => {
-          toast.error("Failed to update role");
-        },
-      }
-    );
-  };
-
   const changeStatus = (u: AdminUser, status: AdminUser["status"]) => {
     updateStatusMutation.mutate(
       { userId: u.id, data: { status } },
@@ -164,9 +136,6 @@ export default function AdminUsersPage() {
     );
   };
 
-  // Routed through the delegatable endpoint (not changeStatus/PATCH status)
-  // so staff holding deactivate:users can actually use this — the status
-  // endpoint is super_admin/admin-only with no permission-grant path.
   const suspendUser = (u: AdminUser) => {
     deactivateMutation.mutate(
       { userId: u.id },
@@ -187,7 +156,7 @@ export default function AdminUsersPage() {
       <EmptyState
         icon={Lock}
         title="Access restricted"
-        description="Viewing users requires invite:users, deactivate:users, or promote:org-admin. Ask a super_admin to grant your group one of these."
+        description="Viewing users requires invite:users, promote:org-admin, demote:org-admin, or remove:org-members. Ask a super_admin to grant your group one of these."
       />
     );
   }
@@ -267,16 +236,6 @@ export default function AdminUsersPage() {
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex gap-1.5">
-                        {isSuperAdmin && (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            disabled={isOrgScoped && u.organisation_id !== orgId}
-                            onClick={() => { setRoleModal(u); setNewRole(u.role); }}
-                          >
-                            Change Role
-                          </Button>
-                        )}
                         {isSuperAdmin && u.id !== user?.id && u.status === "pending" && (
                           <Button
                             size="sm"
@@ -314,31 +273,6 @@ export default function AdminUsersPage() {
           </tbody>
         </table>
       </div>
-
-      <Dialog open={!!roleModal} onOpenChange={(o) => !o && setRoleModal(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Change Role — {roleModal?.first_name} {roleModal?.last_name}</DialogTitle>
-          </DialogHeader>
-          <Select value={newRole} onValueChange={(v) => v && setNewRole(v as AdminUser['role'])}>
-            <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              {(isOrgScoped
-                ? (["public", "registered", "contributor"] as AdminUser['role'][])
-                : (["public", "registered", "contributor", "admin", "super_admin"] as AdminUser['role'][])
-              ).map((r) => (
-                <SelectItem key={r} value={r}>{r.replace(/_/g, " ")}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setRoleModal(null)}>Cancel</Button>
-            <Button onClick={changeRole} disabled={updateRoleMutation.isPending}>
-              {updateRoleMutation.isPending ? "Saving..." : "Save"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       <ConfirmDialog
         open={!!suspendTarget}

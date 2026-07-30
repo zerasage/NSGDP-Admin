@@ -14,8 +14,9 @@ export type PermissionActionKey =
   | 'publish:datasets'
   | 'archive:datasets'
   | 'invite:users'          // Split from manage:users
-  | 'deactivate:users'      // Split from manage:users
   | 'promote:org-admin'     // Split from manage:users - powerful, delegatable
+  | 'demote:org-admin'      // Counterpart to promote:org-admin - powerful, delegatable
+  | 'remove:org-members'    // Detach a member from their organisation
   | 'view:restricted'
   | 'download:restricted'
   | 'create:programs'

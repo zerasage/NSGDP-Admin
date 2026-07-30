@@ -8,8 +8,9 @@ export type PermissionAction =
   | "approve:datasets"       // Advance dataset to Approved after QA checklist
   | "publish:datasets"       // Move approved dataset to Published
   | "invite:users"           // Invite new users (org-scoped)
-  | "deactivate:users"       // Suspend user accounts (excludes super_admin/staff)
   | "promote:org-admin"      // Promote a user to admin within their own organisation
+  | "demote:org-admin"       // Demote an org admin back to contributor
+  | "remove:org-members"     // Detach a member from their organisation
   | "archive:datasets"       // Move datasets to Archived state
   | "view:restricted"        // View restricted-access datasets
   | "download:restricted"    // Download restricted-access datasets
@@ -36,8 +37,9 @@ export const PERMISSION_ACTION_LABELS: Record<PermissionAction, string> = {
   "approve:datasets": "Approve Datasets",
   "publish:datasets": "Publish Datasets",
   "invite:users": "Invite Users (org-scoped)",
-  "deactivate:users": "Deactivate Users",
   "promote:org-admin": "Promote to Org Admin",
+  "demote:org-admin": "Demote Org Admin",
+  "remove:org-members": "Remove Org Member",
   "archive:datasets": "Archive Datasets",
   "view:restricted": "View Restricted Data",
   "download:restricted": "Download Restricted Data",
@@ -61,10 +63,12 @@ export const PERMISSION_ACTION_DESCRIPTIONS: Record<PermissionAction, string> = 
     "Can move a director-approved dataset to Published status in the public catalogue.",
   "invite:users":
     "Can invite new users into their own organisation.",
-  "deactivate:users":
-    "Can suspend user accounts. Server-side rules always exclude super_admin and staff as targets.",
   "promote:org-admin":
     "Can promote a user to admin, scoped strictly to that user's own existing organisation — never cross-org, never to super_admin. Powerful: grant only to specific vetted staff, never seed by default.",
+  "demote:org-admin":
+    "Can demote an org admin back to contributor, scoped to that admin's own organisation. Can't demote the last remaining admin of an org. Powerful: grant only to specific vetted staff, never seed by default.",
+  "remove:org-members":
+    "Can detach a member from their organisation without deleting their account.",
   "archive:datasets":
     "Can mark obsolete datasets as Archived, removing them from the active catalogue.",
   "view:restricted":
@@ -120,11 +124,11 @@ export const PERMISSION_ACTION_GROUPS: Array<{ label: string; actions: Permissio
       "deactivate:organisations",
       "delete:organisations",
       "manage:organisation-agreements",
+      "invite:users",
+      "promote:org-admin",
+      "demote:org-admin",
+      "remove:org-members",
     ],
-  },
-  {
-    label: "Users",
-    actions: ["invite:users", "deactivate:users", "promote:org-admin"],
   },
   {
     label: "Programmes",

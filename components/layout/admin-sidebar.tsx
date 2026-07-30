@@ -39,7 +39,7 @@ export const adminNavItems: Array<{
   { href: "/", label: "Platform Dashboard", icon: LayoutDashboard, exact: true },
   { href: "/datasets", label: "Review Queue", icon: FileCheck, anyPermission: ["approve:datasets", "publish:datasets"] },
   { href: "/organisations", label: "Organisations", icon: Building2 },
-  { href: "/users", label: "All Users", icon: Users, anyPermission: ["invite:users", "deactivate:users", "promote:org-admin"] },
+  { href: "/users", label: "All Users", icon: Users, anyPermission: ["invite:users", "promote:org-admin", "demote:org-admin", "remove:org-members"] },
   { href: "/staff", label: "Agency Staff", icon: UserCog, superAdminOnly: true },
   { href: "/permission-groups", label: "Permission Groups", icon: ShieldCheck, superAdminOnly: true },
   { href: "/access-requests", label: "Access Requests", icon: KeyRound },
