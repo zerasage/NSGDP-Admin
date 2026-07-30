@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { FileText, Upload, Settings, X, Lock } from "lucide-react";
 import { Stepper } from "@/components/forms/stepper";
@@ -33,6 +33,8 @@ const steps = [
   { id: 3, name: "Settings", icon: Settings },
 ];
 
+const AGENCY_ORG_SLUG = "nsphcda";
+
 const FORMAT_BY_EXTENSION: Record<string, DatasetFormat> = {
   csv: "csv",
   xlsx: "excel",
@@ -50,6 +52,7 @@ export default function AdminUploadDatasetPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const presetOrgId = searchParams.get("orgId") ?? undefined;
+  const presetAgency = searchParams.get("agency") === "1";
   const { user } = useAuth();
   const { hasPermission, isLoading: permissionsLoading } = usePermissions();
   const isSuperAdmin = user?.role === "super_admin";
@@ -77,6 +80,12 @@ export default function AdminUploadDatasetPage() {
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
 
   const organisations = orgsData?.data ?? [];
+
+  useEffect(() => {
+    if (!presetAgency || organisationId) return;
+    const agencyOrg = organisations.find((o) => o.slug === AGENCY_ORG_SLUG);
+    if (agencyOrg) setOrganisationId(agencyOrg.id);
+  }, [presetAgency, organisations, organisationId]);
 
   const addTag = () => {
     if (tagInput.trim() && !tags.includes(tagInput.trim())) {
