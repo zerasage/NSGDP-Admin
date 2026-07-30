@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { FileText, Upload, Settings, X, Lock } from "lucide-react";
+import { FileText, Upload, MapPin, Scale, Settings, X, Lock } from "lucide-react";
 import { Stepper } from "@/components/forms/stepper";
 import { FileUploadArea, type UploadedFile } from "@/components/forms/file-upload-area";
 import { Button } from "@/components/ui/button";
@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/select";
 import { useCreateDataset } from "@/lib/hooks/useDatasets";
 import { useOrganisations } from "@/lib/hooks/useOrganisations";
+import { useCategories } from "@/lib/hooks/useCategories";
 import { uploadFile } from "@/lib/api/uploads";
 import { NIGER_STATE_LGAS } from "@/lib/constants/core";
 import { useToast } from "@/lib/hooks/use-toast";
@@ -29,8 +30,10 @@ import type { DatasetFormat, DatasetVisibility } from "@/lib/api/datasets";
 
 const steps = [
   { id: 1, name: "Basic Info", icon: FileText },
-  { id: 2, name: "Upload Files", icon: Upload },
-  { id: 3, name: "Settings", icon: Settings },
+  { id: 2, name: "Coverage & Indicators", icon: MapPin },
+  { id: 3, name: "Upload Files", icon: Upload },
+  { id: 4, name: "Governance", icon: Scale },
+  { id: 5, name: "Contact & Settings", icon: Settings },
 ];
 
 const AGENCY_ORG_SLUG = "nsphcda";
@@ -48,6 +51,14 @@ const FORMAT_BY_EXTENSION: Record<string, DatasetFormat> = {
   pdf: "pdf",
 };
 
+const LICENSE_OPTIONS = [
+  { value: "CC-BY-4.0", label: "CC BY 4.0 — Attribution required" },
+  { value: "CC-BY-SA-4.0", label: "CC BY-SA 4.0 — Attribution, share-alike" },
+  { value: "CC0-1.0", label: "CC0 1.0 — Public domain" },
+  { value: "Government Open Data License", label: "Government Open Data License" },
+  { value: "Restricted — Internal Use Only", label: "Restricted — Internal use only" },
+];
+
 export default function AdminUploadDatasetPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -60,6 +71,7 @@ export default function AdminUploadDatasetPage() {
   const { toast } = useToast();
   const createMutation = useCreateDataset();
   const { data: orgsData } = useOrganisations(1, 200);
+  const { data: categoriesData } = useCategories();
 
   const [currentStep, setCurrentStep] = useState(1);
   const [saving, setSaving] = useState(false);
@@ -73,19 +85,40 @@ export default function AdminUploadDatasetPage() {
   const [description, setDescription] = useState(
     "Sample dataset used for testing the admin upload flow and data validation. Contains placeholder health data for Niger State."
   );
+  const [categoryId, setCategoryId] = useState("");
   const [tags, setTags] = useState<string[]>(["health", "test", "niger-state"]);
   const [tagInput, setTagInput] = useState("");
   const [selectedLGAs, setSelectedLGAs] = useState<string[]>(["Minna", "Suleja", "Bida"]);
+  const [temporalCoverageStart, setTemporalCoverageStart] = useState("2025-01-01");
+  const [temporalCoverageEnd, setTemporalCoverageEnd] = useState("2025-12-31");
+  const [diseaseIndicators, setDiseaseIndicators] = useState<string[]>(["Confirmed cases", "Deaths"]);
+  const [indicatorInput, setIndicatorInput] = useState("");
+  const [license, setLicense] = useState("CC-BY-4.0");
+  const [methodology, setMethodology] = useState("Facility-based routine reporting via DHIS2");
+  const [limitations, setLimitations] = useState("Data may have reporting delays from rural facilities");
   const [visibility, setVisibility] = useState<DatasetVisibility>("public");
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
+  const [responsibleDept, setResponsibleDept] = useState("Disease Surveillance Unit");
+  const [contactPerson, setContactPerson] = useState("Jane Doe");
+  const [contactEmail, setContactEmail] = useState("jane.doe@example.org");
+  const [updateFrequency, setUpdateFrequency] = useState("Monthly");
 
   const organisations = orgsData?.data ?? [];
+  const categories = categoriesData?.data ?? [];
 
   useEffect(() => {
     if (!presetAgency || organisationId) return;
     const agencyOrg = organisations.find((o) => o.slug === AGENCY_ORG_SLUG);
     if (agencyOrg) setOrganisationId(agencyOrg.id);
   }, [presetAgency, organisations, organisationId]);
+
+  // Category IDs are seeded per-environment, so default to the first
+  // available category once loaded rather than hardcoding an ID.
+  useEffect(() => {
+    if (!categoryId && categories.length) {
+      setCategoryId(categories[0].id);
+    }
+  }, [categoryId, categories]);
 
   const addTag = () => {
     if (tagInput.trim() && !tags.includes(tagInput.trim())) {
@@ -98,11 +131,46 @@ export default function AdminUploadDatasetPage() {
     setTags(tags.filter((t) => t !== tag));
   };
 
+  const addIndicator = () => {
+    if (indicatorInput.trim() && !diseaseIndicators.includes(indicatorInput.trim())) {
+      setDiseaseIndicators([...diseaseIndicators, indicatorInput.trim()]);
+      setIndicatorInput("");
+    }
+  };
+
+  const removeIndicator = (indicator: string) => {
+    setDiseaseIndicators(diseaseIndicators.filter((i) => i !== indicator));
+  };
+
   const validateStep1 = () => {
     const errors: Record<string, string> = {};
     if (!organisationId) errors.organisationId = "Select an organisation";
     if (title.trim().length < 5) errors.title = "Title must be at least 5 characters";
     if (description.trim().length < 20) errors.description = "Description must be at least 20 characters";
+    if (!categoryId) errors.categoryId = "Select a category";
+    setStepErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  const validateStep2 = () => {
+    const errors: Record<string, string> = {};
+    if (selectedLGAs.length === 0) errors.lgas = "Select at least one LGA";
+    if (!temporalCoverageStart) errors.temporalCoverageStart = "Start date is required";
+    if (!temporalCoverageEnd) errors.temporalCoverageEnd = "End date is required";
+    if (
+      temporalCoverageStart &&
+      temporalCoverageEnd &&
+      new Date(temporalCoverageStart) > new Date(temporalCoverageEnd)
+    ) {
+      errors.temporalCoverageEnd = "Start date must be before end date";
+    }
+    setStepErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  const validateStep4 = () => {
+    const errors: Record<string, string> = {};
+    if (!license) errors.license = "Select a license";
     setStepErrors(errors);
     return Object.keys(errors).length === 0;
   };
@@ -110,6 +178,14 @@ export default function AdminUploadDatasetPage() {
   const handleSubmit = async (isDraft: boolean) => {
     if (!validateStep1()) {
       setCurrentStep(1);
+      return;
+    }
+    if (!validateStep2()) {
+      setCurrentStep(2);
+      return;
+    }
+    if (!validateStep4()) {
+      setCurrentStep(4);
       return;
     }
 
@@ -122,11 +198,22 @@ export default function AdminUploadDatasetPage() {
       const dataset = await createMutation.mutateAsync({
         title,
         description,
+        categoryId,
         format,
         visibility,
         tags,
         geographicCoverage: selectedLGAs.join(", "),
+        temporalCoverageStart: temporalCoverageStart || undefined,
+        temporalCoverageEnd: temporalCoverageEnd || undefined,
+        diseaseIndicators: diseaseIndicators.length > 0 ? diseaseIndicators : undefined,
+        license: license || undefined,
+        methodology: methodology || undefined,
+        limitations: limitations || undefined,
         organisationId,
+        responsibleDept: responsibleDept || undefined,
+        contactPerson: contactPerson || undefined,
+        contactEmail: contactEmail || undefined,
+        updateFrequency: updateFrequency || undefined,
         ...(isDraft ? { status: "draft" } : {}),
       });
 
@@ -176,7 +263,7 @@ export default function AdminUploadDatasetPage() {
       <div className="rounded-lg border border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950 p-3">
         <p className="text-sm text-blue-800 dark:text-blue-200">
           ℹ️ <strong>Form is pre-filled with test data.</strong>{" "}
-          {presetOrgId ? "Just add your file in Step 2 and submit!" : "Pick an organisation, add your file in Step 2, and submit."}
+          {presetOrgId ? "Just add your file in Step 3 and submit!" : "Pick an organisation, add your file in Step 3, and submit."}
         </p>
       </div>
 
@@ -248,6 +335,32 @@ export default function AdminUploadDatasetPage() {
             </div>
 
             <div className="space-y-2">
+              <Label htmlFor="category">
+                Programme Area / Category <span className="text-destructive">*</span>
+              </Label>
+              <Select value={categoryId} onValueChange={(v) => v && setCategoryId(v)}>
+                <SelectTrigger id="category">
+                  <SelectValue placeholder="Select a category">
+                    {categoryId
+                      ? categories.find((c) => c.id === categoryId)?.name ?? "Select a category"
+                      : "Select a category"}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {categories.map((category) => (
+                    <SelectItem key={category.id} value={category.id}>
+                      {category.icon ? `${category.icon} ` : ""}
+                      {category.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {stepErrors.categoryId && (
+                <p className="text-sm text-destructive">{stepErrors.categoryId}</p>
+              )}
+            </div>
+
+            <div className="space-y-2">
               <Label htmlFor="tags">Tags</Label>
               <div className="flex gap-2">
                 <Input
@@ -278,9 +391,25 @@ export default function AdminUploadDatasetPage() {
               )}
             </div>
 
+            <div className="flex justify-end pt-4">
+              <Button onClick={() => validateStep1() && setCurrentStep(2)}>
+                Next: Coverage & Indicators
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {currentStep === 2 && (
+          <div className="space-y-6">
+            <div>
+              <h2 className="text-xl font-bold mb-4">Coverage & Indicators</h2>
+            </div>
+
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <Label>LGA Coverage</Label>
+                <Label>
+                  LGA Coverage <span className="text-destructive">*</span>
+                </Label>
                 <Button
                   type="button"
                   variant="outline"
@@ -316,15 +445,85 @@ export default function AdminUploadDatasetPage() {
               <p className="text-xs text-muted-foreground">
                 {selectedLGAs.length} of {NIGER_STATE_LGAS.length} LGAs selected
               </p>
+              {stepErrors.lgas && <p className="text-sm text-destructive">{stepErrors.lgas}</p>}
             </div>
 
-            <div className="flex justify-end pt-4">
-              <Button onClick={() => validateStep1() && setCurrentStep(2)}>Next: Upload Files</Button>
+            <div className="space-y-2">
+              <Label>
+                Reporting Period <span className="text-destructive">*</span>
+              </Label>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-1">
+                  <Label htmlFor="temporalCoverageStart" className="text-xs font-normal text-muted-foreground">
+                    Start date
+                  </Label>
+                  <Input
+                    id="temporalCoverageStart"
+                    type="date"
+                    value={temporalCoverageStart}
+                    onChange={(e) => setTemporalCoverageStart(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="temporalCoverageEnd" className="text-xs font-normal text-muted-foreground">
+                    End date
+                  </Label>
+                  <Input
+                    id="temporalCoverageEnd"
+                    type="date"
+                    value={temporalCoverageEnd}
+                    onChange={(e) => setTemporalCoverageEnd(e.target.value)}
+                  />
+                </div>
+              </div>
+              {(stepErrors.temporalCoverageStart || stepErrors.temporalCoverageEnd) && (
+                <p className="text-sm text-destructive">
+                  {stepErrors.temporalCoverageStart || stepErrors.temporalCoverageEnd}
+                </p>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="diseaseIndicators">Disease / Health Indicators</Label>
+              <div className="flex gap-2">
+                <Input
+                  id="diseaseIndicators"
+                  value={indicatorInput}
+                  onChange={(e) => setIndicatorInput(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addIndicator())}
+                  placeholder="e.g., Confirmed cases (press Enter)"
+                />
+                <Button type="button" onClick={addIndicator} variant="outline" className="shrink-0">
+                  Add
+                </Button>
+              </div>
+              {diseaseIndicators.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {diseaseIndicators.map((indicator) => (
+                    <span
+                      key={indicator}
+                      className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-primary/10 text-primary text-sm"
+                    >
+                      {indicator}
+                      <button type="button" onClick={() => removeIndicator(indicator)} aria-label={`Remove ${indicator}`}>
+                        <X className="size-3" />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="flex justify-between pt-4">
+              <Button variant="outline" onClick={() => setCurrentStep(1)}>
+                Back
+              </Button>
+              <Button onClick={() => validateStep2() && setCurrentStep(3)}>Next: Upload Files</Button>
             </div>
           </div>
         )}
 
-        {currentStep === 2 && (
+        {currentStep === 3 && (
           <div className="space-y-6">
             <div>
               <h2 className="text-xl font-bold mb-2">Upload Files</h2>
@@ -337,18 +536,129 @@ export default function AdminUploadDatasetPage() {
             <FileUploadArea files={uploadedFiles} onFilesChange={setUploadedFiles} />
 
             <div className="flex justify-between pt-4">
-              <Button variant="outline" onClick={() => setCurrentStep(1)}>
+              <Button variant="outline" onClick={() => setCurrentStep(2)}>
                 Back
               </Button>
-              <Button onClick={() => setCurrentStep(3)}>Next: Settings</Button>
+              <Button onClick={() => setCurrentStep(4)}>Next: Governance</Button>
             </div>
           </div>
         )}
 
-        {currentStep === 3 && (
+        {currentStep === 4 && (
           <div className="space-y-6">
             <div>
-              <h2 className="text-xl font-bold mb-4">Settings</h2>
+              <h2 className="text-xl font-bold mb-4">Governance</h2>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="license">
+                Data License <span className="text-destructive">*</span>
+              </Label>
+              <Select value={license} onValueChange={(v) => v && setLicense(v)}>
+                <SelectTrigger id="license">
+                  <SelectValue placeholder="Select a license" />
+                </SelectTrigger>
+                <SelectContent>
+                  {LICENSE_OPTIONS.map((opt) => (
+                    <SelectItem key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {stepErrors.license && <p className="text-sm text-destructive">{stepErrors.license}</p>}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="methodology">Methodology</Label>
+              <Textarea
+                id="methodology"
+                value={methodology}
+                onChange={(e) => setMethodology(e.target.value)}
+                rows={2}
+                placeholder="e.g., Facility-based routine reporting via DHIS2"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="limitations">Known Limitations</Label>
+              <Textarea
+                id="limitations"
+                value={limitations}
+                onChange={(e) => setLimitations(e.target.value)}
+                rows={2}
+                placeholder="e.g., Reporting delays from rural facilities"
+              />
+            </div>
+
+            <div className="flex justify-between pt-4">
+              <Button variant="outline" onClick={() => setCurrentStep(3)}>
+                Back
+              </Button>
+              <Button onClick={() => validateStep4() && setCurrentStep(5)}>Next: Contact & Settings</Button>
+            </div>
+          </div>
+        )}
+
+        {currentStep === 5 && (
+          <div className="space-y-6">
+            <div>
+              <h2 className="text-xl font-bold mb-4">Contact & Settings</h2>
+            </div>
+
+            <div className="space-y-4">
+              <p className="text-sm font-medium text-muted-foreground">
+                Additional Information <span className="font-normal">(optional)</span>
+              </p>
+
+              <div className="space-y-2">
+                <Label htmlFor="responsibleDept">Responsible Department</Label>
+                <Input
+                  id="responsibleDept"
+                  value={responsibleDept}
+                  onChange={(e) => setResponsibleDept(e.target.value)}
+                  placeholder="e.g., Disease Surveillance Unit"
+                />
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="contactPerson">Contact Person</Label>
+                  <Input
+                    id="contactPerson"
+                    value={contactPerson}
+                    onChange={(e) => setContactPerson(e.target.value)}
+                    placeholder="e.g., Jane Doe"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="contactEmail">Contact Email</Label>
+                  <Input
+                    id="contactEmail"
+                    type="email"
+                    value={contactEmail}
+                    onChange={(e) => setContactEmail(e.target.value)}
+                    placeholder="e.g., jane.doe@example.org"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="updateFrequency">Update Frequency</Label>
+                <Select value={updateFrequency} onValueChange={(v) => setUpdateFrequency(v || "")}>
+                  <SelectTrigger id="updateFrequency">
+                    <SelectValue placeholder="Select frequency (optional)" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Daily">Daily</SelectItem>
+                    <SelectItem value="Weekly">Weekly</SelectItem>
+                    <SelectItem value="Monthly">Monthly</SelectItem>
+                    <SelectItem value="Quarterly">Quarterly</SelectItem>
+                    <SelectItem value="Annually">Annually</SelectItem>
+                    <SelectItem value="One-time">One-time</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
             <div className="space-y-2">
@@ -366,7 +676,7 @@ export default function AdminUploadDatasetPage() {
             </div>
 
             <div className="flex justify-between pt-4">
-              <Button variant="outline" onClick={() => setCurrentStep(2)}>
+              <Button variant="outline" onClick={() => setCurrentStep(4)}>
                 Back
               </Button>
               <div className="flex gap-2">
