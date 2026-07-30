@@ -22,7 +22,13 @@ export type PermissionActionKey =
   | 'edit:programs'
   | 'delete:programs'
   | 'upload:programs'
-  | 'approve:access-requests';
+  | 'approve:access-requests'
+  | 'create:organisations'
+  | 'edit:organisations'
+  | 'deactivate:organisations'
+  | 'delete:organisations'
+  | 'manage:organisation-agreements'
+  | 'create:datasets';
 
 export interface PermissionGroup {
   id: string;

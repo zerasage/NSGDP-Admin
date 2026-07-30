@@ -17,7 +17,13 @@ export type PermissionAction =
   | "edit:programs"          // Update programme metadata and status
   | "delete:programs"        // Remove or archive programme records
   | "upload:programs"        // Upload reports/documents to programme records
-  | "approve:access-requests"; // Approve/deny restricted-dataset access requests
+  | "approve:access-requests" // Approve/deny restricted-dataset access requests
+  | "create:organisations"   // Register new organisations on the platform
+  | "edit:organisations"     // Update any organisation's profile
+  | "deactivate:organisations" // Enable/disable any organisation
+  | "delete:organisations"   // Soft-delete an organisation and everything it owns
+  | "manage:organisation-agreements" // Upload/replace/download data-sharing agreements
+  | "create:datasets";       // Upload a dataset on behalf of an organisation
 
 export const PROGRAM_PERMISSION_ACTIONS: PermissionAction[] = [
   "create:programs",
@@ -40,6 +46,12 @@ export const PERMISSION_ACTION_LABELS: Record<PermissionAction, string> = {
   "delete:programs": "Delete Programmes",
   "upload:programs": "Upload Programme Reports",
   "approve:access-requests": "Approve Access Requests",
+  "create:organisations": "Create Organisations",
+  "edit:organisations": "Edit Organisations",
+  "deactivate:organisations": "Deactivate Organisations",
+  "delete:organisations": "Delete Organisations",
+  "manage:organisation-agreements": "Manage Org Agreements",
+  "create:datasets": "Upload Dataset for Org",
 };
 
 export const PERMISSION_ACTION_DESCRIPTIONS: Record<PermissionAction, string> = {
@@ -69,7 +81,60 @@ export const PERMISSION_ACTION_DESCRIPTIONS: Record<PermissionAction, string> = 
     "Can upload campaign reports, monitoring reports, and evaluation documents to programme records.",
   "approve:access-requests":
     "Can approve or deny a user's request for access to a restricted-visibility dataset.",
+  "create:organisations":
+    "Can register new organisations on the platform.",
+  "edit:organisations":
+    "Can update the profile of any organisation, not just one they belong to.",
+  "deactivate:organisations":
+    "Can enable or disable any organisation.",
+  "delete:organisations":
+    "Can soft-delete an organisation and everything it owns — members, datasets, and pending invites. Powerful: grant only to specific vetted staff, never seed by default.",
+  "manage:organisation-agreements":
+    "Can upload, replace, and download the signed data-sharing agreement for any organisation.",
+  "create:datasets":
+    "Can upload a dataset on behalf of an organisation they aren't a member of.",
 };
+
+/**
+ * Groups related permissions together for display (mirrors the backend's
+ * resourceType on each PERMISSION_ACTION_MAP entry). Order here is the
+ * display order in every permission picker/list in the app.
+ */
+export const PERMISSION_ACTION_GROUPS: Array<{ label: string; actions: PermissionAction[] }> = [
+  {
+    label: "Datasets",
+    actions: [
+      "create:datasets",
+      "approve:datasets",
+      "publish:datasets",
+      "archive:datasets",
+      "view:restricted",
+      "download:restricted",
+    ],
+  },
+  {
+    label: "Organisations",
+    actions: [
+      "create:organisations",
+      "edit:organisations",
+      "deactivate:organisations",
+      "delete:organisations",
+      "manage:organisation-agreements",
+    ],
+  },
+  {
+    label: "Users",
+    actions: ["invite:users", "deactivate:users", "promote:org-admin"],
+  },
+  {
+    label: "Programmes",
+    actions: ["create:programs", "edit:programs", "delete:programs", "upload:programs"],
+  },
+  {
+    label: "Access Requests",
+    actions: ["approve:access-requests"],
+  },
+];
 
 /** A single permission grant assigned to a user group */
 export interface PermissionGrant {
