@@ -14,6 +14,7 @@ import {
   FolderOpen,
   Globe,
   History,
+  Lock,
   MapPin,
   MessageSquareWarning,
   Tag,
@@ -25,12 +26,15 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { EmptyState } from "@/components/feedback/empty-state";
 import { apiClient } from "@/lib/api/client";
 import { adminApi, archiveDataset, getUserById, publishDataset, unpublishDataset } from "@/lib/api/admin";
 import { getCategories } from "@/lib/api/categories";
 import { useDatasetVersions, useDownloadDataset, useDatasetFiles } from "@/lib/hooks/useDatasets";
 import type { DatasetFile } from "@/lib/api/datasets";
 import { useToast } from "@/lib/hooks/use-toast";
+import { useAuth } from "@/lib/auth";
+import { usePermissions } from "@/lib/hooks/usePermissions";
 import { DatasetPreviewCard } from "@/components/data/dataset-preview-card";
 import { formatDate } from "@/lib/utils/date";
 
@@ -100,10 +104,18 @@ export default function DatasetDetailPage({
   const router = useRouter();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { user } = useAuth();
+  const { hasPermission, hasAnyPermission } = usePermissions();
+  const isSuperAdmin = user?.role === "super_admin";
+  const canView = isSuperAdmin || hasAnyPermission("approve:datasets", "publish:datasets");
+  const canApprove = isSuperAdmin || hasPermission("approve:datasets");
+  const canPublish = isSuperAdmin || hasPermission("publish:datasets");
+  const canArchive = isSuperAdmin || hasPermission("archive:datasets");
   const [archiveOpen, setArchiveOpen] = useState(false);
 
   const { data: dataset, isLoading, error } = useQuery({
     queryKey: ['dataset', slug],
+    enabled: canView,
     queryFn: async () => {
       const response = await apiClient.get<{ data: Dataset }>(`/admin/datasets/${slug}`);
       return response.data.data;
@@ -256,6 +268,16 @@ export default function DatasetDetailPage({
     );
   };
 
+  if (!canView) {
+    return (
+      <EmptyState
+        icon={Lock}
+        title="Access restricted"
+        description="Viewing dataset details requires approve:datasets or publish:datasets. Ask a super_admin to grant your group one of these."
+      />
+    );
+  }
+
   if (isLoading) {
     return (
       <div className="space-y-6">
@@ -314,13 +336,13 @@ export default function DatasetDetailPage({
               ? (dataset.published_at ? 'PUBLISHED' : 'APPROVED (NOT PUBLISHED)')
               : dataset.status.replace('_', ' ').toUpperCase()}
           </Badge>
-          {(dataset.status === 'pending' || dataset.status === 'under_review') && (
+          {canApprove && (dataset.status === 'pending' || dataset.status === 'under_review') && (
             <Button size="sm" onClick={() => router.push(`/datasets/${slug}/review`)}>
               <Eye className="size-4 mr-1" />
               Review
             </Button>
           )}
-          {dataset.status === 'approved' && !dataset.published_at && (
+          {canPublish && dataset.status === 'approved' && !dataset.published_at && (
             <Button
               size="sm"
               onClick={() => publishMutation.mutate()}
@@ -330,7 +352,7 @@ export default function DatasetDetailPage({
               Publish
             </Button>
           )}
-          {dataset.status === 'approved' && dataset.published_at && (
+          {canPublish && dataset.status === 'approved' && dataset.published_at && (
             <Button
               size="sm"
               variant="outline"
@@ -363,7 +385,7 @@ export default function DatasetDetailPage({
               </Button>
             </>
           )}
-          {dataset.status !== 'archived' && (
+          {canArchive && dataset.status !== 'archived' && (
             <Button size="sm" variant="outline" onClick={() => setArchiveOpen(true)}>
               <Archive className="size-4 mr-1" />
               Archive

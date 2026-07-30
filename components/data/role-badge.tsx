@@ -6,6 +6,7 @@ const CONFIG: Record<UserRole, { label: string; className: string }> = {
   registered:  { label: "Registered",       className: "bg-secondary text-secondary-foreground" },
   contributor: { label: "Contributor",      className: "bg-teal-100 text-teal-800 dark:bg-teal-950 dark:text-teal-300" },
   admin:       { label: "Org Admin",        className: "bg-info-100 text-info-800 dark:bg-info-950 dark:text-info-300" },
+  staff:       { label: "Agency Staff",     className: "bg-primary text-primary-foreground" },
   super_admin: { label: "Super Admin",      className: "bg-primary text-primary-foreground" },
 };
 

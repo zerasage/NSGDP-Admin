@@ -7,14 +7,17 @@
 export type PermissionAction =
   | "approve:datasets"       // Advance dataset to Approved after QA checklist
   | "publish:datasets"       // Move approved dataset to Published
-  | "manage:users"           // Invite/deactivate users (org-scoped)
+  | "invite:users"           // Invite new users (org-scoped)
+  | "deactivate:users"       // Suspend user accounts (excludes super_admin/staff)
+  | "promote:org-admin"      // Promote a user to admin within their own organisation
   | "archive:datasets"       // Move datasets to Archived state
   | "view:restricted"        // View restricted-access datasets
   | "download:restricted"    // Download restricted-access datasets
   | "create:programs"        // Register new programme records
   | "edit:programs"          // Update programme metadata and status
   | "delete:programs"        // Remove or archive programme records
-  | "upload:programs";       // Upload reports/documents to programme records
+  | "upload:programs"        // Upload reports/documents to programme records
+  | "approve:access-requests"; // Approve/deny restricted-dataset access requests
 
 export const PROGRAM_PERMISSION_ACTIONS: PermissionAction[] = [
   "create:programs",
@@ -26,7 +29,9 @@ export const PROGRAM_PERMISSION_ACTIONS: PermissionAction[] = [
 export const PERMISSION_ACTION_LABELS: Record<PermissionAction, string> = {
   "approve:datasets": "Approve Datasets",
   "publish:datasets": "Publish Datasets",
-  "manage:users": "Manage Users (org-scoped)",
+  "invite:users": "Invite Users (org-scoped)",
+  "deactivate:users": "Deactivate Users",
+  "promote:org-admin": "Promote to Org Admin",
   "archive:datasets": "Archive Datasets",
   "view:restricted": "View Restricted Data",
   "download:restricted": "Download Restricted Data",
@@ -34,6 +39,7 @@ export const PERMISSION_ACTION_LABELS: Record<PermissionAction, string> = {
   "edit:programs": "Edit Programmes",
   "delete:programs": "Delete Programmes",
   "upload:programs": "Upload Programme Reports",
+  "approve:access-requests": "Approve Access Requests",
 };
 
 export const PERMISSION_ACTION_DESCRIPTIONS: Record<PermissionAction, string> = {
@@ -41,8 +47,12 @@ export const PERMISSION_ACTION_DESCRIPTIONS: Record<PermissionAction, string> = 
     "Can mark a dataset as validated after the QA checklist and advance it to Approved.",
   "publish:datasets":
     "Can move a director-approved dataset to Published status in the public catalogue.",
-  "manage:users":
-    "Can invite, deactivate, and change roles of users within their own organisation only.",
+  "invite:users":
+    "Can invite new users into their own organisation.",
+  "deactivate:users":
+    "Can suspend user accounts. Server-side rules always exclude super_admin and staff as targets.",
+  "promote:org-admin":
+    "Can promote a user to admin, scoped strictly to that user's own existing organisation — never cross-org, never to super_admin. Powerful: grant only to specific vetted staff, never seed by default.",
   "archive:datasets":
     "Can mark obsolete datasets as Archived, removing them from the active catalogue.",
   "view:restricted":
@@ -57,6 +67,8 @@ export const PERMISSION_ACTION_DESCRIPTIONS: Record<PermissionAction, string> = 
     "Can remove draft or erroneous programme records (Repository Admin and above).",
   "upload:programs":
     "Can upload campaign reports, monitoring reports, and evaluation documents to programme records.",
+  "approve:access-requests":
+    "Can approve or deny a user's request for access to a restricted-visibility dataset.",
 };
 
 /** A single permission grant assigned to a user group */

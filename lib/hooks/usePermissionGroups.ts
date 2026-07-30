@@ -79,6 +79,8 @@ export function useAddGroupMember() {
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['permission-groups'] });
       queryClient.invalidateQueries({ queryKey: ['permission-group', variables.groupId] });
+      // Staff picker shows each candidate's current group — keep it in sync
+      queryClient.invalidateQueries({ queryKey: ['admin-staff'] });
     },
   });
 }
@@ -90,6 +92,7 @@ export function useRemoveGroupMember() {
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['permission-groups'] });
       queryClient.invalidateQueries({ queryKey: ['permission-group', variables.groupId] });
+      queryClient.invalidateQueries({ queryKey: ['admin-staff'] });
     },
   });
 }

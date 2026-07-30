@@ -3,7 +3,7 @@
 import { use, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, Archive, CheckCircle2, Send, XCircle } from "lucide-react";
+import { ArrowLeft, Archive, CheckCircle2, Lock, Send, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -18,10 +18,13 @@ import {
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { EmptyState } from "@/components/feedback/empty-state";
 import { apiClient } from "@/lib/api/client";
 import { adminApi, archiveDataset } from "@/lib/api/admin";
 import { getCategories } from "@/lib/api/categories";
 import { useToast } from "@/lib/hooks/use-toast";
+import { useAuth } from "@/lib/auth";
+import { usePermissions } from "@/lib/hooks/usePermissions";
 import { useDatasetReview } from "@/lib/hooks/useDatasetReview";
 import { useSaveQAChecklist } from "@/lib/hooks/useQAChecklist";
 import { ApprovalPipeline } from "@/components/admin/approval-pipeline";
@@ -72,6 +75,11 @@ export default function DatasetReviewScreenPage({
   const { slug } = use(params);
   const router = useRouter();
   const { toast } = useToast();
+  const { user } = useAuth();
+  const { hasPermission } = usePermissions();
+  const isSuperAdmin = user?.role === "super_admin";
+  const canApprove = isSuperAdmin || hasPermission("approve:datasets");
+  const canArchive = isSuperAdmin || hasPermission("archive:datasets");
 
   const [stageOverride, setStageOverride] = useState<LifecycleStage | null>(null);
   const [qa, setQA] = useState<QAState>(initQAState());
@@ -115,11 +123,11 @@ export default function DatasetReviewScreenPage({
   // Opening the review screen means active review — mirrors the prototype's intent,
   // now backed by a real transition instead of local-only state.
   useEffect(() => {
-    if (dataset?.status === "pending" && !markUnderReviewMutation.isPending) {
+    if (canApprove && dataset?.status === "pending" && !markUnderReviewMutation.isPending) {
       markUnderReviewMutation.mutate(slug);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dataset?.status]);
+  }, [dataset?.status, canApprove]);
 
   const passCount = Object.values(qa).filter((v) => v.result === "pass").length;
   const failCount = Object.values(qa).filter((v) => v.result === "fail").length;
@@ -186,6 +194,16 @@ export default function DatasetReviewScreenPage({
         })
       );
   };
+
+  if (!canApprove) {
+    return (
+      <EmptyState
+        icon={Lock}
+        title="Access restricted"
+        description="Reviewing datasets requires the approve:datasets permission. Ask a super_admin to grant your group this permission."
+      />
+    );
+  }
 
   if (isLoading) {
     return (
@@ -305,10 +323,12 @@ export default function DatasetReviewScreenPage({
             <XCircle className="size-4 mr-1.5" />
             Request Revision
           </Button>
-          <Button variant="outline" onClick={() => setArchiveOpen(true)}>
-            <Archive className="size-4 mr-1.5" />
-            Archive
-          </Button>
+          {canArchive && (
+            <Button variant="outline" onClick={() => setArchiveOpen(true)}>
+              <Archive className="size-4 mr-1.5" />
+              Archive
+            </Button>
+          )}
         </div>
         <Button onClick={handleSendForApproval} disabled={!canSendForApproval || saveChecklistMutation.isPending}>
           <CheckCircle2 className="size-4 mr-1.5" />

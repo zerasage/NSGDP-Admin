@@ -59,6 +59,7 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { formatDate } from "@/lib/utils/date";
 import { statusPill } from "@/lib/constants/status-surfaces";
+import { useAuth } from "@/lib/auth";
 
 const TYPE_STYLES = {
   government: statusPill.emerald,
@@ -79,6 +80,10 @@ export default function OrganisationDetailPage({
   const { id: slug } = use(params); // This is the slug from URL
   const router = useRouter();
   const queryClient = useQueryClient();
+  const { user } = useAuth();
+  // Org lifecycle (edit/activate-deactivate/delete) is super_admin-only at
+  // the backend — plain role checks, no delegated-permission path for staff.
+  const isSuperAdmin = user?.role === "super_admin";
   const [inviteModalOpen, setInviteModalOpen] = useState(false);
   const [selectedMember, setSelectedMember] = useState<any>(null);
   const [memberDetailOpen, setMemberDetailOpen] = useState(false);
@@ -583,30 +588,32 @@ export default function OrganisationDetailPage({
           </div>
         </div>
 
-        <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={() => setEditModalOpen(true)}>
-            <Edit className="size-4" />
-            Edit
-          </Button>
-          <Button
-            variant={org.is_active ? "destructive" : "default"}
-            size="sm"
-            onClick={() => setStatusConfirmOpen(true)}
-            disabled={toggleStatusMutation.isPending}
-          >
-            <Power className="size-4" />
-            {org.is_active ? "Deactivate" : "Activate"}
-          </Button>
-          <Button
-            variant="destructive"
-            size="sm"
-            onClick={() => setDeleteOrgConfirmOpen(true)}
-            disabled={deleteOrgMutation.isPending}
-          >
-            <Trash2 className="size-4" />
-            Delete
-          </Button>
-        </div>
+        {isSuperAdmin && (
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={() => setEditModalOpen(true)}>
+              <Edit className="size-4" />
+              Edit
+            </Button>
+            <Button
+              variant={org.is_active ? "destructive" : "default"}
+              size="sm"
+              onClick={() => setStatusConfirmOpen(true)}
+              disabled={toggleStatusMutation.isPending}
+            >
+              <Power className="size-4" />
+              {org.is_active ? "Deactivate" : "Activate"}
+            </Button>
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={() => setDeleteOrgConfirmOpen(true)}
+              disabled={deleteOrgMutation.isPending}
+            >
+              <Trash2 className="size-4" />
+              Delete
+            </Button>
+          </div>
+        )}
       </div>
 
       {/* Quick Stats */}

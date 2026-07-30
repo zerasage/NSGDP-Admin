@@ -2,11 +2,13 @@
 
 import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Download } from "lucide-react";
+import { Download, Lock } from "lucide-react";
 import { useAuth } from "@/lib/auth";
-import { useUsers, useUpdateUserRole, useUpdateUserStatus } from "@/lib/hooks/useAdmin";
+import { usePermissions } from "@/lib/hooks/usePermissions";
+import { useUsers, useUpdateUserRole, useUpdateUserStatus, useDeactivateUserDelegated } from "@/lib/hooks/useAdmin";
 import { adminApi, type AdminUser } from "@/lib/api/admin";
 import { RoleBadge } from "@/components/data/role-badge";
+import { EmptyState } from "@/components/feedback/empty-state";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -31,6 +33,10 @@ import { toast } from "sonner";
 
 export default function AdminUsersPage() {
   const { user } = useAuth();
+  const { hasAnyPermission, hasPermission, isLoading: permissionsLoading } = usePermissions();
+  const isSuperAdmin = user?.role === "super_admin";
+  const canViewUsers = isSuperAdmin || hasAnyPermission("invite:users", "deactivate:users", "promote:org-admin");
+  const canSuspend = isSuperAdmin || hasPermission("deactivate:users");
 
   const [roleFilter, setRoleFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -47,10 +53,11 @@ export default function AdminUsersPage() {
     page: 1,
     limit: 100,
     organisationId: isOrgScoped ? orgId : undefined,
-  });
+  }, canViewUsers);
 
   const updateRoleMutation = useUpdateUserRole();
   const updateStatusMutation = useUpdateUserStatus();
+  const deactivateMutation = useDeactivateUserDelegated();
 
   const { data: organisationsData } = useQuery({
     queryKey: ["admin", "organisations"],
@@ -157,6 +164,34 @@ export default function AdminUsersPage() {
     );
   };
 
+  // Routed through the delegatable endpoint (not changeStatus/PATCH status)
+  // so staff holding deactivate:users can actually use this — the status
+  // endpoint is super_admin/admin-only with no permission-grant path.
+  const suspendUser = (u: AdminUser) => {
+    deactivateMutation.mutate(
+      { userId: u.id },
+      {
+        onSuccess: () => {
+          toast.success(`Suspended ${u.first_name} ${u.last_name}`);
+          setSuspendTarget(null);
+        },
+        onError: () => {
+          toast.error("Failed to suspend user");
+        },
+      }
+    );
+  };
+
+  if (!permissionsLoading && !canViewUsers) {
+    return (
+      <EmptyState
+        icon={Lock}
+        title="Access restricted"
+        description="Viewing users requires invite:users, deactivate:users, or promote:org-admin. Ask a super_admin to grant your group one of these."
+      />
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
@@ -232,15 +267,17 @@ export default function AdminUsersPage() {
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex gap-1.5">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          disabled={isOrgScoped && u.organisation_id !== orgId}
-                          onClick={() => { setRoleModal(u); setNewRole(u.role); }}
-                        >
-                          Change Role
-                        </Button>
-                        {u.id !== user?.id && u.status === "pending" && (
+                        {isSuperAdmin && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            disabled={isOrgScoped && u.organisation_id !== orgId}
+                            onClick={() => { setRoleModal(u); setNewRole(u.role); }}
+                          >
+                            Change Role
+                          </Button>
+                        )}
+                        {isSuperAdmin && u.id !== user?.id && u.status === "pending" && (
                           <Button
                             size="sm"
                             variant="outline"
@@ -250,17 +287,17 @@ export default function AdminUsersPage() {
                             Approve
                           </Button>
                         )}
-                        {u.id !== user?.id && u.status === "active" && (
+                        {canSuspend && u.id !== user?.id && u.status === "active" && (
                           <Button
                             size="sm"
                             variant="outline"
-                            disabled={updateStatusMutation.isPending}
+                            disabled={deactivateMutation.isPending}
                             onClick={() => setSuspendTarget(u)}
                           >
                             Suspend
                           </Button>
                         )}
-                        {u.id !== user?.id && u.status === "suspended" && (
+                        {isSuperAdmin && u.id !== user?.id && u.status === "suspended" && (
                           <Button
                             size="sm"
                             variant="outline"
@@ -310,10 +347,10 @@ export default function AdminUsersPage() {
         description={`"${suspendTarget?.first_name} ${suspendTarget?.last_name}" will immediately lose access and be unable to log in until reactivated.`}
         confirmLabel="Suspend"
         variant="destructive"
-        loading={updateStatusMutation.isPending}
+        loading={deactivateMutation.isPending}
         onConfirm={() => {
           if (!suspendTarget) return;
-          changeStatus(suspendTarget, "suspended");
+          suspendUser(suspendTarget);
         }}
       />
     </div>

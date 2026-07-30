@@ -19,8 +19,10 @@ export interface AdminUserProfile {
   email: string;
   firstName: string;
   lastName: string;
-  role: 'super_admin';
+  role: 'super_admin' | 'staff';
   mfaEnabled: boolean;
+  groupId: string | null;
+  groupName: string | null;
   lastLoginAt?: Date;
   lastLoginIp?: string;
 }

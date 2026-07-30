@@ -15,11 +15,14 @@ import {
   ActivitySquare,
   Bell,
   LogOut,
+  UserCog,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { AdminPortalLinks, AdminSidebarBrand } from "@/components/layout/admin-header";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth";
+import { usePermissions } from "@/lib/hooks/usePermissions";
+import type { PermissionActionKey } from "@/lib/api/permissions";
 import { toast } from "sonner";
 
 export const adminNavItems: Array<{
@@ -27,12 +30,18 @@ export const adminNavItems: Array<{
   label: string;
   icon: typeof LayoutDashboard;
   exact?: boolean;
+  superAdminOnly?: boolean;
+  // Visible if super_admin OR the user holds ANY of these delegated permissions.
+  // Omit entirely for items every admin-portal principal can see (dashboard,
+  // notifications, and blanket-staff-readable pages like organisations/audit-logs).
+  anyPermission?: PermissionActionKey[];
 }> = [
   { href: "/", label: "Platform Dashboard", icon: LayoutDashboard, exact: true },
-  { href: "/datasets", label: "Review Queue", icon: FileCheck },
+  { href: "/datasets", label: "Review Queue", icon: FileCheck, anyPermission: ["approve:datasets", "publish:datasets"] },
   { href: "/organisations", label: "Organisations", icon: Building2 },
-  { href: "/users", label: "All Users", icon: Users },
-  { href: "/permission-groups", label: "Permission Groups", icon: ShieldCheck },
+  { href: "/users", label: "All Users", icon: Users, anyPermission: ["invite:users", "deactivate:users", "promote:org-admin"] },
+  { href: "/staff", label: "Agency Staff", icon: UserCog, superAdminOnly: true },
+  { href: "/permission-groups", label: "Permission Groups", icon: ShieldCheck, superAdminOnly: true },
   { href: "/access-requests", label: "Access Requests", icon: KeyRound },
   // TODO: Enable when analytics backend is ready (post-MS2)
   // { href: "/analytics", label: "Platform Analytics", icon: BarChart3 },
@@ -42,10 +51,19 @@ export const adminNavItems: Array<{
 
 function AdminNavLinks({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
+  const { user } = useAuth();
+  const { hasAnyPermission } = usePermissions();
+  const isSuperAdmin = user?.role === "super_admin";
 
   return (
     <>
-      {adminNavItems.map(({ href, label, icon: Icon, exact }) => {
+      {adminNavItems
+        .filter((item) => {
+          if (item.superAdminOnly) return isSuperAdmin;
+          if (item.anyPermission) return isSuperAdmin || hasAnyPermission(...item.anyPermission);
+          return true;
+        })
+        .map(({ href, label, icon: Icon, exact }) => {
         const active = exact ? pathname === href : pathname.startsWith(href);
         return (
           <Link
