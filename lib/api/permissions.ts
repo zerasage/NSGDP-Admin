@@ -14,15 +14,22 @@ export type PermissionActionKey =
   | 'publish:datasets'
   | 'archive:datasets'
   | 'invite:users'          // Split from manage:users
-  | 'deactivate:users'      // Split from manage:users
   | 'promote:org-admin'     // Split from manage:users - powerful, delegatable
+  | 'demote:org-admin'      // Counterpart to promote:org-admin - powerful, delegatable
+  | 'remove:org-members'    // Detach a member from their organisation
   | 'view:restricted'
   | 'download:restricted'
   | 'create:programs'
   | 'edit:programs'
   | 'delete:programs'
   | 'upload:programs'
-  | 'approve:access-requests';
+  | 'approve:access-requests'
+  | 'create:organisations'
+  | 'edit:organisations'
+  | 'deactivate:organisations'
+  | 'delete:organisations'
+  | 'manage:organisation-agreements'
+  | 'create:datasets';
 
 export interface PermissionGroup {
   id: string;

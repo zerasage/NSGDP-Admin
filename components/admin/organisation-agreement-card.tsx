@@ -23,9 +23,10 @@ interface OrganisationAgreementCardProps {
   org: Organisation;
   orgId: string;
   slug: string;
+  canManage: boolean;
 }
 
-export function OrganisationAgreementCard({ org, orgId, slug }: OrganisationAgreementCardProps) {
+export function OrganisationAgreementCard({ org, orgId, slug, canManage }: OrganisationAgreementCardProps) {
   const [open, setOpen] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [signedAt, setSignedAt] = useState("");
@@ -90,23 +91,27 @@ export function OrganisationAgreementCard({ org, orgId, slug }: OrganisationAgre
                 </p>
               </div>
             </div>
-            <div className="flex gap-2 shrink-0">
-              <Button size="sm" variant="outline" onClick={handleDownload} disabled={downloading}>
-                {downloading ? <Loader2 className="size-3.5 mr-1 animate-spin" /> : <Download className="size-3.5 mr-1" />}
-                Download
-              </Button>
-              <Button size="sm" variant="outline" onClick={() => setOpen(true)}>
-                Replace
-              </Button>
-            </div>
+            {canManage && (
+              <div className="flex gap-2 shrink-0">
+                <Button size="sm" variant="outline" onClick={handleDownload} disabled={downloading}>
+                  {downloading ? <Loader2 className="size-3.5 mr-1 animate-spin" /> : <Download className="size-3.5 mr-1" />}
+                  Download
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => setOpen(true)}>
+                  Replace
+                </Button>
+              </div>
+            )}
           </div>
         ) : (
           <div className="flex items-center justify-between gap-4">
             <p className="text-sm text-muted-foreground">No agreement on file.</p>
-            <Button size="sm" onClick={() => setOpen(true)}>
-              <Upload className="size-3.5 mr-1" />
-              Upload Agreement
-            </Button>
+            {canManage && (
+              <Button size="sm" onClick={() => setOpen(true)}>
+                <Upload className="size-3.5 mr-1" />
+                Upload Agreement
+              </Button>
+            )}
           </div>
         )}
       </CardContent>

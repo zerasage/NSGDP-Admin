@@ -27,11 +27,12 @@ import {
   Upload,
   Trash2,
   Archive,
+  ShieldCheck,
 } from "lucide-react";
 import { useOrganisationBySlug } from "@/lib/hooks/useOrganisationBySlug";
 import { useToggleOrganisationStatus, useDeleteOrganisation } from "@/lib/hooks/useOrganisations";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { getUsers, getOrganisationInvites, revokeInvite, resendInvite, deleteInvite, updateUserStatus, deleteDataset, archiveDataset, removeUser } from "@/lib/api/admin";
+import { getUsers, getOrganisationInvites, revokeInvite, resendInvite, deleteInvite, updateUserStatus, deleteDataset, archiveDataset, removeOrgMember, promoteToOrgAdmin, demoteFromOrgAdmin } from "@/lib/api/admin";
 import { InviteMemberModal } from "@/components/admin/invite-member-modal";
 import { OrganisationAgreementCard } from "@/components/admin/organisation-agreement-card";
 import { EditOrganisationModal } from "@/components/admin/edit-organisation-modal";
@@ -60,6 +61,7 @@ import { cn } from "@/lib/utils";
 import { formatDate } from "@/lib/utils/date";
 import { statusPill } from "@/lib/constants/status-surfaces";
 import { useAuth } from "@/lib/auth";
+import { usePermissions } from "@/lib/hooks/usePermissions";
 
 const TYPE_STYLES = {
   government: statusPill.emerald,
@@ -81,9 +83,24 @@ export default function OrganisationDetailPage({
   const router = useRouter();
   const queryClient = useQueryClient();
   const { user } = useAuth();
-  // Org lifecycle (edit/activate-deactivate/delete) is super_admin-only at
-  // the backend — plain role checks, no delegated-permission path for staff.
+  const { hasPermission } = usePermissions();
   const isSuperAdmin = user?.role === "super_admin";
+  const canPromote = isSuperAdmin || hasPermission("promote:org-admin");
+  const canDemote = isSuperAdmin || hasPermission("demote:org-admin");
+  const canRemoveMember = isSuperAdmin || hasPermission("remove:org-members");
+  const canEditOrg = isSuperAdmin || hasPermission("edit:organisations");
+  const canDeactivateOrg = isSuperAdmin || hasPermission("deactivate:organisations");
+  const canDeleteOrg = isSuperAdmin || hasPermission("delete:organisations");
+  const canManageAgreement = isSuperAdmin || hasPermission("manage:organisation-agreements");
+  const canInvite = isSuperAdmin || hasPermission("invite:users");
+  const canUploadDataset = isSuperAdmin || hasPermission("create:datasets");
+  // archiveDataset (POST /datasets/:slug/archive) is the self-service path —
+  // owner or same-org admin only, no delegation. This admin portal only ever
+  // authenticates super_admin/staff, and staff owns nothing, so only
+  // super_admin can ever succeed here. deleteDataset (DELETE /admin/datasets/:slug)
+  // is the actually-delegatable one, gated by archive:datasets.
+  const canArchiveDataset = isSuperAdmin;
+  const canDeleteDataset = isSuperAdmin || hasPermission("archive:datasets");
   const [inviteModalOpen, setInviteModalOpen] = useState(false);
   const [selectedMember, setSelectedMember] = useState<any>(null);
   const [memberDetailOpen, setMemberDetailOpen] = useState(false);
@@ -189,16 +206,45 @@ export default function OrganisationDetailPage({
     },
   });
 
-  // Remove user mutation (soft delete)
-  const removeUserMutation = useMutation({
-    mutationFn: (userId: string) => removeUser(userId),
+  // Promote member to org admin — the only role change exposed anywhere
+  // in the admin UI, and only ever within this org.
+  const promoteMutation = useMutation({
+    mutationFn: (userId: string) => promoteToOrgAdmin(userId),
     onSuccess: () => {
-      toast.success("User removed successfully");
+      toast.success("Member promoted to org admin");
+      queryClient.invalidateQueries({ queryKey: ['org-members', orgId] });
+    },
+    onError: (error: any) => {
+      toast.error("Failed to promote member", {
+        description: error.response?.data?.message || "Please try again",
+      });
+    },
+  });
+
+  // Demote org admin back to contributor — counterpart to promoteMutation.
+  const demoteMutation = useMutation({
+    mutationFn: (userId: string) => demoteFromOrgAdmin(userId),
+    onSuccess: () => {
+      toast.success("Member demoted to contributor");
+      queryClient.invalidateQueries({ queryKey: ['org-members', orgId] });
+    },
+    onError: (error: any) => {
+      toast.error("Failed to demote member", {
+        description: error.response?.data?.message || "Please try again",
+      });
+    },
+  });
+
+  // Remove member from organisation (detaches them, does not delete the account)
+  const removeUserMutation = useMutation({
+    mutationFn: (userId: string) => removeOrgMember(orgId!, userId),
+    onSuccess: () => {
+      toast.success("Member removed from organisation");
       queryClient.invalidateQueries({ queryKey: ['org-members', orgId] });
       setRemoveMemberConfirmOpen(false);
     },
     onError: (error: any) => {
-      toast.error("Failed to remove user", {
+      toast.error("Failed to remove member", {
         description: error.response?.data?.message || "Please try again",
       });
     },
@@ -278,6 +324,14 @@ export default function OrganisationDetailPage({
     reactivateMutation.mutate(memberId);
   };
 
+  const handlePromoteMember = (memberId: string) => {
+    promoteMutation.mutate(memberId);
+  };
+
+  const handleDemoteMember = (memberId: string) => {
+    demoteMutation.mutate(memberId);
+  };
+
   const handleRemoveMember = (memberId: string, memberName: string) => {
     setMemberToRemove({ id: memberId, name: memberName });
     setRemoveMemberConfirmOpen(true);
@@ -351,7 +405,7 @@ export default function OrganisationDetailPage({
         open={removeMemberConfirmOpen}
         onOpenChange={setRemoveMemberConfirmOpen}
         title="Remove Member"
-        description={`Are you sure you want to remove "${memberToRemove?.name}" from this organisation? This will soft delete their account and they will no longer have access.`}
+        description={`Are you sure you want to remove "${memberToRemove?.name}" from this organisation? Their account stays intact, but they lose access to this organisation's data.`}
         confirmLabel="Remove"
         cancelLabel="Cancel"
         variant="destructive"
@@ -588,30 +642,36 @@ export default function OrganisationDetailPage({
           </div>
         </div>
 
-        {isSuperAdmin && (
+        {(canEditOrg || canDeactivateOrg || canDeleteOrg) && (
           <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={() => setEditModalOpen(true)}>
-              <Edit className="size-4" />
-              Edit
-            </Button>
-            <Button
-              variant={org.is_active ? "destructive" : "default"}
-              size="sm"
-              onClick={() => setStatusConfirmOpen(true)}
-              disabled={toggleStatusMutation.isPending}
-            >
-              <Power className="size-4" />
-              {org.is_active ? "Deactivate" : "Activate"}
-            </Button>
-            <Button
-              variant="destructive"
-              size="sm"
-              onClick={() => setDeleteOrgConfirmOpen(true)}
-              disabled={deleteOrgMutation.isPending}
-            >
-              <Trash2 className="size-4" />
-              Delete
-            </Button>
+            {canEditOrg && (
+              <Button variant="outline" size="sm" onClick={() => setEditModalOpen(true)}>
+                <Edit className="size-4" />
+                Edit
+              </Button>
+            )}
+            {canDeactivateOrg && (
+              <Button
+                variant={org.is_active ? "destructive" : "default"}
+                size="sm"
+                onClick={() => setStatusConfirmOpen(true)}
+                disabled={toggleStatusMutation.isPending}
+              >
+                <Power className="size-4" />
+                {org.is_active ? "Deactivate" : "Activate"}
+              </Button>
+            )}
+            {canDeleteOrg && (
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={() => setDeleteOrgConfirmOpen(true)}
+                disabled={deleteOrgMutation.isPending}
+              >
+                <Trash2 className="size-4" />
+                Delete
+              </Button>
+            )}
           </div>
         )}
       </div>
@@ -743,7 +803,7 @@ export default function OrganisationDetailPage({
         </CardContent>
       </Card>
 
-      <OrganisationAgreementCard org={org} orgId={orgId!} slug={slug} />
+      <OrganisationAgreementCard org={org} orgId={orgId!} slug={slug} canManage={canManageAgreement} />
 
       {/* Tabs */}
       <Tabs defaultValue="members" className="space-y-6">
@@ -777,10 +837,12 @@ export default function OrganisationDetailPage({
             <p className="text-sm text-muted-foreground">
               Manage organization members and their roles
             </p>
-            <Button size="sm" onClick={() => setInviteModalOpen(true)}>
-              <UserPlus className="size-4" />
-              Invite Member
-            </Button>
+            {canInvite && (
+              <Button size="sm" onClick={() => setInviteModalOpen(true)}>
+                <UserPlus className="size-4" />
+                Invite Member
+              </Button>
+            )}
           </div>
 
           <Card>
@@ -844,6 +906,24 @@ export default function OrganisationDetailPage({
                                 <UserCog className="size-4 mr-2" />
                                 View Details
                               </DropdownMenuItem>
+                              {canPromote && member.role === 'contributor' && (
+                                <DropdownMenuItem
+                                  onClick={() => handlePromoteMember(member.id)}
+                                  disabled={promoteMutation.isPending}
+                                >
+                                  <ShieldCheck className="size-4 mr-2" />
+                                  {promoteMutation.isPending ? 'Promoting...' : 'Promote to Org Admin'}
+                                </DropdownMenuItem>
+                              )}
+                              {canDemote && member.role === 'admin' && (
+                                <DropdownMenuItem
+                                  onClick={() => handleDemoteMember(member.id)}
+                                  disabled={demoteMutation.isPending}
+                                >
+                                  <UserCog className="size-4 mr-2" />
+                                  {demoteMutation.isPending ? 'Demoting...' : 'Demote to Contributor'}
+                                </DropdownMenuItem>
+                              )}
                               {member.status === 'active' ? (
                                 <DropdownMenuItem
                                   onClick={() => handleDeactivateMember(member.id)}
@@ -863,14 +943,16 @@ export default function OrganisationDetailPage({
                                   {reactivateMutation.isPending ? 'Reactivating...' : 'Reactivate'}
                                 </DropdownMenuItem>
                               )}
-                              <DropdownMenuItem
-                                onClick={() => handleRemoveMember(member.id, `${member.first_name} ${member.last_name}`)}
-                                className="text-destructive"
-                                disabled={removeUserMutation.isPending}
-                              >
-                                <Trash2 className="size-4 mr-2" />
-                                {removeUserMutation.isPending ? 'Removing...' : 'Remove'}
-                              </DropdownMenuItem>
+                              {canRemoveMember && (
+                                <DropdownMenuItem
+                                  onClick={() => handleRemoveMember(member.id, `${member.first_name} ${member.last_name}`)}
+                                  className="text-destructive"
+                                  disabled={removeUserMutation.isPending}
+                                >
+                                  <Trash2 className="size-4 mr-2" />
+                                  {removeUserMutation.isPending ? 'Removing...' : 'Remove'}
+                                </DropdownMenuItem>
+                              )}
                             </DropdownMenuContent>
                           </DropdownMenu>
                         </td>
@@ -889,10 +971,12 @@ export default function OrganisationDetailPage({
             <p className="text-sm text-muted-foreground">
               Track and manage pending invitations
             </p>
-            <Button size="sm" onClick={() => setInviteModalOpen(true)}>
-              <UserPlus className="size-4" />
-              Send New Invite
-            </Button>
+            {canInvite && (
+              <Button size="sm" onClick={() => setInviteModalOpen(true)}>
+                <UserPlus className="size-4" />
+                Send New Invite
+              </Button>
+            )}
           </div>
 
           <Card>
@@ -974,21 +1058,25 @@ export default function OrganisationDetailPage({
                                   <MoreVertical className="size-4" />
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent align="end">
-                                  <DropdownMenuItem
-                                    onClick={() => resendMutation.mutate(invite.id)}
-                                    disabled={resendMutation.isPending}
-                                  >
-                                    <RefreshCw className="size-4 mr-2" />
-                                    Resend Invite
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem
-                                    onClick={() => revokeMutation.mutate(invite.id)}
-                                    disabled={revokeMutation.isPending}
-                                    className="text-destructive"
-                                  >
-                                    <XCircle className="size-4 mr-2" />
-                                    Revoke
-                                  </DropdownMenuItem>
+                                  {canInvite && (
+                                    <DropdownMenuItem
+                                      onClick={() => resendMutation.mutate(invite.id)}
+                                      disabled={resendMutation.isPending}
+                                    >
+                                      <RefreshCw className="size-4 mr-2" />
+                                      Resend Invite
+                                    </DropdownMenuItem>
+                                  )}
+                                  {canInvite && (
+                                    <DropdownMenuItem
+                                      onClick={() => revokeMutation.mutate(invite.id)}
+                                      disabled={revokeMutation.isPending}
+                                      className="text-destructive"
+                                    >
+                                      <XCircle className="size-4 mr-2" />
+                                      Revoke
+                                    </DropdownMenuItem>
+                                  )}
                                   <DropdownMenuItem
                                     onClick={() => deleteInviteMutation.mutate(invite.id)}
                                     disabled={deleteInviteMutation.isPending}
@@ -1028,12 +1116,14 @@ export default function OrganisationDetailPage({
             <p className="text-sm text-muted-foreground">
               Datasets published by this organization
             </p>
-            <Link href={`/upload?orgId=${orgId}`}>
-              <Button size="sm">
-                <Upload className="size-4" />
-                Upload Dataset
-              </Button>
-            </Link>
+            {canUploadDataset && (
+              <Link href={`/upload?orgId=${orgId}`}>
+                <Button size="sm">
+                  <Upload className="size-4" />
+                  Upload Dataset
+                </Button>
+              </Link>
+            )}
           </div>
 
           <Card>
@@ -1086,21 +1176,25 @@ export default function OrganisationDetailPage({
                                 <ExternalLink className="size-4 mr-2" />
                                 View Details
                               </DropdownMenuItem>
-                              <DropdownMenuItem
-                                onClick={() => handleArchiveDataset(dataset.slug, dataset.title)}
-                                disabled={archiveDatasetMutation.isPending || dataset.status === 'archived'}
-                              >
-                                <Archive className="size-4 mr-2" />
-                                {archiveDatasetMutation.isPending ? 'Archiving...' : 'Archive'}
-                              </DropdownMenuItem>
-                              <DropdownMenuItem
-                                onClick={() => handleDeleteDataset(dataset.slug, dataset.title)}
-                                disabled={deleteDatasetMutation.isPending}
-                                className="text-destructive"
-                              >
-                                <Trash2 className="size-4 mr-2" />
-                                {deleteDatasetMutation.isPending ? 'Deleting...' : 'Delete'}
-                              </DropdownMenuItem>
+                              {canArchiveDataset && (
+                                <DropdownMenuItem
+                                  onClick={() => handleArchiveDataset(dataset.slug, dataset.title)}
+                                  disabled={archiveDatasetMutation.isPending || dataset.status === 'archived'}
+                                >
+                                  <Archive className="size-4 mr-2" />
+                                  {archiveDatasetMutation.isPending ? 'Archiving...' : 'Archive'}
+                                </DropdownMenuItem>
+                              )}
+                              {canDeleteDataset && (
+                                <DropdownMenuItem
+                                  onClick={() => handleDeleteDataset(dataset.slug, dataset.title)}
+                                  disabled={deleteDatasetMutation.isPending}
+                                  className="text-destructive"
+                                >
+                                  <Trash2 className="size-4 mr-2" />
+                                  {deleteDatasetMutation.isPending ? 'Deleting...' : 'Delete'}
+                                </DropdownMenuItem>
+                              )}
                             </DropdownMenuContent>
                           </DropdownMenu>
                         </td>

@@ -1,16 +1,26 @@
 "use client";
 
 import { useState } from "react";
-import { X } from "lucide-react";
+import { X, Database, Building2, Users, FolderKanban, UserCheck } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import type { PermissionGroup, PermissionActionKey } from "@/lib/api/permissions";
-import { PERMISSION_ACTION_LABELS, PERMISSION_ACTION_DESCRIPTIONS } from "@/types/permissions";
+import {
+  PERMISSION_ACTION_LABELS,
+  PERMISSION_ACTION_DESCRIPTIONS,
+  PERMISSION_ACTION_GROUPS,
+} from "@/types/permissions";
 
-const ALL_ACTIONS = Object.keys(PERMISSION_ACTION_LABELS) as PermissionActionKey[];
+const GROUP_ICONS: Record<string, typeof Database> = {
+  Datasets: Database,
+  Organisations: Building2,
+  Users: Users,
+  Programmes: FolderKanban,
+  "Access Requests": UserCheck,
+};
 
 interface PermissionGroupFormProps {
   initial?: PermissionGroup;
@@ -90,22 +100,36 @@ export function PermissionGroupForm({ initial, onSave, onCancel, isSaving }: Per
             <p className="text-xs text-muted-foreground mb-3">
               Grant atomic permissions now, or skip this and delegate later from this group&apos;s card.
             </p>
-            <div className="rounded-lg border bg-muted/30 p-4 space-y-3">
-              {ALL_ACTIONS.map((action) => (
-                <label key={action} className="flex items-start gap-3 cursor-pointer">
-                  <Checkbox
-                    checked={selectedActions.has(action)}
-                    onCheckedChange={() => toggleAction(action)}
-                    className="mt-0.5"
-                  />
-                  <div>
-                    <p className="text-sm font-medium">{PERMISSION_ACTION_LABELS[action]}</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      {PERMISSION_ACTION_DESCRIPTIONS[action]}
+            <div className="rounded-lg border bg-muted/30 p-4 space-y-5">
+              {PERMISSION_ACTION_GROUPS.map((group, groupIndex) => {
+                const GroupIcon = GROUP_ICONS[group.label];
+                return (
+                  <div
+                    key={group.label}
+                    className={groupIndex > 0 ? "space-y-3 border-t pt-4" : "space-y-3"}
+                  >
+                    <p className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground/80">
+                      {GroupIcon && <GroupIcon className="size-3.5" />}
+                      {group.label}
                     </p>
+                    {group.actions.map((action) => (
+                      <label key={action} className="flex items-start gap-3 cursor-pointer">
+                        <Checkbox
+                          checked={selectedActions.has(action)}
+                          onCheckedChange={() => toggleAction(action)}
+                          className="mt-0.5"
+                        />
+                        <div>
+                          <p className="text-sm font-medium">{PERMISSION_ACTION_LABELS[action]}</p>
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            {PERMISSION_ACTION_DESCRIPTIONS[action]}
+                          </p>
+                        </div>
+                      </label>
+                    ))}
                   </div>
-                </label>
-              ))}
+                );
+              })}
             </div>
           </div>
         )}

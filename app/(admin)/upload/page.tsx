@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { FileText, Upload, Settings, X } from "lucide-react";
+import { FileText, Upload, Settings, X, Lock } from "lucide-react";
 import { Stepper } from "@/components/forms/stepper";
 import { FileUploadArea, type UploadedFile } from "@/components/forms/file-upload-area";
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,9 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
+import { EmptyState } from "@/components/feedback/empty-state";
+import { useAuth } from "@/lib/auth";
+import { usePermissions } from "@/lib/hooks/usePermissions";
 import {
   Select,
   SelectContent,
@@ -47,6 +50,10 @@ export default function AdminUploadDatasetPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const presetOrgId = searchParams.get("orgId") ?? undefined;
+  const { user } = useAuth();
+  const { hasPermission, isLoading: permissionsLoading } = usePermissions();
+  const isSuperAdmin = user?.role === "super_admin";
+  const canUpload = isSuperAdmin || hasPermission("create:datasets");
   const { toast } = useToast();
   const createMutation = useCreateDataset();
   const { data: orgsData } = useOrganisations(1, 200);
@@ -137,6 +144,16 @@ export default function AdminUploadDatasetPage() {
       setSaving(false);
     }
   };
+
+  if (!permissionsLoading && !canUpload) {
+    return (
+      <EmptyState
+        icon={Lock}
+        title="Access restricted"
+        description="Uploading a dataset requires create:datasets. Ask a super_admin to grant your group this permission."
+      />
+    );
+  }
 
   return (
     <div className="space-y-6">
