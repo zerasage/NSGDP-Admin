@@ -13,13 +13,16 @@ export type PermissionActionKey =
   | 'approve:datasets'
   | 'publish:datasets'
   | 'archive:datasets'
-  | 'manage:users'
+  | 'invite:users'          // Split from manage:users
+  | 'deactivate:users'      // Split from manage:users
+  | 'promote:org-admin'     // Split from manage:users - powerful, delegatable
   | 'view:restricted'
   | 'download:restricted'
   | 'create:programs'
   | 'edit:programs'
   | 'delete:programs'
-  | 'upload:programs';
+  | 'upload:programs'
+  | 'approve:access-requests';
 
 export interface PermissionGroup {
   id: string;
@@ -135,4 +138,15 @@ export async function grantPermission(
 
 export async function revokePermission(groupId: string, grantId: string): Promise<void> {
   await apiClient.delete(`/admin/permission-groups/${groupId}/grants/${grantId}`);
+}
+
+/**
+ * Get the current user's delegated permissions
+ * Returns the list of permission action keys the user has access to
+ */
+export async function getUserPermissions(): Promise<PermissionActionKey[]> {
+  // Matches PermissionsController's actual @Controller('admin/permission-groups')
+  // base path — 'admin/permissions/me' was never a registered route (404).
+  const response = await apiClient.get<ApiResponse<PermissionActionKey[]>>('/admin/permission-groups/me');
+  return response.data.data;
 }

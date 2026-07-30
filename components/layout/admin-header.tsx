@@ -100,6 +100,7 @@ export function AdminSidebarBrand() {
 
   const roleLabels: Record<string, string> = {
     super_admin: "Super Admin",
+    staff: "Agency Staff",
     admin: "Org Admin",
     contributor: "Contributor",
     registered: "Registered User",
@@ -107,6 +108,12 @@ export function AdminSidebarBrand() {
   };
 
   const roleLabel = user?.role ? roleLabels[user.role] : "Admin";
+  // Staff's identity IS their group — no group means zero capability, so
+  // surface that plainly rather than just repeating "Agency Staff".
+  const subtitle =
+    user?.role === "staff"
+      ? user.groupName ?? "No permission group — no capability"
+      : roleLabel;
 
   return (
     <div className="mb-6 space-y-3 border-b border-border pb-5 px-1">
@@ -122,7 +129,7 @@ export function AdminSidebarBrand() {
             <p className="truncate text-sm font-medium text-foreground">
               {user.firstName} {user.lastName}
             </p>
-            <p className="truncate text-xs text-muted-foreground">{roleLabel}</p>
+            <p className="truncate text-xs text-muted-foreground">{subtitle}</p>
           </div>
         </div>
       )}

@@ -38,6 +38,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/lib/hooks/use-toast";
+import { useAuth } from "@/lib/auth";
+import { usePermissions } from "@/lib/hooks/usePermissions";
 import {
   useAccessRequests,
   useApproveAccessRequest,
@@ -55,6 +57,9 @@ const STATUS_BADGE: Record<AccessRequestStatus, string> = {
 
 export default function AccessRequestsPage() {
   const { toast } = useToast();
+  const { user } = useAuth();
+  const { hasPermission } = usePermissions();
+  const canAdjudicate = user?.role === "super_admin" || hasPermission("approve:access-requests");
   const [status, setStatus] = useState<AccessRequestStatus | "all">("pending");
   const [denyTarget, setDenyTarget] = useState<AccessRequest | null>(null);
   const [comment, setComment] = useState("");
@@ -186,25 +191,31 @@ export default function AccessRequestsPage() {
                     </TableCell>
                     <TableCell className="text-right">
                       {request.status === "pending" ? (
-                        <div className="flex justify-end gap-2">
-                          <Button
-                            size="sm"
-                            onClick={() => handleApprove(request.id)}
-                            disabled={approveMutation.isPending}
-                          >
-                            <CheckCircle2 className="size-3.5 mr-1" />
-                            Approve
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="destructive"
-                            onClick={() => setDenyTarget(request)}
-                            disabled={denyMutation.isPending}
-                          >
-                            <XCircle className="size-3.5 mr-1" />
-                            Deny
-                          </Button>
-                        </div>
+                        canAdjudicate ? (
+                          <div className="flex justify-end gap-2">
+                            <Button
+                              size="sm"
+                              onClick={() => handleApprove(request.id)}
+                              disabled={approveMutation.isPending}
+                            >
+                              <CheckCircle2 className="size-3.5 mr-1" />
+                              Approve
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="destructive"
+                              onClick={() => setDenyTarget(request)}
+                              disabled={denyMutation.isPending}
+                            >
+                              <XCircle className="size-3.5 mr-1" />
+                              Deny
+                            </Button>
+                          </div>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">
+                            Requires approve:access-requests
+                          </span>
+                        )
                       ) : (
                         <span className="text-xs text-muted-foreground">
                           {request.review_comment || "—"}

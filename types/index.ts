@@ -5,6 +5,7 @@ export type UserRole =
   | "registered"    // Authenticated user (can browse/download)
   | "contributor"   // Can upload/submit datasets
   | "admin"         // Organization/Repository administrator
+  | "staff"         // Agency staff — admin-portal only, capability via permission group
   | "super_admin";  // Full system access + delegation
 
 export type Visibility = "public" | "restricted" | "private";

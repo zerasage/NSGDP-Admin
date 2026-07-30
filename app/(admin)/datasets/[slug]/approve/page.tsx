@@ -3,14 +3,17 @@
 import { use, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, Globe, Loader2, XCircle } from "lucide-react";
+import { ArrowLeft, Globe, Loader2, Lock, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Textarea } from "@/components/ui/textarea";
+import { EmptyState } from "@/components/feedback/empty-state";
 import { apiClient } from "@/lib/api/client";
 import { useToast } from "@/lib/hooks/use-toast";
+import { useAuth } from "@/lib/auth";
+import { usePermissions } from "@/lib/hooks/usePermissions";
 import { useDatasetReview } from "@/lib/hooks/useDatasetReview";
 import { ApprovalPipeline } from "@/components/admin/approval-pipeline";
 import { LifecycleBadge } from "@/components/data/lifecycle-badge";
@@ -31,6 +34,9 @@ export default function DatasetApproveScreenPage({
   const { slug } = use(params);
   const router = useRouter();
   const { toast } = useToast();
+  const { user } = useAuth();
+  const { hasPermission } = usePermissions();
+  const canApprove = user?.role === "super_admin" || hasPermission("approve:datasets");
   const [showReject, setShowReject] = useState(false);
   const [rejectReason, setRejectReason] = useState("");
 
@@ -87,6 +93,16 @@ export default function DatasetApproveScreenPage({
       }
     );
   };
+
+  if (!canApprove) {
+    return (
+      <EmptyState
+        icon={Lock}
+        title="Access restricted"
+        description="Approving or rejecting datasets requires the approve:datasets permission. Ask a super_admin to grant your group this permission."
+      />
+    );
+  }
 
   if (isLoading) {
     return <Skeleton className="h-64" />;

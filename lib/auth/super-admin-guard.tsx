@@ -4,12 +4,19 @@ import { useAuth } from "@/lib/auth";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 
+// Admin portal is shared by two principal types: super_admin (full access)
+// and staff (capability entirely from their permission group). Neither has
+// any business outside this app, but both belong inside it.
+function isAdminPortalRole(role: string | undefined): boolean {
+  return role === "super_admin" || role === "staff";
+}
+
 export function SuperAdminGuard({ children }: { children: React.ReactNode }) {
   const { user, isLoading } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
-    if (!isLoading && (!user || user.role !== "super_admin")) {
+    if (!isLoading && !isAdminPortalRole(user?.role)) {
       router.push("/login");
     }
   }, [user, isLoading, router]);
@@ -25,7 +32,7 @@ export function SuperAdminGuard({ children }: { children: React.ReactNode }) {
     );
   }
 
-  if (!user || user.role !== "super_admin") {
+  if (!isAdminPortalRole(user?.role)) {
     return null;
   }
 

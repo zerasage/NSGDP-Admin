@@ -11,9 +11,9 @@ export default function AdminLayout({
     <SuperAdminGuard>
       <div className="flex min-h-screen bg-background">
         <AdminSidebar />
-        <div className="flex-1 flex flex-col lg:pl-64">
+        <div className="flex-1 flex flex-col lg:pl-64 min-w-0">
           <AdminHeader />
-          <main className="flex-1 p-6 lg:p-8 bg-muted/30">
+          <main className="flex-1 p-6 lg:p-8 bg-muted/30 min-w-0">
             {children}
           </main>
         </div>

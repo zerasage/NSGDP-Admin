@@ -5,6 +5,7 @@ import {
   getUserById,
   updateUserRole,
   updateUserStatus,
+  deactivateUserDelegated,
   getReviewQueue,
   approveDataset,
   rejectDataset,
@@ -24,11 +25,12 @@ import {
 /**
  * Hook to fetch users with filters and pagination
  */
-export function useUsers(params?: UserListParams) {
+export function useUsers(params?: UserListParams, enabled: boolean = true) {
   return useQuery({
     queryKey: ['admin-users', params],
     queryFn: () => getUsers(params),
     staleTime: 2 * 60 * 1000, // 2 minutes
+    enabled,
   });
 }
 
@@ -81,6 +83,25 @@ export function useUpdateUserStatus() {
   return useMutation({
     mutationFn: ({ userId, data }: { userId: string; data: UpdateUserStatusDto }) =>
       updateUserStatus(userId, data),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['admin-user', variables.userId] });
+      queryClient.invalidateQueries({ queryKey: ['admin-users'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-user-stats'] });
+    },
+  });
+}
+
+/**
+ * Hook to suspend a user via the delegatable endpoint (super_admin or staff
+ * with deactivate:users). Use this instead of useUpdateUserStatus wherever
+ * the actor might be staff — the status endpoint has no delegation path.
+ */
+export function useDeactivateUserDelegated() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ userId, reason }: { userId: string; reason?: string }) =>
+      deactivateUserDelegated(userId, reason),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['admin-user', variables.userId] });
       queryClient.invalidateQueries({ queryKey: ['admin-users'] });

@@ -161,7 +161,9 @@ export async function updateUserRole(
 }
 
 /**
- * Update user status (activate, suspend, archive)
+ * Update user status (activate, suspend, archive) — super_admin/admin only,
+ * no delegated-permission path. Use deactivateUserDelegated for the
+ * staff-reachable suspend action.
  */
 export async function updateUserStatus(
   userId: string,
@@ -172,6 +174,21 @@ export async function updateUserStatus(
     data
   );
   return response.data.data;
+}
+
+/**
+ * Suspend a user account via the delegatable endpoint — reachable by
+ * super_admin or staff holding the deactivate:users permission. One-directional
+ * (always suspends); there is no delegated "reactivate" or "approve" action.
+ */
+export async function deactivateUserDelegated(
+  userId: string,
+  reason?: string
+): Promise<void> {
+  await apiClient.post<ApiResponse<{ message: string }>>(
+    `/admin/users/${userId}/deactivate`,
+    reason ? { reason } : {}
+  );
 }
 
 /**

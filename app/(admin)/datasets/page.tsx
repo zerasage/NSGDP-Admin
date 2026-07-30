@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Search, Archive, Eye, Globe } from 'lucide-react';
+import { Search, Archive, Eye, Globe, Lock } from 'lucide-react';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -11,7 +11,10 @@ import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { StatusBadge } from '@/components/data/status-badge';
 import { AgeBadge } from '@/components/data/age-badge';
 import { TableRowSkeleton } from '@/components/feedback/skeletons';
+import { EmptyState } from '@/components/feedback/empty-state';
 import { useToast } from '@/lib/hooks/use-toast';
+import { useAuth } from '@/lib/auth';
+import { usePermissions } from '@/lib/hooks/usePermissions';
 import { adminApi, archiveDataset, publishDataset } from '@/lib/api/admin';
 import type { DatasetStatus } from '@/lib/api/datasets';
 import { cn } from '@/lib/utils';
@@ -52,6 +55,13 @@ const TABS: Array<{ key: DatasetStatus | 'all'; label: string }> = [
 export default function DatasetsReviewPage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { user } = useAuth();
+  const { hasPermission, hasAnyPermission, isLoading: permissionsLoading } = usePermissions();
+  const isSuperAdmin = user?.role === 'super_admin';
+  const canViewQueue = isSuperAdmin || hasAnyPermission('approve:datasets', 'publish:datasets');
+  const canPublish = isSuperAdmin || hasPermission('publish:datasets');
+  const canArchive = isSuperAdmin || hasPermission('archive:datasets');
+
   const [tab, setTab] = useState<DatasetStatus | 'all'>('all');
   const [query, setQuery] = useState('');
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -87,6 +97,7 @@ export default function DatasetsReviewPage() {
 
   const { data, isLoading } = useQuery({
     queryKey: ['admin', 'datasets', 'queue', tab, query],
+    enabled: canViewQueue,
     queryFn: async () => {
       const params = new URLSearchParams({ page: '1', limit: '100' });
       if (query) params.append('search', query);
@@ -125,6 +136,16 @@ export default function DatasetsReviewPage() {
       return next;
     });
   };
+
+  if (!permissionsLoading && !canViewQueue) {
+    return (
+      <EmptyState
+        icon={Lock}
+        title="Access restricted"
+        description="Viewing the review queue requires approve:datasets or publish:datasets. Ask a super_admin to grant your group one of these."
+      />
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -231,7 +252,7 @@ export default function DatasetsReviewPage() {
                           <Eye className="size-3.5 mr-1" />
                           {dataset.status === 'pending' || dataset.status === 'under_review' ? 'Review' : 'View'}
                         </Link>
-                        {dataset.status === 'approved' && !dataset.published_at && (
+                        {dataset.status === 'approved' && !dataset.published_at && canPublish && (
                           <Button
                             size="sm"
                             variant="outline"
@@ -243,14 +264,16 @@ export default function DatasetsReviewPage() {
                             Publish
                           </Button>
                         )}
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => setArchiveTarget(dataset)}
-                          aria-label={`Archive ${dataset.title}`}
-                        >
-                          <Archive className="size-3.5" />
-                        </Button>
+                        {canArchive && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => setArchiveTarget(dataset)}
+                            aria-label={`Archive ${dataset.title}`}
+                          >
+                            <Archive className="size-3.5" />
+                          </Button>
+                        )}
                       </div>
                     </td>
                   </tr>
