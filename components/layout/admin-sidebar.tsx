@@ -16,6 +16,7 @@ import {
   Bell,
   LogOut,
   UserCog,
+  Upload,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { AdminPortalLinks, AdminSidebarBrand } from "@/components/layout/admin-header";
@@ -38,6 +39,7 @@ export const adminNavItems: Array<{
 }> = [
   { href: "/", label: "Platform Dashboard", icon: LayoutDashboard, exact: true },
   { href: "/datasets", label: "Review Queue", icon: FileCheck, anyPermission: ["approve:datasets", "publish:datasets"] },
+  { href: "/upload?agency=1", label: "Upload to Agency", icon: Upload, anyPermission: ["create:datasets"] },
   { href: "/organisations", label: "Organisations", icon: Building2 },
   { href: "/users", label: "All Users", icon: Users, anyPermission: ["invite:users", "promote:org-admin", "demote:org-admin", "remove:org-members"] },
   { href: "/staff", label: "Agency Staff", icon: UserCog, superAdminOnly: true },
@@ -64,7 +66,8 @@ function AdminNavLinks({ onNavigate }: { onNavigate?: () => void }) {
           return true;
         })
         .map(({ href, label, icon: Icon, exact }) => {
-        const active = exact ? pathname === href : pathname.startsWith(href);
+        const hrefPath = href.split("?")[0];
+        const active = exact ? pathname === hrefPath : pathname.startsWith(hrefPath);
         return (
           <Link
             key={href}
