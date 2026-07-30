@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Download, Lock } from "lucide-react";
+import { Download, Lock, Search } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { usePermissions } from "@/lib/hooks/usePermissions";
 import { useUsers, useUpdateUserStatus, useDeactivateUserDelegated } from "@/lib/hooks/useAdmin";
@@ -10,6 +10,7 @@ import { adminApi, type AdminUser } from "@/lib/api/admin";
 import { RoleBadge } from "@/components/data/role-badge";
 import { EmptyState } from "@/components/feedback/empty-state";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -24,6 +25,14 @@ import { cn } from "@/lib/utils";
 import { formatDate } from "@/lib/utils/date";
 import { toast } from "sonner";
 
+const STATUS_TABS: Array<{ key: string; label: string }> = [
+  { key: "all", label: "All" },
+  { key: "pending", label: "Pending" },
+  { key: "active", label: "Active" },
+  { key: "suspended", label: "Suspended" },
+  { key: "archived", label: "Archived" },
+];
+
 export default function AdminUsersPage() {
   const { user } = useAuth();
   const { hasAnyPermission, isLoading: permissionsLoading } = usePermissions();
@@ -36,17 +45,28 @@ export default function AdminUsersPage() {
 
   const [roleFilter, setRoleFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [query, setQuery] = useState("");
+  const [debouncedQuery, setDebouncedQuery] = useState("");
   const [suspendTarget, setSuspendTarget] = useState<AdminUser | null>(null);
+
+  // Debounce the search box so we're not firing a new request per keystroke
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedQuery(query), 300);
+    return () => clearTimeout(timer);
+  }, [query]);
 
   // Super admin sees all users
   const isOrgScoped = false; // Admin portal is super_admin only
   const orgId = undefined;
 
-  // Fetch users from real API
+  // Fetch users from real API — role/status/search are all server-side filters
   const { data: usersData, isLoading } = useUsers({
     page: 1,
     limit: 100,
     organisationId: isOrgScoped ? orgId : undefined,
+    role: roleFilter !== "all" ? roleFilter : undefined,
+    status: statusFilter !== "all" ? statusFilter : undefined,
+    search: debouncedQuery || undefined,
   }, canViewUsers);
 
   const updateStatusMutation = useUpdateUserStatus();
@@ -68,11 +88,8 @@ export default function AdminUsersPage() {
     return usersData?.data || [];
   }, [usersData]);
 
-  const filtered = users.filter((u) => {
-    if (roleFilter !== "all" && u.role !== roleFilter) return false;
-    if (statusFilter !== "all" && u.status !== statusFilter) return false;
-    return true;
-  });
+  // Role/status/search are already applied server-side above.
+  const filtered = users;
 
   const exportCsv = () => {
     if (filtered.length === 0) {
@@ -184,7 +201,29 @@ export default function AdminUsersPage() {
         </div>
       )}
 
+      <div className="flex flex-wrap gap-2">
+        {STATUS_TABS.map((t) => (
+          <Button
+            key={t.key}
+            variant={statusFilter === t.key ? "default" : "outline"}
+            size="sm"
+            onClick={() => setStatusFilter(t.key)}
+          >
+            {t.label}
+          </Button>
+        ))}
+      </div>
+
       <div className="flex flex-wrap gap-3">
+        <div className="relative max-w-sm flex-1 min-w-[200px]">
+          <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            placeholder="Search by name or email…"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            className="pl-9"
+          />
+        </div>
         <Select value={roleFilter} onValueChange={(v) => v && setRoleFilter(v)}>
           <SelectTrigger className="w-48"><SelectValue placeholder="Filter by role" /></SelectTrigger>
           <SelectContent>
@@ -194,16 +233,6 @@ export default function AdminUsersPage() {
             <SelectItem value="contributor">Contributor</SelectItem>
             <SelectItem value="admin">Org Admin</SelectItem>
             <SelectItem value="super_admin">Super Admin</SelectItem>
-          </SelectContent>
-        </Select>
-        <Select value={statusFilter} onValueChange={(v) => v && setStatusFilter(v)}>
-          <SelectTrigger className="w-40"><SelectValue placeholder="Status" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All statuses</SelectItem>
-            <SelectItem value="pending">Pending</SelectItem>
-            <SelectItem value="active">Active</SelectItem>
-            <SelectItem value="suspended">Suspended</SelectItem>
-            <SelectItem value="archived">Archived</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -222,9 +251,17 @@ export default function AdminUsersPage() {
             </tr>
           </thead>
           <tbody>
-            {isLoading
-              ? [...Array(5)].map((_, i) => <TableRowSkeleton key={i} cols={7} />)
-              : filtered.map((u) => (
+            {isLoading ? (
+              [...Array(5)].map((_, i) => <TableRowSkeleton key={i} cols={7} />)
+            ) : filtered.length === 0 ? (
+              <tr>
+                <td colSpan={7} className="p-12 text-center text-muted-foreground">
+                  <p className="text-lg">No users found</p>
+                  <p className="text-sm mt-2">No users match your filters</p>
+                </td>
+              </tr>
+            ) : (
+              filtered.map((u) => (
                   <tr key={u.id} className="border-b hover:bg-muted/30">
                     <td className="px-4 py-3 font-medium">{u.first_name} {u.last_name}</td>
                     <td className="px-4 py-3 text-muted-foreground">{u.email}</td>
@@ -269,7 +306,8 @@ export default function AdminUsersPage() {
                       </div>
                     </td>
                   </tr>
-                ))}
+                ))
+            )}
           </tbody>
         </table>
       </div>

@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
-import { KeyRound, CheckCircle2, XCircle, Loader2 } from "lucide-react";
+import { useMemo, useState } from "react";
+import { KeyRound, CheckCircle2, XCircle, Loader2, Search } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   Card,
   CardContent,
@@ -11,13 +12,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import {
   Table,
   TableBody,
@@ -55,12 +49,20 @@ const STATUS_BADGE: Record<AccessRequestStatus, string> = {
   denied: "bg-red-100 text-red-800 border-red-300",
 };
 
+const TABS: Array<{ key: AccessRequestStatus | "all"; label: string }> = [
+  { key: "pending", label: "Pending" },
+  { key: "approved", label: "Approved" },
+  { key: "denied", label: "Denied" },
+  { key: "all", label: "All" },
+];
+
 export default function AccessRequestsPage() {
   const { toast } = useToast();
   const { user } = useAuth();
   const { hasPermission } = usePermissions();
   const canAdjudicate = user?.role === "super_admin" || hasPermission("approve:access-requests");
   const [status, setStatus] = useState<AccessRequestStatus | "all">("pending");
+  const [query, setQuery] = useState("");
   const [denyTarget, setDenyTarget] = useState<AccessRequest | null>(null);
   const [comment, setComment] = useState("");
 
@@ -72,6 +74,20 @@ export default function AccessRequestsPage() {
   const denyMutation = useDenyAccessRequest();
 
   const requests = data?.data ?? [];
+
+  // No backend search param for access requests (list sizes are small
+  // enough that client-side filtering is fine) — match on requester or
+  // dataset.
+  const filteredRequests = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return requests;
+    return requests.filter(
+      (r) =>
+        r.requester_name?.toLowerCase().includes(q) ||
+        r.requester_email?.toLowerCase().includes(q) ||
+        r.dataset_title?.toLowerCase().includes(q)
+    );
+  }, [requests, query]);
 
   const handleApprove = (id: string) => {
     approveMutation.mutate(id, {
@@ -119,25 +135,37 @@ export default function AccessRequestsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2">
-            <KeyRound className="size-5" />
-            Access Requests
-          </h1>
-          <p className="text-muted-foreground mt-1">
-            Requests from users to access restricted datasets
-          </p>
-        </div>
-        <Select value={status} onValueChange={(v) => v && setStatus(v as AccessRequestStatus | "all")}>
-          <SelectTrigger className="w-44"><SelectValue placeholder="Status" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="pending">Pending</SelectItem>
-            <SelectItem value="approved">Approved</SelectItem>
-            <SelectItem value="denied">Denied</SelectItem>
-            <SelectItem value="all">All</SelectItem>
-          </SelectContent>
-        </Select>
+      <div>
+        <h1 className="text-2xl font-bold flex items-center gap-2">
+          <KeyRound className="size-5" />
+          Access Requests
+        </h1>
+        <p className="text-muted-foreground mt-1">
+          Requests from users to access restricted datasets
+        </p>
+      </div>
+
+      <div className="flex flex-wrap gap-2">
+        {TABS.map((t) => (
+          <Button
+            key={t.key}
+            variant={status === t.key ? "default" : "outline"}
+            size="sm"
+            onClick={() => setStatus(t.key)}
+          >
+            {t.label}
+          </Button>
+        ))}
+      </div>
+
+      <div className="relative max-w-sm">
+        <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+        <Input
+          placeholder="Search by requester or dataset…"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          className="pl-9"
+        />
       </div>
 
       <Card>
@@ -154,9 +182,11 @@ export default function AccessRequestsPage() {
               <Skeleton className="h-10" />
               <Skeleton className="h-10" />
             </div>
-          ) : requests.length === 0 ? (
+          ) : filteredRequests.length === 0 ? (
             <p className="text-sm text-muted-foreground py-8 text-center">
-              No {status !== "all" ? status : ""} access requests.
+              {query
+                ? "No access requests match your search."
+                : `No ${status !== "all" ? status : ""} access requests.`}
             </p>
           ) : (
             <Table>
@@ -171,7 +201,7 @@ export default function AccessRequestsPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {requests.map((request) => (
+                {filteredRequests.map((request) => (
                   <TableRow key={request.id}>
                     <TableCell>
                       <div className="font-medium">{request.requester_name || "—"}</div>

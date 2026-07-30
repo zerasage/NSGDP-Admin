@@ -38,10 +38,16 @@ import { usePermissions } from "@/lib/hooks/usePermissions";
 import { DatasetPreviewCard } from "@/components/data/dataset-preview-card";
 import { formatDate } from "@/lib/utils/date";
 
-function formatFileSize(bytes: number | null): string {
-  if (!bytes) return "—";
+function formatFileSize(bytes: number | string | null): string {
+  // file_size is a Postgres bigint column — pg/TypeORM return bigint values
+  // as strings at runtime (to avoid precision loss past Number.MAX_SAFE_INTEGER),
+  // regardless of what the TS type says. Files under 1024 bytes never hit the
+  // division below, so the string never gets coerced to a number, and
+  // value.toFixed() throws.
+  const numBytes = Number(bytes);
+  if (!numBytes) return "—";
   const units = ["B", "KB", "MB", "GB"];
-  let value = bytes;
+  let value = numBytes;
   let unitIndex = 0;
   while (value >= 1024 && unitIndex < units.length - 1) {
     value /= 1024;
