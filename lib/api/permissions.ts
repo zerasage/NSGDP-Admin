@@ -108,6 +108,13 @@ export async function updatePermissionGroup(id: string, payload: UpdatePermissio
   return response.data.data;
 }
 
+export async function deactivatePermissionGroup(id: string): Promise<PermissionGroup> {
+  const response = await apiClient.patch<ApiResponse<PermissionGroup>>(
+    `/admin/permission-groups/${id}/deactivate`
+  );
+  return response.data.data;
+}
+
 export async function deletePermissionGroup(id: string): Promise<void> {
   await apiClient.delete(`/admin/permission-groups/${id}`);
 }
