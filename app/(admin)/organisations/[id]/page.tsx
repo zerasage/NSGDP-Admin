@@ -94,12 +94,9 @@ export default function OrganisationDetailPage({
   const canManageAgreement = isSuperAdmin || hasPermission("manage:organisation-agreements");
   const canInvite = isSuperAdmin || hasPermission("invite:users");
   const canUploadDataset = isSuperAdmin || hasPermission("create:datasets");
-  // archiveDataset (POST /datasets/:slug/archive) is the self-service path —
-  // owner or same-org admin only, no delegation. This admin portal only ever
-  // authenticates super_admin/staff, and staff owns nothing, so only
-  // super_admin can ever succeed here. deleteDataset (DELETE /admin/datasets/:slug)
-  // is the actually-delegatable one, gated by archive:datasets.
-  const canArchiveDataset = isSuperAdmin;
+  // Both archiveDataset (POST /datasets/:slug/archive) and deleteDataset
+  // (DELETE /admin/datasets/:slug) accept a staff archive:datasets grant.
+  const canArchiveDataset = isSuperAdmin || hasPermission("archive:datasets");
   const canDeleteDataset = isSuperAdmin || hasPermission("archive:datasets");
   const [inviteModalOpen, setInviteModalOpen] = useState(false);
   const [selectedMember, setSelectedMember] = useState<any>(null);
