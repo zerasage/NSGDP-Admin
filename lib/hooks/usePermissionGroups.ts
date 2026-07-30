@@ -5,6 +5,7 @@ import {
   getPermissionMatrix,
   createPermissionGroup,
   updatePermissionGroup,
+  deactivatePermissionGroup,
   deletePermissionGroup,
   addGroupMember,
   removeGroupMember,
@@ -57,6 +58,17 @@ export function useUpdatePermissionGroup() {
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['permission-groups'] });
       queryClient.invalidateQueries({ queryKey: ['permission-group', variables.id] });
+    },
+  });
+}
+
+export function useDeactivatePermissionGroup() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => deactivatePermissionGroup(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['permission-groups'] });
+      queryClient.invalidateQueries({ queryKey: ['permission-matrix'] });
     },
   });
 }

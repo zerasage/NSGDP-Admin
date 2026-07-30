@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronDown, ChevronUp, Pencil, Plus, Trash2 } from "lucide-react";
+import { Ban, ChevronDown, ChevronUp, Pencil, Plus, RotateCcw, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -21,6 +21,7 @@ import {
   usePermissionMatrix,
   useCreatePermissionGroup,
   useUpdatePermissionGroup,
+  useDeactivatePermissionGroup,
   useDeletePermissionGroup,
 } from "@/lib/hooks/usePermissionGroups";
 import type { PermissionGroup } from "@/lib/api/permissions";
@@ -33,11 +34,13 @@ export function PermissionGroupsPanel() {
   const { data: matrix } = usePermissionMatrix();
   const createGroup = useCreatePermissionGroup();
   const updateGroup = useUpdatePermissionGroup();
+  const deactivateGroup = useDeactivatePermissionGroup();
   const deleteGroup = useDeletePermissionGroup();
   const { toast } = useToast();
 
   const [formTarget, setFormTarget] = useState<PermissionGroup | "new" | null>(null);
   const [expanded, setExpanded] = useState<string | null>(null);
+  const [pendingDeactivate, setPendingDeactivate] = useState<string | null>(null);
   const [pendingDelete, setPendingDelete] = useState<string | null>(null);
 
   const toggleExpand = (id: string) => setExpanded((prev) => (prev === id ? null : id));
@@ -149,12 +152,41 @@ export function PermissionGroupsPanel() {
                     >
                       <Pencil className="size-4" />
                     </Button>
+                    {group.is_active ? (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="size-8 text-muted-foreground shrink-0"
+                        onClick={() => setPendingDeactivate(group.id)}
+                        aria-label="Deactivate group"
+                        title="Deactivate group"
+                      >
+                        <Ban className="size-4" />
+                      </Button>
+                    ) : (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="size-8 text-muted-foreground shrink-0"
+                        onClick={() =>
+                          updateGroup.mutate(
+                            { id: group.id, payload: { isActive: true } },
+                            { onSuccess: () => toast({ title: "Group reactivated" }) }
+                          )
+                        }
+                        aria-label="Reactivate group"
+                        title="Reactivate group"
+                      >
+                        <RotateCcw className="size-4" />
+                      </Button>
+                    )}
                     <Button
                       variant="ghost"
                       size="icon"
                       className="size-8 text-muted-foreground hover:text-destructive shrink-0"
                       onClick={() => setPendingDelete(group.id)}
                       aria-label="Delete group"
+                      title="Permanently delete group"
                     >
                       <Trash2 className="size-4" />
                     </Button>
@@ -175,17 +207,51 @@ export function PermissionGroupsPanel() {
       )}
 
       <ConfirmDialog
+        open={!!pendingDeactivate}
+        onOpenChange={(open) => !open && setPendingDeactivate(null)}
+        title="Deactivate this group?"
+        description="The group and its delegated permissions will stop applying to its members. You can reactivate it later."
+        confirmLabel="Deactivate"
+        variant="destructive"
+        loading={deactivateGroup.isPending}
+        onConfirm={() => {
+          if (!pendingDeactivate) return;
+          deactivateGroup.mutate(pendingDeactivate, {
+            onSuccess: () => {
+              toast({ title: "Group deactivated" });
+              setPendingDeactivate(null);
+            },
+            onError: (error: unknown) =>
+              toast({
+                title: "Error",
+                description: error instanceof Error ? error.message : undefined,
+                variant: "destructive",
+              }),
+          });
+        }}
+      />
+
+      <ConfirmDialog
         open={!!pendingDelete}
         onOpenChange={(open) => !open && setPendingDelete(null)}
-        title="Deactivate this group?"
-        description="The group and its delegated permissions will stop applying to its members. This can't be undone from here."
-        confirmLabel="Deactivate"
+        title="Permanently delete this group?"
+        description="This removes the group, its members, and its delegated permissions for good. This cannot be undone."
+        confirmLabel="Delete"
         variant="destructive"
         loading={deleteGroup.isPending}
         onConfirm={() => {
           if (!pendingDelete) return;
           deleteGroup.mutate(pendingDelete, {
-            onSuccess: () => toast({ title: "Group deactivated" }),
+            onSuccess: () => {
+              toast({ title: "Group deleted" });
+              setPendingDelete(null);
+            },
+            onError: (error: unknown) =>
+              toast({
+                title: "Can't delete this group",
+                description: error instanceof Error ? error.message : undefined,
+                variant: "destructive",
+              }),
           });
         }}
       />
