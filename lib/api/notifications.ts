@@ -47,6 +47,19 @@ export interface NotificationsResponse {
 }
 
 /**
+ * Convert legacy notification links into routes owned by the standalone admin app.
+ * Older backend notifications included the API's `/admin` prefix, while this
+ * frontend mounts admin pages directly at the root.
+ */
+export function getAdminNotificationHref(link: string | null): string {
+  if (!link) return '/notifications';
+  if (link === '/admin/review-queue' || link === '/review-queue') return '/datasets';
+  if (link === '/admin') return '/';
+  if (link.startsWith('/admin/')) return link.slice('/admin'.length);
+  return link;
+}
+
+/**
  * Get user notifications
  */
 export async function getNotifications(

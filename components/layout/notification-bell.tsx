@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { Bell, CheckCheck } from "lucide-react";
 import { useNotifications, useMarkNotificationAsRead, useMarkAllNotificationsAsRead } from "@/lib/hooks/useNotifications";
-import type { NotificationType } from "@/lib/api/notifications";
+import { getAdminNotificationHref, type NotificationType } from "@/lib/api/notifications";
 import { cn } from "@/lib/utils";
 import { formatDistanceToNow } from "date-fns";
 
@@ -101,7 +101,7 @@ export function NotificationBell() {
                       aria-hidden
                     />
                     <Link
-                      href={n.link ?? "/notifications"}
+                      href={getAdminNotificationHref(n.link)}
                       onClick={() => {
                         if (!n.is_read) markRead.mutate(n.id);
                         setOpen(false);

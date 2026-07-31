@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { Bell, CheckCheck } from "lucide-react";
 import { useNotifications, useMarkNotificationAsRead, useMarkAllNotificationsAsRead } from "@/lib/hooks/useNotifications";
-import type { Notification, NotificationType } from "@/lib/api/notifications";
+import { getAdminNotificationHref, type Notification, type NotificationType } from "@/lib/api/notifications";
 import { Button } from "@/components/ui/button";
 import { Pagination } from "@/components/data/pagination";
 import { formatDateTime } from "@/lib/utils/date";
@@ -129,7 +129,7 @@ export default function NotificationsPage() {
                   aria-hidden
                 />
                 <Link
-                  href={n.link ?? "#"}
+                  href={getAdminNotificationHref(n.link)}
                   onClick={() => handleClick(n)}
                   className="flex-1 min-w-0"
                 >

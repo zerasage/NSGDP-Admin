@@ -1,98 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { ArrowLeft, ExternalLink, Menu, User } from "lucide-react";
+import { ArrowLeft, Bell, ExternalLink, User } from "lucide-react";
 import { GeoHealthLogo } from "@/components/layout/geohealth-logo";
-import { NotificationBell } from "@/components/layout/notification-bell";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
-import { Button, buttonVariants } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth";
-import { cn } from "@/lib/utils";
-
-const SECTION_LABELS: Array<{ href: string; label: string; exact?: boolean }> = [
-  { href: "/", label: "Dashboard", exact: true },
-  { href: "/datasets", label: "Review Queue" },
-  { href: "/users", label: "Users" },
-  { href: "/permission-groups", label: "Permission Groups" },
-  { href: "/organisations", label: "Organisations" },
-  { href: "/access-requests", label: "Access Requests" },
-  { href: "/analytics", label: "Analytics" },
-  { href: "/audit-logs", label: "Audit Log" },
-  { href: "/notifications", label: "Notifications" },
-];
-
-function getSectionLabel(pathname: string): string {
-  if (pathname.includes("/datasets/") && pathname.includes("/review")) {
-    return "Dataset Review";
-  }
-  if (pathname.includes("/datasets/") && pathname.includes("/approve")) {
-    return "Dataset Approval";
-  }
-
-  const match = SECTION_LABELS.find(({ href, exact }) =>
-    exact ? pathname === href : pathname.startsWith(href)
-  );
-  return match?.label ?? "Admin";
-}
-
-interface AdminHeaderProps {
-  onMenuClick?: () => void;
-  menuOpen?: boolean;
-  className?: string;
-}
-
-export function AdminHeader({ onMenuClick, menuOpen, className }: AdminHeaderProps) {
-  const pathname = usePathname();
-  const { isAuthenticated } = useAuth();
-  const sectionLabel = getSectionLabel(pathname);
-
-  return (
-    <header
-      className={cn(
-        "sticky top-0 z-30 flex h-14 shrink-0 items-center gap-3 border-b bg-background/95 px-4 backdrop-blur supports-[backdrop-filter]:bg-background/80 sm:px-6",
-        className
-      )}
-    >
-      {onMenuClick && (
-        <Button
-          type="button"
-          variant="outline"
-          size="icon-sm"
-          className="lg:hidden shrink-0"
-          onClick={onMenuClick}
-          aria-label={menuOpen ? "Close admin menu" : "Open admin menu"}
-          aria-expanded={menuOpen}
-        >
-          <Menu className="size-4" />
-        </Button>
-      )}
-
-      <div className="min-w-0 flex-1">
-        <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-          Admin Console
-        </p>
-        <p className="truncate text-sm font-medium text-foreground">{sectionLabel}</p>
-      </div>
-
-      <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-        {isAuthenticated && (
-          <div className="hidden sm:block">
-            <NotificationBell />
-          </div>
-        )}
-        <ThemeToggle />
-        <Link
-          href="/"
-          className={cn(buttonVariants({ variant: "outline", size: "sm" }), "gap-1.5")}
-        >
-          <ArrowLeft className="size-4" />
-          <span className="hidden sm:inline">Back to Portal</span>
-        </Link>
-      </div>
-    </header>
-  );
-}
+import { useNotifications } from "@/lib/hooks/useNotifications";
 
 /** Sidebar brand block — links back to the public portal */
 export function AdminSidebarBrand() {
@@ -116,20 +29,23 @@ export function AdminSidebarBrand() {
       : roleLabel;
 
   return (
-    <div className="mb-6 space-y-3 border-b border-border pb-5 px-1">
+    <div className="mb-3 space-y-3 border-b border-border pb-5 px-1">
       <div className="flex justify-center">
         <GeoHealthLogo compact />
       </div>
       {user && (
-        <div className="flex items-center gap-2 rounded-lg border bg-muted/50 px-3 py-2">
-          <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary/10">
+        <div className="flex items-center gap-2.5 rounded-lg border bg-muted/50 px-3 py-2.5">
+          <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary/10">
             <User className="size-4 text-primary" />
           </div>
           <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-medium text-foreground">
+            <p className="truncate text-sm font-semibold leading-tight text-foreground">
               {user.firstName} {user.lastName}
             </p>
-            <p className="truncate text-xs text-muted-foreground">{subtitle}</p>
+            <p className="mt-1 truncate text-xs leading-none">
+              <span className="text-muted-foreground">Role: </span>
+              <span className="font-medium text-foreground">{subtitle}</span>
+            </p>
           </div>
         </div>
       )}
@@ -140,10 +56,11 @@ export function AdminSidebarBrand() {
 /** Footer link strip for leaving admin */
 export function AdminPortalLinks({ onNavigate }: { onNavigate?: () => void }) {
   const portalUrl = process.env.NEXT_PUBLIC_PORTAL_URL;
+  const { data } = useNotifications(1, 1, true);
+  const unreadCount = data?.meta.total ?? 0;
   const links = [
     { href: `${portalUrl}/`, label: "Portal Home", icon: ArrowLeft },
     { href: `${portalUrl}/dataportal`, label: "Browse Datasets", icon: ExternalLink },
-    { href: `${portalUrl}/dashboard`, label: "My Dashboard", icon: ExternalLink },
   ];
 
   return (
@@ -164,7 +81,23 @@ export function AdminPortalLinks({ onNavigate }: { onNavigate?: () => void }) {
       ))}
       <div className="flex items-center justify-between gap-2 px-3 pt-3">
         <span className="text-xs text-muted-foreground">Theme</span>
-        <ThemeToggle />
+        <div className="flex items-center gap-1">
+          <Link
+            href="/notifications"
+            onClick={onNavigate}
+            className="relative flex size-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            aria-label={`Notifications (${unreadCount} unread)`}
+            title="Notifications"
+          >
+            <Bell className="size-4" aria-hidden="true" />
+            {unreadCount > 0 && (
+              <span className="absolute -right-0.5 -top-0.5 flex min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[9px] font-bold leading-4 text-white">
+                {unreadCount > 9 ? "9+" : unreadCount}
+              </span>
+            )}
+          </Link>
+          <ThemeToggle />
+        </div>
       </div>
     </div>
   );

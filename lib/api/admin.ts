@@ -510,6 +510,16 @@ export async function archiveDataset(datasetSlug: string, reason?: string): Prom
   return response.data.data;
 }
 
+/**
+ * Restore an archived dataset to its previous workflow status
+ */
+export async function unarchiveDataset(datasetSlug: string): Promise<Dataset> {
+  const response = await apiClient.post<ApiResponse<Dataset>>(
+    `/datasets/${datasetSlug}/unarchive`
+  );
+  return response.data.data;
+}
+
 export interface DashboardStats {
   totalUsers: number;
   totalOrganisations: number;

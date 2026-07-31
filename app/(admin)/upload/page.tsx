@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { FileText, Upload, MapPin, Scale, Settings, X, Lock, Search } from "lucide-react";
 import { Stepper } from "@/components/forms/stepper";
@@ -11,6 +11,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/feedback/empty-state";
 import { OrganisationCombobox } from "@/components/admin/organisation-combobox";
 import { CategoryCombobox } from "@/components/admin/category-combobox";
@@ -62,6 +64,15 @@ const LICENSE_OPTIONS = [
   "Government Open Data License",
   "Restricted — Internal Use Only",
 ];
+
+function StepHeading({ title, description }: { title: string; description: string }) {
+  return (
+    <div className="border-b pb-4">
+      <h2 className="text-base font-semibold">{title}</h2>
+      <p className="mt-1 text-sm text-muted-foreground">{description}</p>
+    </div>
+  );
+}
 
 export default function AdminUploadDatasetPage() {
   const router = useRouter();
@@ -146,23 +157,11 @@ export default function AdminUploadDatasetPage() {
     }
   };
 
-  const organisations = orgsData?.data ?? [];
-  const categories = categoriesData?.data ?? [];
-
-  useEffect(() => {
-    if (!presetAgency || organisationId) return;
-    const agencyOrg = organisations.find((o) => o.slug === AGENCY_ORG_SLUG);
-    if (agencyOrg) setOrganisationId(agencyOrg.id);
-  }, [presetAgency, organisations, organisationId]);
-
-  // Category IDs are seeded per-environment, so default to the first
-  // available category once loaded rather than hardcoding an ID — only
-  // when the prefill checkbox is on, matching every other field.
-  useEffect(() => {
-    if (prefillTestData && !categoryId && categories.length) {
-      setCategoryId(categories[0].id);
-    }
-  }, [prefillTestData, categoryId, categories]);
+  const organisations = useMemo(() => orgsData?.data ?? [], [orgsData?.data]);
+  const categories = useMemo(() => categoriesData?.data ?? [], [categoriesData?.data]);
+  const effectiveOrganisationId =
+    organisationId || (presetAgency ? organisations.find((o) => o.slug === AGENCY_ORG_SLUG)?.id ?? "" : "");
+  const effectiveCategoryId = categoryId || (prefillTestData ? categories[0]?.id ?? "" : "");
 
   const addTag = () => {
     if (tagInput.trim() && !tags.includes(tagInput.trim())) {
@@ -188,10 +187,10 @@ export default function AdminUploadDatasetPage() {
 
   const validateStep1 = () => {
     const errors: Record<string, string> = {};
-    if (!organisationId) errors.organisationId = "Select an organisation";
+    if (!effectiveOrganisationId) errors.organisationId = "Select an organisation";
     if (title.trim().length < 5) errors.title = "Title must be at least 5 characters";
     if (description.trim().length < 20) errors.description = "Description must be at least 20 characters";
-    if (!categoryId) errors.categoryId = "Select a category";
+    if (!effectiveCategoryId) errors.categoryId = "Select a category";
     setStepErrors(errors);
     return Object.keys(errors).length === 0;
   };
@@ -242,7 +241,7 @@ export default function AdminUploadDatasetPage() {
       const dataset = await createMutation.mutateAsync({
         title,
         description,
-        categoryId,
+        categoryId: effectiveCategoryId,
         format,
         visibility,
         tags,
@@ -253,7 +252,7 @@ export default function AdminUploadDatasetPage() {
         license: license || undefined,
         methodology: methodology || undefined,
         limitations: limitations || undefined,
-        organisationId,
+        organisationId: effectiveOrganisationId,
         responsibleDept: responsibleDept || undefined,
         contactPerson: contactPerson || undefined,
         contactEmail: contactEmail || undefined,
@@ -272,7 +271,7 @@ export default function AdminUploadDatasetPage() {
           : `Dataset created${uploadedFiles.length ? ` with ${uploadedFiles.length} file(s)` : ""} and submitted for review`,
       });
       // The org detail route is keyed by slug, not id, despite the folder being named [id]
-      const orgSlug = organisations.find((o) => o.id === organisationId)?.slug;
+      const orgSlug = organisations.find((o) => o.id === effectiveOrganisationId)?.slug;
       router.push(orgSlug ? `/organisations/${orgSlug}` : "/organisations");
     } catch (error) {
       toast({
@@ -295,16 +294,29 @@ export default function AdminUploadDatasetPage() {
     );
   }
 
+  if (permissionsLoading) {
+    return (
+      <div className="space-y-6">
+        <div className="space-y-3">
+          <Skeleton className="h-8 w-52" />
+          <Skeleton className="h-5 w-96 max-w-full" />
+        </div>
+        <Skeleton className="h-24 rounded-2xl" />
+        <Skeleton className="mx-auto h-[32rem] w-full max-w-4xl rounded-2xl" />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold">Upload Dataset</h1>
-          <p className="text-muted-foreground mt-1">
+          <h1 className="text-2xl font-bold">Upload dataset</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
             Create a new dataset on behalf of an organisation
           </p>
         </div>
-        <label className="flex items-center gap-1.5 text-xs text-muted-foreground shrink-0 cursor-pointer">
+        <label className="flex h-10 shrink-0 cursor-pointer items-center gap-2 rounded-lg border bg-card px-3 text-xs text-muted-foreground">
           <Checkbox
             checked={prefillTestData}
             onCheckedChange={(checked) => togglePrefill(!!checked)}
@@ -313,27 +325,53 @@ export default function AdminUploadDatasetPage() {
         </label>
       </div>
 
-      <Stepper
-        steps={steps}
-        currentStep={currentStep}
-        onStepClick={(step) => step < currentStep && setCurrentStep(step)}
-      />
+      {/* Mobile stepper: horizontal at top */}
+      <div className="rounded-2xl border bg-card px-4 py-4 sm:px-6 lg:hidden">
+        <div className="mb-3 flex items-center justify-between">
+          <span className="text-xs font-medium text-muted-foreground">Upload progress</span>
+          <Badge variant="outline" className="tabular-nums">Step {currentStep} of {steps.length}</Badge>
+        </div>
+        <Stepper
+          steps={steps}
+          currentStep={currentStep}
+          onStepClick={(step) => step < currentStep && setCurrentStep(step)}
+        />
+      </div>
 
-      <Card className="max-w-3xl mx-auto p-4 sm:p-8">
+      {/* Desktop: vertical stepper + form side by side */}
+      <div className="grid gap-6 lg:grid-cols-[240px_1fr]">
+        {/* Vertical stepper sidebar (desktop only) */}
+        <aside className="hidden lg:block">
+          <Card className="sticky top-6 p-4">
+            <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Upload steps
+            </h2>
+            <Stepper
+              steps={steps}
+              currentStep={currentStep}
+              onStepClick={(step) => step < currentStep && setCurrentStep(step)}
+              orientation="vertical"
+            />
+          </Card>
+        </aside>
+
+        {/* Form content */}
+        <Card className="p-5 sm:p-6">
         {currentStep === 1 && (
-          <div className="space-y-6">
-            <div>
-              <h2 className="text-xl font-bold mb-4">Basic Information</h2>
-            </div>
+          <div className="space-y-5">
+            <StepHeading
+              title="Basic information"
+              description="Identify the owning organisation and describe the dataset clearly."
+            />
 
             <div className="space-y-2">
               <Label htmlFor="organisation">
-                Organisation <span className="text-destructive">*</span>
+                Organisation <span className="text-muted-foreground">(required)</span>
               </Label>
               <OrganisationCombobox
                 id="organisation"
                 organisations={organisations}
-                value={organisationId}
+                value={effectiveOrganisationId}
                 onValueChange={setOrganisationId}
               />
               {stepErrors.organisationId && (
@@ -343,20 +381,21 @@ export default function AdminUploadDatasetPage() {
 
             <div className="space-y-2">
               <Label htmlFor="title">
-                Dataset Title <span className="text-destructive">*</span>
+                Dataset title <span className="text-muted-foreground">(required)</span>
               </Label>
               <Input
                 id="title"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 placeholder="e.g., Niger State Health Facilities 2024"
+                aria-required="true"
               />
               {stepErrors.title && <p className="text-sm text-destructive">{stepErrors.title}</p>}
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="description">
-                Description <span className="text-destructive">*</span>
+                Description <span className="text-muted-foreground">(required)</span>
               </Label>
               <Textarea
                 id="description"
@@ -364,6 +403,7 @@ export default function AdminUploadDatasetPage() {
                 onChange={(e) => setDescription(e.target.value)}
                 rows={4}
                 placeholder="Describe what this dataset contains..."
+                aria-required="true"
               />
               {stepErrors.description && (
                 <p className="text-sm text-destructive">{stepErrors.description}</p>
@@ -372,12 +412,12 @@ export default function AdminUploadDatasetPage() {
 
             <div className="space-y-2">
               <Label htmlFor="category">
-                Programme Area / Category <span className="text-destructive">*</span>
+                Programme area or category <span className="text-muted-foreground">(required)</span>
               </Label>
               <CategoryCombobox
                 id="category"
                 categories={categories}
-                value={categoryId}
+                value={effectiveCategoryId}
                 onValueChange={setCategoryId}
               />
               {stepErrors.categoryId && (
@@ -416,24 +456,25 @@ export default function AdminUploadDatasetPage() {
               )}
             </div>
 
-            <div className="flex justify-end pt-4">
+            <div className="flex justify-end border-t pt-4 [&_button]:h-11 sm:[&_button]:h-9">
               <Button onClick={() => validateStep1() && setCurrentStep(2)}>
-                Next: Coverage & Indicators
+                Next: Coverage and indicators
               </Button>
             </div>
           </div>
         )}
 
         {currentStep === 2 && (
-          <div className="space-y-6">
-            <div>
-              <h2 className="text-xl font-bold mb-4">Coverage & Indicators</h2>
-            </div>
+          <div className="space-y-5">
+            <StepHeading
+              title="Coverage and indicators"
+              description="Define where and when the data applies, plus the indicators it contains."
+            />
 
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <Label>
-                  LGA Coverage <span className="text-destructive">*</span>
+                  LGA coverage <span className="text-muted-foreground">(required)</span>
                 </Label>
                 <Button
                   type="button"
@@ -490,7 +531,7 @@ export default function AdminUploadDatasetPage() {
 
             <div className="space-y-2">
               <Label>
-                Reporting Period <span className="text-destructive">*</span>
+                Reporting period <span className="text-muted-foreground">(required)</span>
               </Label>
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-1">
@@ -524,7 +565,7 @@ export default function AdminUploadDatasetPage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="diseaseIndicators">Disease / Health Indicators</Label>
+              <Label htmlFor="diseaseIndicators">Disease or health indicators</Label>
               <div className="flex gap-2">
                 <Input
                   id="diseaseIndicators"
@@ -554,28 +595,25 @@ export default function AdminUploadDatasetPage() {
               )}
             </div>
 
-            <div className="flex justify-between pt-4">
+            <div className="flex justify-between border-t pt-4 [&_button]:h-11 sm:[&_button]:h-9">
               <Button variant="outline" onClick={() => setCurrentStep(1)}>
                 Back
               </Button>
-              <Button onClick={() => validateStep2() && setCurrentStep(3)}>Next: Upload Files</Button>
+              <Button onClick={() => validateStep2() && setCurrentStep(3)}>Next: Upload files</Button>
             </div>
           </div>
         )}
 
         {currentStep === 3 && (
-          <div className="space-y-6">
-            <div>
-              <h2 className="text-xl font-bold mb-2">Upload Files</h2>
-              <p className="text-muted-foreground text-sm">
-                Optional — a dataset can have more than one file, and you can add or replace
-                files later from its detail page.
-              </p>
-            </div>
+          <div className="space-y-5">
+            <StepHeading
+              title="Upload files"
+              description="Optional — add one or more files now, or attach and replace files later."
+            />
 
             <FileUploadArea files={uploadedFiles} onFilesChange={setUploadedFiles} />
 
-            <div className="flex justify-between pt-4">
+            <div className="flex justify-between border-t pt-4 [&_button]:h-11 sm:[&_button]:h-9">
               <Button variant="outline" onClick={() => setCurrentStep(2)}>
                 Back
               </Button>
@@ -585,14 +623,15 @@ export default function AdminUploadDatasetPage() {
         )}
 
         {currentStep === 4 && (
-          <div className="space-y-6">
-            <div>
-              <h2 className="text-xl font-bold mb-4">Governance</h2>
-            </div>
+          <div className="space-y-5">
+            <StepHeading
+              title="Governance"
+              description="Document licensing, collection methodology, and known data limitations."
+            />
 
             <div className="space-y-2">
               <Label htmlFor="license">
-                Data License <span className="text-destructive">*</span>
+                Data license <span className="text-muted-foreground">(required)</span>
               </Label>
               <Autocomplete
                 id="license"
@@ -616,7 +655,7 @@ export default function AdminUploadDatasetPage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="limitations">Known Limitations</Label>
+              <Label htmlFor="limitations">Known limitations</Label>
               <Textarea
                 id="limitations"
                 value={limitations}
@@ -626,28 +665,29 @@ export default function AdminUploadDatasetPage() {
               />
             </div>
 
-            <div className="flex justify-between pt-4">
+            <div className="flex justify-between border-t pt-4 [&_button]:h-11 sm:[&_button]:h-9">
               <Button variant="outline" onClick={() => setCurrentStep(3)}>
                 Back
               </Button>
-              <Button onClick={() => validateStep4() && setCurrentStep(5)}>Next: Contact & Settings</Button>
+              <Button onClick={() => validateStep4() && setCurrentStep(5)}>Next: Contact and settings</Button>
             </div>
           </div>
         )}
 
         {currentStep === 5 && (
-          <div className="space-y-6">
-            <div>
-              <h2 className="text-xl font-bold mb-4">Contact & Settings</h2>
-            </div>
+          <div className="space-y-5">
+            <StepHeading
+              title="Contact and settings"
+              description="Add stewardship contacts, update frequency, and access visibility."
+            />
 
             <div className="space-y-4">
               <p className="text-sm font-medium text-muted-foreground">
-                Additional Information <span className="font-normal">(optional)</span>
+                Additional information <span className="font-normal">(optional)</span>
               </p>
 
               <div className="space-y-2">
-                <Label htmlFor="responsibleDept">Responsible Department</Label>
+                <Label htmlFor="responsibleDept">Responsible department</Label>
                 <Input
                   id="responsibleDept"
                   value={responsibleDept}
@@ -658,7 +698,7 @@ export default function AdminUploadDatasetPage() {
 
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
-                  <Label htmlFor="contactPerson">Contact Person</Label>
+                  <Label htmlFor="contactPerson">Contact person</Label>
                   <Input
                     id="contactPerson"
                     value={contactPerson}
@@ -667,7 +707,7 @@ export default function AdminUploadDatasetPage() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="contactEmail">Contact Email</Label>
+                  <Label htmlFor="contactEmail">Contact email</Label>
                   <Input
                     id="contactEmail"
                     type="email"
@@ -679,7 +719,7 @@ export default function AdminUploadDatasetPage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="updateFrequency">Update Frequency</Label>
+                <Label htmlFor="updateFrequency">Update frequency</Label>
                 <Select value={updateFrequency} onValueChange={(v) => setUpdateFrequency(v || "")}>
                   <SelectTrigger id="updateFrequency">
                     <SelectValue placeholder="Select frequency (optional)" />
@@ -710,22 +750,23 @@ export default function AdminUploadDatasetPage() {
               </Select>
             </div>
 
-            <div className="flex justify-between pt-4">
+            <div className="flex flex-col-reverse gap-3 border-t pt-4 sm:flex-row sm:items-center sm:justify-between [&_button]:h-11 sm:[&_button]:h-9">
               <Button variant="outline" onClick={() => setCurrentStep(4)}>
                 Back
               </Button>
-              <div className="flex gap-2">
+              <div className="flex flex-col-reverse gap-2 sm:flex-row">
                 <Button variant="outline" onClick={() => handleSubmit(true)} disabled={saving}>
-                  Save as Draft
+                  Save as draft
                 </Button>
                 <Button onClick={() => handleSubmit(false)} disabled={saving}>
-                  {saving ? "Submitting..." : "Submit for Review"}
+                  {saving ? "Submitting..." : "Submit for review"}
                 </Button>
               </div>
             </div>
           </div>
         )}
-      </Card>
+        </Card>
+      </div>
     </div>
   );
 }

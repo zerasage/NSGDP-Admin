@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft, Archive, CheckCircle2, Lock, Send, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -208,8 +209,16 @@ export default function DatasetReviewScreenPage({
   if (isLoading) {
     return (
       <div className="space-y-6">
-        <Skeleton className="h-10 w-64" />
-        <Skeleton className="h-96" />
+        <div className="space-y-3">
+          <Skeleton className="h-8 w-24" />
+          <Skeleton className="h-8 w-full max-w-xl" />
+          <Skeleton className="h-5 w-72" />
+        </div>
+        <Skeleton className="h-40 rounded-2xl" />
+        <div className="grid gap-6 xl:grid-cols-[minmax(0,2fr)_minmax(320px,1fr)]">
+          <Skeleton className="h-[40rem] rounded-2xl" />
+          <Skeleton className="h-[32rem] rounded-2xl" />
+        </div>
       </div>
     );
   }
@@ -230,23 +239,24 @@ export default function DatasetReviewScreenPage({
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-3">
-        <Button variant="ghost" size="icon" onClick={() => router.push("/datasets")} aria-label="Back to Review Queue">
-          <ArrowLeft className="size-4" />
+      <div>
+        <Button variant="ghost" size="sm" className="mb-3 -ml-3 gap-1.5" onClick={() => router.push("/datasets")}>
+          <ArrowLeft className="size-4" aria-hidden="true" />
+          Review queue
         </Button>
-        <div>
-          <h1 className="text-2xl font-bold">Review Dataset</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">{dataset.title}</p>
-        </div>
-        <div className="ml-auto">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0">
+            <h1 className="text-2xl font-bold leading-8">Review dataset</h1>
+            <p className="mt-1 text-sm text-muted-foreground">{dataset.title}</p>
+          </div>
           <LifecycleBadge stage={stage} />
         </div>
       </div>
 
       <Card>
-        <CardHeader>
+        <CardHeader className="border-b">
           <CardTitle className="flex items-center gap-2 text-base">
-            Approval Pipeline
+            Approval pipeline
             <HelpTooltip content="Five practical stages. The QA checklist below replaces separate metadata, technical, and quality gates — complete all 8 dimensions in one review session." />
           </CardTitle>
         </CardHeader>
@@ -255,106 +265,138 @@ export default function DatasetReviewScreenPage({
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Submission Summary</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <dl className="grid grid-cols-2 gap-x-6 gap-y-2.5 text-sm sm:grid-cols-3">
-            {[
-              ["Organisation", organisation?.name ?? "—"],
-              ["Category", category?.name ?? "—"],
-              ["Format", dataset.format?.toUpperCase()],
-              ["Visibility", dataset.visibility],
-              ["License", dataset.license ?? "—"],
-              ["Submitted", dataset.submitted_at ? formatDate(dataset.submitted_at) : formatDate(dataset.created_at)],
-              ["Coverage", dataset.geographic_coverage?.length ? `${dataset.geographic_coverage.length} location(s)` : "—"],
-            ].map(([label, value]) => (
-              <div key={label}>
-                <dt className="text-xs text-muted-foreground">{label}</dt>
-                <dd className="font-medium capitalize">{value}</dd>
+      <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,2fr)_minmax(320px,1fr)]">
+        <div className="min-w-0 space-y-6">
+          <DatasetPreviewCard slug={slug} />
+
+          <Card>
+            <CardHeader className="border-b">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <CardTitle className="flex items-center gap-2">
+                  Quality assurance checklist
+                  <HelpTooltip content="Score all 8 governance dimensions in this single review. This replaces separate metadata, technical, and QA micro-stages." />
+                </CardTitle>
+                <div className="flex flex-wrap items-center gap-1.5 text-xs tabular-nums">
+                  <Badge variant="outline">{passCount} pass</Badge>
+                  <Badge variant="outline">{failCount} fail</Badge>
+                  <Badge variant="outline">{naCount} N/A</Badge>
+                  <Badge variant="secondary">{pendingCount} pending</Badge>
+                </div>
               </div>
-            ))}
-          </dl>
-        </CardContent>
-      </Card>
-
-      <DatasetPreviewCard slug={slug} />
-
-      <div>
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-lg font-semibold flex items-center gap-2">
-            Quality Assurance Checklist
-            <HelpTooltip content="Score all 8 governance dimensions in this single review. This replaces separate metadata, technical, and QA micro-stages." />
-          </h2>
-          <div className="flex items-center gap-3 text-sm">
-            <span className="text-emerald-600 dark:text-emerald-400 font-semibold">{passCount} Pass</span>
-            <span className="text-destructive font-semibold">{failCount} Fail</span>
-            <span className="text-muted-foreground">{naCount} N/A</span>
-            <span className="text-muted-foreground">{pendingCount} Pending</span>
-          </div>
+            </CardHeader>
+            <CardContent className="px-0">
+              <div className="divide-y">
+                {QA_DIMENSIONS.map((dim) => (
+                  <QAChecklistItem
+                    key={dim.id}
+                    dimension={dim}
+                    result={qa[dim.id].result}
+                    notes={qa[dim.id].notes}
+                    onResultChange={(result) =>
+                      setQA((prev) => ({ ...prev, [dim.id]: { ...prev[dim.id], result } }))
+                    }
+                    onNotesChange={(notes) =>
+                      setQA((prev) => ({ ...prev, [dim.id]: { ...prev[dim.id], notes } }))
+                    }
+                  />
+                ))}
+              </div>
+            </CardContent>
+          </Card>
         </div>
 
-        <div className="space-y-3">
-          {QA_DIMENSIONS.map((dim) => (
-            <QAChecklistItem
-              key={dim.id}
-              dimension={dim}
-              result={qa[dim.id].result}
-              notes={qa[dim.id].notes}
-              onResultChange={(result) =>
-                setQA((prev) => ({ ...prev, [dim.id]: { ...prev[dim.id], result } }))
-              }
-              onNotesChange={(notes) =>
-                setQA((prev) => ({ ...prev, [dim.id]: { ...prev[dim.id], notes } }))
-              }
-            />
-          ))}
-        </div>
-      </div>
+        <div className="space-y-6 xl:sticky xl:top-6">
+          <Card>
+            <CardHeader className="border-b">
+              <CardTitle>Submission summary</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <dl className="divide-y text-sm">
+                {[
+                  ["Organisation", organisation?.name ?? "Not provided"],
+                  ["Category", category?.name ?? "Not provided"],
+                  ["Format", dataset.format?.toUpperCase()],
+                  ["Visibility", dataset.visibility],
+                  ["License", dataset.license ?? "Not provided"],
+                  ["Submitted", dataset.submitted_at ? formatDate(dataset.submitted_at) : formatDate(dataset.created_at)],
+                  ["Coverage", dataset.geographic_coverage?.length ? `${dataset.geographic_coverage.length} location(s)` : "Not provided"],
+                ].map(([label, value]) => (
+                  <div key={label} className="flex items-start justify-between gap-4 py-3 first:pt-0 last:pb-0">
+                    <dt className="text-xs font-medium text-muted-foreground">{label}</dt>
+                    <dd className="text-right text-sm font-medium capitalize">{value}</dd>
+                  </div>
+                ))}
+              </dl>
+            </CardContent>
+          </Card>
 
-      <div className="flex flex-wrap gap-3 justify-between border-t pt-4">
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            onClick={() => setRevisionOpen(true)}
-            className="text-destructive hover:text-destructive"
-          >
-            <XCircle className="size-4 mr-1.5" />
-            Request Revision
-          </Button>
-          {canArchive && (
-            <Button variant="outline" onClick={() => setArchiveOpen(true)}>
-              <Archive className="size-4 mr-1.5" />
-              Archive
-            </Button>
-          )}
+          <Card>
+            <CardHeader className="border-b">
+              <CardTitle>Review decision</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <div className="mb-2 flex items-center justify-between text-xs">
+                  <span className="text-muted-foreground">Checklist progress</span>
+                  <span className="font-semibold tabular-nums">{QA_DIMENSIONS.length - pendingCount}/{QA_DIMENSIONS.length}</span>
+                </div>
+                <div className="h-2 overflow-hidden rounded-full bg-muted">
+                  <div
+                    className="h-full rounded-full bg-primary transition-[width]"
+                    style={{ width: `${((QA_DIMENSIONS.length - pendingCount) / QA_DIMENSIONS.length) * 100}%` }}
+                  />
+                </div>
+              </div>
+              <p className="text-xs leading-5 text-muted-foreground">
+                {canSendForApproval
+                  ? "All required checks passed. The dataset is ready for the director's decision."
+                  : "Complete every check with no failures before sending this dataset for director approval."}
+              </p>
+              <Button
+                className="h-11 w-full gap-1.5 sm:h-9"
+                onClick={handleSendForApproval}
+                disabled={!canSendForApproval || saveChecklistMutation.isPending}
+              >
+                <CheckCircle2 className="size-4" aria-hidden="true" />
+                Send for director approval
+                <Send className="size-4" aria-hidden="true" />
+              </Button>
+              <Button
+                variant="outline"
+                className="h-11 w-full gap-1.5 text-destructive hover:text-destructive sm:h-9"
+                onClick={() => setRevisionOpen(true)}
+              >
+                <XCircle className="size-4" aria-hidden="true" />
+                Request revision
+              </Button>
+              {canArchive && (
+                <Button variant="ghost" className="h-11 w-full gap-1.5 sm:h-9" onClick={() => setArchiveOpen(true)}>
+                  <Archive className="size-4" aria-hidden="true" />
+                  Archive dataset
+                </Button>
+              )}
+            </CardContent>
+          </Card>
         </div>
-        <Button onClick={handleSendForApproval} disabled={!canSendForApproval || saveChecklistMutation.isPending}>
-          <CheckCircle2 className="size-4 mr-1.5" />
-          Send for Director Approval
-          <Send className="size-4 ml-1.5" />
-        </Button>
       </div>
 
       <Dialog open={revisionOpen} onOpenChange={setRevisionOpen}>
-        <DialogContent>
+        <DialogContent className="sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>Request Revision</DialogTitle>
+            <DialogTitle>Request revision</DialogTitle>
             <DialogDescription>Describe the revisions needed. The submitter will receive this feedback.</DialogDescription>
           </DialogHeader>
           <div className="space-y-2">
-            <Label htmlFor="revision-comment">
-              Comment <span className="text-destructive">*</span>
-            </Label>
+            <Label htmlFor="revision-comment">Revision feedback <span className="text-muted-foreground">(required)</span></Label>
             <Textarea
               id="revision-comment"
               rows={4}
               value={revisionComment}
               onChange={(e) => setRevisionComment(e.target.value)}
               placeholder="E.g. Reporting period is missing. LGA names must match official list…"
+              aria-required="true"
             />
-            <p className="text-sm text-muted-foreground">{revisionComment.length}/20 characters minimum</p>
+            <p className="text-xs text-muted-foreground">{revisionComment.length}/20 characters minimum</p>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setRevisionOpen(false)}>Cancel</Button>
@@ -363,31 +405,33 @@ export default function DatasetReviewScreenPage({
               onClick={handleRequestRevision}
               disabled={requestRevisionMutation.isPending || revisionComment.length < 20}
             >
-              Send Revision Request
+              Send revision request
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       <Dialog open={archiveOpen} onOpenChange={setArchiveOpen}>
-        <DialogContent>
+        <DialogContent className="sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>Archive Dataset</DialogTitle>
+            <DialogTitle>Archive dataset</DialogTitle>
             <DialogDescription>
               Archived datasets are removed from the public catalogue but remain accessible to admins.
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-3">
+          <div className="space-y-2">
+            <Label htmlFor="archive-reason">Reason <span className="text-muted-foreground">(optional)</span></Label>
             <Textarea
+              id="archive-reason"
               rows={3}
               value={archiveReason}
               onChange={(e) => setArchiveReason(e.target.value)}
-              placeholder="Reason for archiving… (optional)"
+              placeholder="Explain why this dataset is being archived"
             />
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setArchiveOpen(false)}>Cancel</Button>
-            <Button onClick={handleArchive}>Archive Dataset</Button>
+            <Button variant="destructive" onClick={handleArchive}>Archive dataset</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

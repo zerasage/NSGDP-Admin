@@ -48,7 +48,7 @@ export function FileUploadArea({
 }: FileUploadAreaProps) {
   const [dragOver, setDragOver] = useState(false);
 
-  const simulateUpload = useCallback(
+  const addFiles = useCallback(
     (fileList: File[]) => {
       // Build every entry up front and append them in one functional update —
       // calling onFilesChange once per file with a stale `files` snapshot
@@ -66,27 +66,12 @@ export function FileUploadArea({
               file,
               name: file.name,
               size: file.size,
-              progress: 0,
+              progress: 100,
               format: detectFormat(file.name),
             }
       );
 
       onFilesChange((prev) => [...prev, ...newEntries]);
-
-      newEntries
-        .filter((entry) => !entry.error)
-        .forEach((entry) => {
-          let progress = 0;
-          const interval = setInterval(() => {
-            progress += 10;
-            onFilesChange((prev) =>
-              prev.map((f) =>
-                f.name === entry.name ? { ...f, progress: Math.min(progress, 100) } : f
-              )
-            );
-            if (progress >= 100) clearInterval(interval);
-          }, 200);
-        });
     },
     [maxSizeMB, onFilesChange]
   );
@@ -94,11 +79,11 @@ export function FileUploadArea({
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     setDragOver(false);
-    simulateUpload(Array.from(e.dataTransfer.files));
+    addFiles(Array.from(e.dataTransfer.files));
   };
 
   const handleSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    simulateUpload(Array.from(e.target.files ?? []));
+    addFiles(Array.from(e.target.files ?? []));
     e.target.value = "";
   };
 
@@ -122,16 +107,18 @@ export function FileUploadArea({
         onDragLeave={() => setDragOver(false)}
         onDrop={handleDrop}
         className={cn(
-          "relative rounded-lg border-2 border-dashed p-8 text-center transition-colors",
+          "relative rounded-xl border-2 border-dashed p-8 text-center transition-colors sm:p-10",
           dragOver
             ? "border-primary bg-primary/5"
             : "border-muted-foreground/25 hover:border-primary/50"
         )}
       >
-        <Upload className="mx-auto size-10 text-muted-foreground mb-3" aria-hidden="true" />
+        <div className="mx-auto mb-3 flex size-10 items-center justify-center rounded-lg bg-muted">
+          <Upload className="size-5 text-muted-foreground" aria-hidden="true" />
+        </div>
         <p className="text-sm font-medium">Drag and drop files here</p>
         <p className="text-xs text-muted-foreground mt-1">
-          or click to browse · Max {maxSizeMB}MB per file
+          or click to browse · Maximum {maxSizeMB}MB per file
         </p>
         <input
           type="file"
@@ -144,13 +131,13 @@ export function FileUploadArea({
       </div>
 
       {files.length > 0 && (
-        <ul className="mt-4 space-y-2" aria-label="Uploaded files">
+        <ul className="mt-4 divide-y rounded-xl border" aria-label="Selected files">
           {files.map((file) => (
             <li
               key={file.name}
               className={cn(
-                "flex items-center gap-3 rounded-lg border p-3",
-                file.error && "border-destructive/50 bg-destructive/5"
+                "flex items-center gap-3 p-3 first:rounded-t-xl last:rounded-b-xl",
+                file.error && "bg-destructive/5"
               )}
             >
               {file.error ? (
@@ -166,7 +153,7 @@ export function FileUploadArea({
                   {file.error && ` · ${file.error}`}
                 </p>
                 {!file.error && file.progress < 100 && (
-                  <div className="mt-2 h-1.5 w-full rounded-full bg-muted overflow-hidden">
+                  <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-muted">
                     <div
                       className="h-full bg-primary transition-all"
                       style={{ width: `${file.progress}%` }}
@@ -174,7 +161,7 @@ export function FileUploadArea({
                   </div>
                 )}
                 {!file.error && file.progress === 100 && (
-                  <p className="text-xs text-success mt-1">Upload complete</p>
+                  <p className="mt-1 text-xs text-success">Ready to upload</p>
                 )}
               </div>
               <Button

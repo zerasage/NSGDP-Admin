@@ -7,13 +7,9 @@ import {
   FileCheck,
   Users,
   Building2,
-  FolderOpen,
   KeyRound,
-  BarChart3,
   ScrollText,
   ShieldCheck,
-  ActivitySquare,
-  Bell,
   LogOut,
   UserCog,
   Upload,
@@ -51,7 +47,6 @@ export const adminNavItems: Array<{
   // TODO: Enable when analytics backend is ready (post-MS2)
   // { href: "/analytics", label: "Platform Analytics", icon: BarChart3 },
   { href: "/audit-logs", label: "Audit Log", icon: ScrollText },
-  { href: "/notifications", label: "Notifications", icon: Bell },
 ];
 
 function AdminNavLinks({ onNavigate }: { onNavigate?: () => void }) {
@@ -85,7 +80,7 @@ function AdminNavLinks({ onNavigate }: { onNavigate?: () => void }) {
             aria-current={active ? "page" : undefined}
           >
             <Icon className="size-4 shrink-0" aria-hidden="true" />
-            {label}
+            <span className="min-w-0 flex-1 truncate">{label}</span>
           </Link>
         );
       })}
@@ -100,24 +95,25 @@ function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
     try {
       await logout();
       if (onNavigate) onNavigate();
-    } catch (error) {
+    } catch {
       toast.error("Failed to logout");
     }
   };
 
   return (
-    <nav className="flex h-full flex-col gap-1 p-4 overflow-y-auto" aria-label="Admin navigation">
+    <nav className="flex h-full flex-col gap-1 overflow-hidden p-4" aria-label="Admin navigation">
       <AdminSidebarBrand />
-      <div className="flex-1 space-y-1 overflow-y-auto">
+      <div className="scrollbar-slim min-h-0 flex-1 space-y-1 overflow-y-scroll overscroll-contain pr-1">
         <AdminNavLinks onNavigate={onNavigate} />
       </div>
-      <div className="border-t pt-4">
+      <AdminPortalLinks onNavigate={onNavigate} />
+      <div className="pt-2">
         <Button
           variant="ghost"
           className="w-full justify-start gap-3 text-muted-foreground hover:text-foreground"
           onClick={handleLogout}
         >
-          <LogOut className="size-4 shrink-0" />
+          <LogOut className="size-5 shrink-0" data-icon="inline-start" aria-hidden="true" />
           Logout
         </Button>
       </div>
