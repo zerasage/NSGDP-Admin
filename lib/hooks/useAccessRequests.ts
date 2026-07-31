@@ -6,10 +6,14 @@ import {
   type AccessRequestStatus,
 } from '../api/access-requests';
 
-export function useAccessRequests(params?: { status?: AccessRequestStatus; page?: number; limit?: number }) {
+export function useAccessRequests(
+  params?: { status?: AccessRequestStatus; page?: number; limit?: number },
+  enabled: boolean = true
+) {
   return useQuery({
     queryKey: ['access-requests', params],
     queryFn: () => getAccessRequests(params),
+    enabled,
   });
 }
 

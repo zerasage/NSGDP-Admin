@@ -1,10 +1,11 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { KeyRound, CheckCircle2, XCircle, Loader2, Search } from "lucide-react";
+import { KeyRound, CheckCircle2, XCircle, Loader2, Search, Lock } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { EmptyState } from "@/components/feedback/empty-state";
 import {
   Card,
   CardContent,
@@ -59,17 +60,25 @@ const TABS: Array<{ key: AccessRequestStatus | "all"; label: string }> = [
 export default function AccessRequestsPage() {
   const { toast } = useToast();
   const { user } = useAuth();
-  const { hasPermission } = usePermissions();
-  const canAdjudicate = user?.role === "super_admin" || hasPermission("approve:access-requests");
+  const { hasPermission, hasAnyPermission, isLoading: permissionsLoading } = usePermissions();
+  const isSuperAdmin = user?.role === "super_admin";
+  const canAdjudicate = isSuperAdmin || hasPermission("approve:access-requests");
+  // Org admins never reach this app at all — only super_admin/staff can log
+  // into the admin portal — so no role bypass is needed here beyond super_admin.
+  const canView =
+    isSuperAdmin || hasAnyPermission("view:access-requests", "approve:access-requests");
   const [status, setStatus] = useState<AccessRequestStatus | "all">("pending");
   const [query, setQuery] = useState("");
   const [denyTarget, setDenyTarget] = useState<AccessRequest | null>(null);
   const [comment, setComment] = useState("");
 
-  const { data, isLoading } = useAccessRequests({
-    status: status !== "all" ? status : undefined,
-    limit: 50,
-  });
+  const { data, isLoading } = useAccessRequests(
+    {
+      status: status !== "all" ? status : undefined,
+      limit: 50,
+    },
+    canView
+  );
   const approveMutation = useApproveAccessRequest();
   const denyMutation = useDenyAccessRequest();
 
@@ -132,6 +141,16 @@ export default function AccessRequestsPage() {
       }
     );
   };
+
+  if (!permissionsLoading && !canView) {
+    return (
+      <EmptyState
+        icon={Lock}
+        title="Access restricted"
+        description="Viewing access requests requires view:access-requests or approve:access-requests. Ask a super_admin to grant your group one of these."
+      />
+    );
+  }
 
   return (
     <div className="space-y-6">

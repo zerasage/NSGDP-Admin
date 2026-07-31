@@ -35,6 +35,9 @@ export const adminNavItems: Array<{
   // Visible if super_admin OR the user holds ANY of these delegated permissions.
   // Omit entirely for items every admin-portal principal can see (dashboard,
   // notifications, and blanket-staff-readable pages like organisations/audit-logs).
+  // Note: org admins (role: "admin") never reach this app at all — only
+  // super_admin/staff accounts can log into the admin portal — so there's
+  // no org-admin bypass to account for here.
   anyPermission?: PermissionActionKey[];
 }> = [
   { href: "/", label: "Platform Dashboard", icon: LayoutDashboard, exact: true },
@@ -44,7 +47,7 @@ export const adminNavItems: Array<{
   { href: "/users", label: "All Users", icon: Users, anyPermission: ["invite:users", "promote:org-admin", "demote:org-admin", "remove:org-members"] },
   { href: "/staff", label: "Agency Staff", icon: UserCog, superAdminOnly: true },
   { href: "/permission-groups", label: "Permission Groups", icon: ShieldCheck, superAdminOnly: true },
-  { href: "/access-requests", label: "Access Requests", icon: KeyRound },
+  { href: "/access-requests", label: "Access Requests", icon: KeyRound, anyPermission: ["view:access-requests", "approve:access-requests"] },
   // TODO: Enable when analytics backend is ready (post-MS2)
   // { href: "/analytics", label: "Platform Analytics", icon: BarChart3 },
   { href: "/audit-logs", label: "Audit Log", icon: ScrollText },
