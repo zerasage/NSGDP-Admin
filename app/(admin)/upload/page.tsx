@@ -2,15 +2,19 @@
 
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { FileText, Upload, MapPin, Scale, Settings, X, Lock } from "lucide-react";
+import { FileText, Upload, MapPin, Scale, Settings, X, Lock, Search } from "lucide-react";
 import { Stepper } from "@/components/forms/stepper";
 import { FileUploadArea, type UploadedFile } from "@/components/forms/file-upload-area";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/feedback/empty-state";
+import { OrganisationCombobox } from "@/components/admin/organisation-combobox";
+import { CategoryCombobox } from "@/components/admin/category-combobox";
+import { Autocomplete } from "@/components/ui/autocomplete";
 import { useAuth } from "@/lib/auth";
 import { usePermissions } from "@/lib/hooks/usePermissions";
 import {
@@ -52,11 +56,11 @@ const FORMAT_BY_EXTENSION: Record<string, DatasetFormat> = {
 };
 
 const LICENSE_OPTIONS = [
-  { value: "CC-BY-4.0", label: "CC BY 4.0 — Attribution required" },
-  { value: "CC-BY-SA-4.0", label: "CC BY-SA 4.0 — Attribution, share-alike" },
-  { value: "CC0-1.0", label: "CC0 1.0 — Public domain" },
-  { value: "Government Open Data License", label: "Government Open Data License" },
-  { value: "Restricted — Internal Use Only", label: "Restricted — Internal use only" },
+  "CC-BY-4.0",
+  "CC-BY-SA-4.0",
+  "CC0-1.0",
+  "Government Open Data License",
+  "Restricted — Internal Use Only",
 ];
 
 export default function AdminUploadDatasetPage() {
@@ -78,30 +82,69 @@ export default function AdminUploadDatasetPage() {
   const [stepErrors, setStepErrors] = useState<Record<string, string>>({});
 
   const [organisationId, setOrganisationId] = useState(presetOrgId ?? "");
-  // PRE-FILLED TEST DATA — change as needed, or clear before submitting for real
-  const [title, setTitle] = useState(
-    `Test Health Dataset ${new Date().getFullYear()} - ${Date.now().toString().slice(-6)}`
-  );
-  const [description, setDescription] = useState(
-    "Sample dataset used for testing the admin upload flow and data validation. Contains placeholder health data for Niger State."
-  );
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
   const [categoryId, setCategoryId] = useState("");
-  const [tags, setTags] = useState<string[]>(["health", "test", "niger-state"]);
+  const [tags, setTags] = useState<string[]>([]);
   const [tagInput, setTagInput] = useState("");
-  const [selectedLGAs, setSelectedLGAs] = useState<string[]>(["Minna", "Suleja", "Bida"]);
-  const [temporalCoverageStart, setTemporalCoverageStart] = useState("2025-01-01");
-  const [temporalCoverageEnd, setTemporalCoverageEnd] = useState("2025-12-31");
-  const [diseaseIndicators, setDiseaseIndicators] = useState<string[]>(["Confirmed cases", "Deaths"]);
+  const [selectedLGAs, setSelectedLGAs] = useState<string[]>([]);
+  const [lgaFilter, setLgaFilter] = useState("");
+  const filteredLGAs = NIGER_STATE_LGAS.filter((lga) =>
+    lga.toLowerCase().includes(lgaFilter.trim().toLowerCase())
+  );
+  const [temporalCoverageStart, setTemporalCoverageStart] = useState("");
+  const [temporalCoverageEnd, setTemporalCoverageEnd] = useState("");
+  const [diseaseIndicators, setDiseaseIndicators] = useState<string[]>([]);
   const [indicatorInput, setIndicatorInput] = useState("");
-  const [license, setLicense] = useState("CC-BY-4.0");
-  const [methodology, setMethodology] = useState("Facility-based routine reporting via DHIS2");
-  const [limitations, setLimitations] = useState("Data may have reporting delays from rural facilities");
+  const [license, setLicense] = useState("");
+  const [methodology, setMethodology] = useState("");
+  const [limitations, setLimitations] = useState("");
   const [visibility, setVisibility] = useState<DatasetVisibility>("public");
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
-  const [responsibleDept, setResponsibleDept] = useState("Disease Surveillance Unit");
-  const [contactPerson, setContactPerson] = useState("Jane Doe");
-  const [contactEmail, setContactEmail] = useState("jane.doe@example.org");
-  const [updateFrequency, setUpdateFrequency] = useState("Monthly");
+  const [responsibleDept, setResponsibleDept] = useState("");
+  const [contactPerson, setContactPerson] = useState("");
+  const [contactEmail, setContactEmail] = useState("");
+  const [updateFrequency, setUpdateFrequency] = useState("");
+
+  // Off by default — only fills the form when explicitly opted into via the
+  // small checkbox in the header, and clears back out if unchecked.
+  const [prefillTestData, setPrefillTestData] = useState(false);
+  const togglePrefill = (checked: boolean) => {
+    setPrefillTestData(checked);
+    if (checked) {
+      setTitle(`Test Health Dataset ${new Date().getFullYear()} - ${Date.now().toString().slice(-6)}`);
+      setDescription(
+        "Sample dataset used for testing the admin upload flow and data validation. Contains placeholder health data for Niger State."
+      );
+      setTags(["health", "test", "niger-state"]);
+      setSelectedLGAs(["Minna", "Suleja", "Bida"]);
+      setTemporalCoverageStart("2025-01-01");
+      setTemporalCoverageEnd("2025-12-31");
+      setDiseaseIndicators(["Confirmed cases", "Deaths"]);
+      setLicense("CC-BY-4.0");
+      setMethodology("Facility-based routine reporting via DHIS2");
+      setLimitations("Data may have reporting delays from rural facilities");
+      setResponsibleDept("Disease Surveillance Unit");
+      setContactPerson("Jane Doe");
+      setContactEmail("jane.doe@example.org");
+      setUpdateFrequency("Monthly");
+    } else {
+      setTitle("");
+      setDescription("");
+      setTags([]);
+      setSelectedLGAs([]);
+      setTemporalCoverageStart("");
+      setTemporalCoverageEnd("");
+      setDiseaseIndicators([]);
+      setLicense("");
+      setMethodology("");
+      setLimitations("");
+      setResponsibleDept("");
+      setContactPerson("");
+      setContactEmail("");
+      setUpdateFrequency("");
+    }
+  };
 
   const organisations = orgsData?.data ?? [];
   const categories = categoriesData?.data ?? [];
@@ -113,12 +156,13 @@ export default function AdminUploadDatasetPage() {
   }, [presetAgency, organisations, organisationId]);
 
   // Category IDs are seeded per-environment, so default to the first
-  // available category once loaded rather than hardcoding an ID.
+  // available category once loaded rather than hardcoding an ID — only
+  // when the prefill checkbox is on, matching every other field.
   useEffect(() => {
-    if (!categoryId && categories.length) {
+    if (prefillTestData && !categoryId && categories.length) {
       setCategoryId(categories[0].id);
     }
-  }, [categoryId, categories]);
+  }, [prefillTestData, categoryId, categories]);
 
   const addTag = () => {
     if (tagInput.trim() && !tags.includes(tagInput.trim())) {
@@ -214,7 +258,7 @@ export default function AdminUploadDatasetPage() {
         contactPerson: contactPerson || undefined,
         contactEmail: contactEmail || undefined,
         updateFrequency: updateFrequency || undefined,
-        ...(isDraft ? { status: "draft" } : {}),
+        status: isDraft ? "draft" : "pending",
       });
 
       for (const uploadedFile of uploadedFiles) {
@@ -225,7 +269,7 @@ export default function AdminUploadDatasetPage() {
         title: "Success",
         description: isDraft
           ? "Dataset saved as draft"
-          : `Dataset created${uploadedFiles.length ? ` with ${uploadedFiles.length} file(s)` : ""} and approved`,
+          : `Dataset created${uploadedFiles.length ? ` with ${uploadedFiles.length} file(s)` : ""} and submitted for review`,
       });
       // The org detail route is keyed by slug, not id, despite the folder being named [id]
       const orgSlug = organisations.find((o) => o.id === organisationId)?.slug;
@@ -253,18 +297,20 @@ export default function AdminUploadDatasetPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">Upload Dataset</h1>
-        <p className="text-muted-foreground mt-1">
-          Create a new dataset on behalf of an organisation
-        </p>
-      </div>
-
-      <div className="rounded-lg border border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950 p-3">
-        <p className="text-sm text-blue-800 dark:text-blue-200">
-          ℹ️ <strong>Form is pre-filled with test data.</strong>{" "}
-          {presetOrgId ? "Just add your file in Step 3 and submit!" : "Pick an organisation, add your file in Step 3, and submit."}
-        </p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold">Upload Dataset</h1>
+          <p className="text-muted-foreground mt-1">
+            Create a new dataset on behalf of an organisation
+          </p>
+        </div>
+        <label className="flex items-center gap-1.5 text-xs text-muted-foreground shrink-0 cursor-pointer">
+          <Checkbox
+            checked={prefillTestData}
+            onCheckedChange={(checked) => togglePrefill(!!checked)}
+          />
+          Prefill test data
+        </label>
       </div>
 
       <Stepper
@@ -284,22 +330,12 @@ export default function AdminUploadDatasetPage() {
               <Label htmlFor="organisation">
                 Organisation <span className="text-destructive">*</span>
               </Label>
-              <Select value={organisationId} onValueChange={(v) => v && setOrganisationId(v)}>
-                <SelectTrigger id="organisation">
-                  <SelectValue placeholder="Select an organisation">
-                    {(value: string | null) =>
-                      organisations.find((o) => o.id === value)?.name ?? "Select an organisation"
-                    }
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  {organisations.map((org) => (
-                    <SelectItem key={org.id} value={org.id}>
-                      {org.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <OrganisationCombobox
+                id="organisation"
+                organisations={organisations}
+                value={organisationId}
+                onValueChange={setOrganisationId}
+              />
               {stepErrors.organisationId && (
                 <p className="text-sm text-destructive">{stepErrors.organisationId}</p>
               )}
@@ -338,23 +374,12 @@ export default function AdminUploadDatasetPage() {
               <Label htmlFor="category">
                 Programme Area / Category <span className="text-destructive">*</span>
               </Label>
-              <Select value={categoryId} onValueChange={(v) => v && setCategoryId(v)}>
-                <SelectTrigger id="category">
-                  <SelectValue placeholder="Select a category">
-                    {categoryId
-                      ? categories.find((c) => c.id === categoryId)?.name ?? "Select a category"
-                      : "Select a category"}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  {categories.map((category) => (
-                    <SelectItem key={category.id} value={category.id}>
-                      {category.icon ? `${category.icon} ` : ""}
-                      {category.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <CategoryCombobox
+                id="category"
+                categories={categories}
+                value={categoryId}
+                onValueChange={setCategoryId}
+              />
               {stepErrors.categoryId && (
                 <p className="text-sm text-destructive">{stepErrors.categoryId}</p>
               )}
@@ -426,21 +451,36 @@ export default function AdminUploadDatasetPage() {
                   {selectedLGAs.length === NIGER_STATE_LGAS.length ? "Clear All" : "Select All (25)"}
                 </Button>
               </div>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  value={lgaFilter}
+                  onChange={(e) => setLgaFilter(e.target.value)}
+                  placeholder="Filter LGAs…"
+                  className="pl-9 h-9"
+                />
+              </div>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-48 overflow-y-auto p-4 rounded-lg border">
-                {NIGER_STATE_LGAS.map((lga) => (
-                  <label key={lga} className="flex items-center gap-2 text-sm">
-                    <input
-                      type="checkbox"
-                      checked={selectedLGAs.includes(lga)}
-                      onChange={(e) => {
-                        if (e.target.checked) setSelectedLGAs([...selectedLGAs, lga]);
-                        else setSelectedLGAs(selectedLGAs.filter((l) => l !== lga));
-                      }}
-                      className="rounded"
-                    />
-                    {lga}
-                  </label>
-                ))}
+                {filteredLGAs.length === 0 ? (
+                  <p className="col-span-full text-sm text-muted-foreground text-center py-4">
+                    No LGAs match &ldquo;{lgaFilter}&rdquo;
+                  </p>
+                ) : (
+                  filteredLGAs.map((lga) => (
+                    <label key={lga} className="flex items-center gap-2 text-sm">
+                      <input
+                        type="checkbox"
+                        checked={selectedLGAs.includes(lga)}
+                        onChange={(e) => {
+                          if (e.target.checked) setSelectedLGAs([...selectedLGAs, lga]);
+                          else setSelectedLGAs(selectedLGAs.filter((l) => l !== lga));
+                        }}
+                        className="rounded"
+                      />
+                      {lga}
+                    </label>
+                  ))
+                )}
               </div>
               <p className="text-xs text-muted-foreground">
                 {selectedLGAs.length} of {NIGER_STATE_LGAS.length} LGAs selected
@@ -554,18 +594,13 @@ export default function AdminUploadDatasetPage() {
               <Label htmlFor="license">
                 Data License <span className="text-destructive">*</span>
               </Label>
-              <Select value={license} onValueChange={(v) => v && setLicense(v)}>
-                <SelectTrigger id="license">
-                  <SelectValue placeholder="Select a license" />
-                </SelectTrigger>
-                <SelectContent>
-                  {LICENSE_OPTIONS.map((opt) => (
-                    <SelectItem key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Autocomplete
+                id="license"
+                items={LICENSE_OPTIONS}
+                value={license}
+                onValueChange={setLicense}
+                placeholder="Select a license or type your own…"
+              />
               {stepErrors.license && <p className="text-sm text-destructive">{stepErrors.license}</p>}
             </div>
 
@@ -684,7 +719,7 @@ export default function AdminUploadDatasetPage() {
                   Save as Draft
                 </Button>
                 <Button onClick={() => handleSubmit(false)} disabled={saving}>
-                  {saving ? "Creating..." : "Create Dataset"}
+                  {saving ? "Submitting..." : "Submit for Review"}
                 </Button>
               </div>
             </div>
