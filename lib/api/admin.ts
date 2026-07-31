@@ -94,11 +94,14 @@ export interface AuditLog {
   action: AuditAction;
   entity_type: string;
   entity_id: string | null;
+  permission_group_id: string | null;
   description: string | null;
   old_values: Record<string, unknown> | null;
   new_values: Record<string, unknown> | null;
   ip_address: string | null;
   user_agent: string | null;
+  success: boolean;
+  failure_reason: string | null;
   metadata: Record<string, unknown> | null;
   created_at: string;
 }
@@ -111,6 +114,28 @@ export interface AuditLogParams {
   entityType?: string;
   startDate?: string;
   endDate?: string;
+  success?: boolean;
+  search?: string;
+}
+
+/**
+ * Backend's createPaginatedResponse() nests pagination fields under `meta`
+ * — not the flat { data, total, page, limit, totalPages } shape the shared
+ * `PaginatedResponse<T>` type (lib/types/common.ts) declares. That shared
+ * type is wrong for every endpoint that uses it, but nothing else reads
+ * its total/totalPages at runtime today; audit logs do, so this uses the
+ * shape that actually comes back over the wire.
+ */
+export interface AuditLogsResponse {
+  data: AuditLog[];
+  meta: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+    hasNextPage: boolean;
+    hasPrevPage: boolean;
+  };
 }
 
 /**
@@ -318,8 +343,8 @@ export async function unpublishDataset(datasetSlug: string): Promise<Dataset> {
  */
 export async function getAuditLogs(
   params?: AuditLogParams
-): Promise<PaginatedResponse<AuditLog>> {
-  const response = await apiClient.get<ApiResponse<PaginatedResponse<AuditLog>>>(
+): Promise<AuditLogsResponse> {
+  const response = await apiClient.get<ApiResponse<AuditLogsResponse>>(
     '/admin/audit-logs',
     { params: params as Record<string, unknown> }
   );
@@ -332,9 +357,7 @@ export async function getAuditLogs(
 export async function exportAuditLogs(
   params?: Omit<AuditLogParams, 'page' | 'limit'>
 ): Promise<Blob> {
-  // Note: Blob response type handling would need to be implemented in apiClient
-  // For now, cast the response
-  const response = await apiClient.get<Blob>('/admin/audit-logs/export', {
+  const response = await apiClient.getBlob('/admin/audit-logs/export', {
     params: params as Record<string, unknown>,
   });
   return response.data;
