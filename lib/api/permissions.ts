@@ -24,6 +24,7 @@ export type PermissionActionKey =
   | 'delete:programs'
   | 'upload:programs'
   | 'approve:access-requests'
+  | 'view:access-requests'
   | 'create:organisations'
   | 'edit:organisations'
   | 'deactivate:organisations'
@@ -74,7 +75,9 @@ export interface PermissionGroupDetail extends PermissionGroup {
 
 export interface PermissionMatrix {
   actions: Array<{ key: PermissionActionKey; minimumRole: string; resourceType: string; action: string }>;
-  roles: Array<{ role: string; actions: Record<PermissionActionKey, boolean> }>;
+  // Every active permission group and its currently-granted actions — groups
+  // can only ever have staff members, so this is the real matrix. super_admin
+  // isn't included: it always has every permission and isn't a group.
   delegations: Array<{ id: string; name: string; slug: string; actions: PermissionActionKey[] }>;
 }
 

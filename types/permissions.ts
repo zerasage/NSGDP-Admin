@@ -19,6 +19,7 @@ export type PermissionAction =
   | "delete:programs"        // Remove or archive programme records
   | "upload:programs"        // Upload reports/documents to programme records
   | "approve:access-requests" // Approve/deny restricted-dataset access requests
+  | "view:access-requests"   // Read-only: see the access-request list without adjudicating
   | "create:organisations"   // Register new organisations on the platform
   | "edit:organisations"     // Update any organisation's profile
   | "deactivate:organisations" // Enable/disable any organisation
@@ -48,6 +49,7 @@ export const PERMISSION_ACTION_LABELS: Record<PermissionAction, string> = {
   "delete:programs": "Delete Programmes",
   "upload:programs": "Upload Programme Reports",
   "approve:access-requests": "Approve Access Requests",
+  "view:access-requests": "View Access Requests",
   "create:organisations": "Create Organisations",
   "edit:organisations": "Edit Organisations",
   "deactivate:organisations": "Deactivate Organisations",
@@ -84,7 +86,9 @@ export const PERMISSION_ACTION_DESCRIPTIONS: Record<PermissionAction, string> = 
   "upload:programs":
     "Can upload campaign reports, monitoring reports, and evaluation documents to programme records.",
   "approve:access-requests":
-    "Can approve or deny a user's request for access to a restricted-visibility dataset.",
+    "Can approve or deny a user's request for access to a restricted-visibility dataset. Includes viewing the request list.",
+  "view:access-requests":
+    "Can see the list of access requests (requester, dataset, reason, status) without being able to approve or deny them.",
   "create:organisations":
     "Can register new organisations on the platform.",
   "edit:organisations":
@@ -136,7 +140,7 @@ export const PERMISSION_ACTION_GROUPS: Array<{ label: string; actions: Permissio
   },
   {
     label: "Access Requests",
-    actions: ["approve:access-requests"],
+    actions: ["view:access-requests", "approve:access-requests"],
   },
 ];
 
