@@ -135,6 +135,46 @@ export async function apiFetch<T>(
 }
 
 /**
+ * Same auth/refresh handling as apiFetch, but for endpoints that return a
+ * binary body (CSV/PDF exports, etc.) instead of JSON — calling res.json()
+ * on those throws a parse error, which is why exports silently failed
+ * before this existed.
+ */
+export async function apiFetchBlob(
+  path: string,
+  options: RequestOptions = {},
+): Promise<Blob> {
+  const { token } = options;
+  let accessToken = token ?? getAccessToken();
+
+  let res = await doFetch(path, options, accessToken);
+
+  if (res.status === 401 && accessToken && !token) {
+    const newToken = await refreshAccessToken();
+    if (newToken) {
+      accessToken = newToken;
+      res = await doFetch(path, options, accessToken);
+    }
+  }
+
+  if (!res.ok) {
+    let message = res.statusText;
+    let details: unknown;
+    try {
+      const data = await res.json();
+      message = data?.message ?? message;
+      details = data;
+    } catch {
+      // non-JSON error body — keep statusText
+    }
+    handleUnauthorized(res.status, !!accessToken);
+    throw new ApiError(res.status, message, details);
+  }
+
+  return res.blob();
+}
+
+/**
  * multipart/form-data upload — bypasses apiFetch's JSON-stringify body
  * handling entirely. Do not set Content-Type manually: the browser needs to
  * add its own multipart boundary.
@@ -195,6 +235,19 @@ export const apiClient = {
       : "";
     
     const data = await apiFetch<T>(url + queryString, { method: "GET" });
+    return { data };
+  },
+
+  getBlob: async (url: string, options?: { params?: Record<string, unknown> }) => {
+    const queryString = options?.params
+      ? "?" + new URLSearchParams(
+          Object.entries(options.params)
+            .filter(([, value]) => value !== undefined && value !== null)
+            .map(([key, value]) => [key, String(value)])
+        ).toString()
+      : "";
+
+    const data = await apiFetchBlob(url + queryString, { method: "GET" });
     return { data };
   },
 
