@@ -43,6 +43,18 @@ export function PermissionGroupForm({ initial, onSave, onCancel, isSaving }: Per
     });
   };
 
+  const toggleSection = (actions: PermissionActionKey[]) => {
+    const allSelected = actions.every((action) => selectedActions.has(action));
+    setSelectedActions((prev) => {
+      const next = new Set(prev);
+      for (const action of actions) {
+        if (allSelected) next.delete(action);
+        else next.add(action);
+      }
+      return next;
+    });
+  };
+
   const handleSave = () => {
     if (!name.trim()) return;
     onSave({
@@ -101,18 +113,30 @@ export function PermissionGroupForm({ initial, onSave, onCancel, isSaving }: Per
               Grant atomic permissions now, or skip this and delegate later from this group&apos;s card.
             </p>
             <div className="rounded-lg border bg-muted/30 p-4 space-y-5">
-              {PERMISSION_ACTION_GROUPS.map((group, groupIndex) => {
-                const GroupIcon = GROUP_ICONS[group.label];
+              {PERMISSION_ACTION_GROUPS.map((section, groupIndex) => {
+                const GroupIcon = GROUP_ICONS[section.label];
+                const allSelected = section.actions.every((action) => selectedActions.has(action));
                 return (
                   <div
-                    key={group.label}
+                    key={section.label}
                     className={groupIndex > 0 ? "space-y-3 border-t pt-4" : "space-y-3"}
                   >
-                    <p className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground/80">
-                      {GroupIcon && <GroupIcon className="size-3.5" />}
-                      {group.label}
-                    </p>
-                    {group.actions.map((action) => (
+                    <div className="flex items-center justify-between">
+                      <p className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground/80">
+                        {GroupIcon && <GroupIcon className="size-3.5" />}
+                        {section.label}
+                      </p>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 px-2 text-xs font-medium"
+                        onClick={() => toggleSection(section.actions)}
+                      >
+                        {allSelected ? "Clear All" : "Select All"}
+                      </Button>
+                    </div>
+                    {section.actions.map((action) => (
                       <label key={action} className="flex items-start gap-3 cursor-pointer">
                         <Checkbox
                           checked={selectedActions.has(action)}

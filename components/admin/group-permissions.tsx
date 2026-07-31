@@ -1,8 +1,10 @@
 "use client";
 
+import { useState } from "react";
 import { Database, Building2, Users, FolderKanban, UserCheck } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Button } from "@/components/ui/button";
 import { formatDate } from "@/lib/utils/date";
 import type { PermissionGroup, PermissionActionKey } from "@/lib/api/permissions";
 import {
@@ -30,6 +32,7 @@ export function GroupPermissions({ group }: { group: PermissionGroup }) {
   const grant = useGrantPermission();
   const revoke = useRevokePermission();
   const { toast } = useToast();
+  const [bulkPendingSection, setBulkPendingSection] = useState<string | null>(null);
 
   if (!detail) return <Skeleton className="h-40" />;
 
@@ -74,24 +77,74 @@ export function GroupPermissions({ group }: { group: PermissionGroup }) {
     }
   };
 
+  // "Select All" grants every ungranted action in the section; if the
+  // section is already fully granted, it flips to "Clear All" and revokes
+  // everything instead — same select-all/clear-all convention used for the
+  // LGA checklist elsewhere in this app.
+  const toggleSection = async (sectionLabel: string, actions: PermissionActionKey[]) => {
+    const allGranted = actions.every((action) => grantedActions.has(action));
+    setBulkPendingSection(sectionLabel);
+
+    try {
+      if (allGranted) {
+        await Promise.all(
+          actions.map((action) => {
+            const grantId = grantedActions.get(action);
+            return grantId ? revoke.mutateAsync({ groupId: group.id, grantId }) : Promise.resolve();
+          })
+        );
+        toast({ title: `Cleared all "${sectionLabel}" permissions for ${group.name}` });
+      } else {
+        const missing = actions.filter((action) => !grantedActions.has(action));
+        await Promise.all(
+          missing.map((action) => grant.mutateAsync({ groupId: group.id, action }))
+        );
+        toast({ title: `Granted all "${sectionLabel}" permissions for ${group.name}` });
+      }
+      await refetch();
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to update permissions",
+        variant: "destructive",
+      });
+    } finally {
+      setBulkPendingSection(null);
+    }
+  };
+
   return (
     <>
       <div className="rounded-lg border bg-muted/30 p-4 space-y-5">
         <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
           Atomic Permissions
         </p>
-        {PERMISSION_ACTION_GROUPS.map((group, groupIndex) => {
-          const GroupIcon = GROUP_ICONS[group.label];
+        {PERMISSION_ACTION_GROUPS.map((section, groupIndex) => {
+          const GroupIcon = GROUP_ICONS[section.label];
+          const allGranted = section.actions.every((action) => grantedActions.has(action));
+          const isBulkPending = bulkPendingSection === section.label;
           return (
             <div
-              key={group.label}
+              key={section.label}
               className={groupIndex > 0 ? "space-y-3 border-t pt-4" : "space-y-3"}
             >
-              <p className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground/80">
-                {GroupIcon && <GroupIcon className="size-3.5" />}
-                {group.label}
-              </p>
-              {group.actions.map((action) => {
+              <div className="flex items-center justify-between">
+                <p className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground/80">
+                  {GroupIcon && <GroupIcon className="size-3.5" />}
+                  {section.label}
+                </p>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 px-2 text-xs font-medium"
+                  disabled={isBulkPending || grant.isPending || revoke.isPending}
+                  onClick={() => toggleSection(section.label, section.actions)}
+                >
+                  {allGranted ? "Clear All" : "Select All"}
+                </Button>
+              </div>
+              {section.actions.map((action) => {
                 const checked = grantedActions.has(action);
                 return (
                   <label key={action} className="flex items-start gap-3 cursor-pointer group/perm">
