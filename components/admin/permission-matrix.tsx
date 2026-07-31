@@ -1,131 +1,279 @@
 "use client";
 
-import { Check, Minus, Star } from "lucide-react";
-import { PERMISSION_ACTION_LABELS } from "@/types/permissions";
+import {
+  Check,
+  Database,
+  Building2,
+  Users,
+  FolderKanban,
+  UserCheck,
+  ShieldCheck,
+  Layers,
+  Star,
+} from "lucide-react";
+import {
+  PERMISSION_ACTION_LABELS,
+  PERMISSION_ACTION_GROUPS,
+} from "@/types/permissions";
 import type { PermissionActionKey } from "@/lib/api/permissions";
 import { usePermissionMatrix } from "@/lib/hooks/usePermissionGroups";
 import { Skeleton } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/feedback/empty-state";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { statusSurface } from "@/lib/constants/status-surfaces";
 import { cn } from "@/lib/utils";
 
-const ROLE_LABELS: Record<string, string> = {
-  public: "Public Visitor",
-  registered: "Registered User",
-  contributor: "Contributor",
-  admin: "Org Admin",
-  super_admin: "Super Admin (Owner)",
+const SECTION_ICONS: Record<string, typeof Database> = {
+  Datasets: Database,
+  Organisations: Building2,
+  Users: Users,
+  Programmes: FolderKanban,
+  "Access Requests": UserCheck,
 };
 
-function Cell({ has, isDelegatable }: { has: boolean; isDelegatable?: boolean }) {
-  return (
-    <td className="border-b border-r px-3 py-2.5 text-center last:border-r-0">
-      {has ? (
-        <span className="inline-flex items-center justify-center">
-          <Check className="size-3.5 text-emerald-600" aria-label="Granted" />
-        </span>
-      ) : isDelegatable ? (
-        <span className="inline-flex items-center justify-center">
-          <Star className="size-3 text-amber-400" aria-label="Delegatable" />
-        </span>
-      ) : (
-        <span className="inline-flex items-center justify-center">
-          <Minus className="size-3 text-muted-foreground/40" aria-label="Not available" />
-        </span>
-      )}
-    </td>
-  );
-}
+// Cycles through the app's existing dark-mode-aware badge palette, keyed by
+// section so every group's cards read the same way at a glance.
+const SECTION_COLORS: Record<string, keyof typeof statusSurface> = {
+  Datasets: "blue",
+  Organisations: "purple",
+  Users: "emerald",
+  Programmes: "amber",
+  "Access Requests": "teal",
+};
+
+// A handful of accent colors cycled across group cards purely for visual
+// variety — not semantically tied to anything about the group itself.
+const CARD_ACCENTS = [
+  "border-t-blue-400 dark:border-t-blue-500",
+  "border-t-purple-400 dark:border-t-purple-500",
+  "border-t-emerald-400 dark:border-t-emerald-500",
+  "border-t-amber-400 dark:border-t-amber-500",
+  "border-t-teal-400 dark:border-t-teal-500",
+  "border-t-rose-400 dark:border-t-rose-500",
+];
+
+// Mirrors the "Powerful: grant only to specific vetted staff, never seed by
+// default" callouts in types/permissions.ts's own descriptions — unscoped,
+// platform-wide-once-held actions that deserve a visible flag wherever they
+// show up, not just in a tooltip nobody reads.
+const POWERFUL_ACTIONS = new Set<PermissionActionKey>([
+  "promote:org-admin",
+  "demote:org-admin",
+  "delete:organisations",
+]);
 
 export function PermissionMatrix() {
   const { data, isLoading } = usePermissionMatrix();
 
   if (isLoading || !data) {
-    return <Skeleton className="h-64" />;
+    return (
+      <div className="space-y-5">
+        <Skeleton className="h-40" />
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          {[...Array(3)].map((_, i) => (
+            <Skeleton key={i} className="h-48" />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (data.delegations.length === 0) {
+    return (
+      <EmptyState
+        icon={ShieldCheck}
+        title="No permission groups yet"
+        description="Create a permission group and grant it some actions on the Groups tab to see them here."
+      />
+    );
   }
 
   const actions = data.actions.map((a) => a.key);
+  const totalActions = actions.length;
 
   return (
-    <div className="space-y-3">
-      <div className="flex items-center gap-4 text-xs text-muted-foreground flex-wrap">
-        <span className="flex items-center gap-1.5">
-          <Check className="size-3.5 text-emerald-600" /> Base permission (always granted)
-        </span>
-        <span className="flex items-center gap-1.5">
-          <Star className="size-3 text-amber-400" /> Delegatable (Super Admin may grant to a group)
-        </span>
-        <span className="flex items-center gap-1.5">
-          <Minus className="size-3 text-muted-foreground/40" /> Not available for this role
-        </span>
+    <div className="space-y-8">
+      {/* Overview table — every group vs every action, at a glance */}
+      <div className="space-y-3">
+        <div className="flex items-center gap-4 text-xs text-muted-foreground flex-wrap">
+          <span className="flex items-center gap-1.5">
+            <Check className="size-3.5 text-emerald-600" /> Granted
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="text-muted-foreground/30">—</span> Not granted
+          </span>
+          <span className="flex items-center gap-1.5">
+            <Star className="size-3 text-amber-500 fill-amber-500" /> Powerful
+          </span>
+        </div>
+
+        <div className="overflow-x-auto rounded-lg border">
+          <table className="w-full text-xs whitespace-nowrap">
+            <thead>
+              <tr className="bg-muted/60">
+                <th className="sticky left-0 z-10 bg-muted/60 border-b border-r px-4 py-3 text-left font-semibold">
+                  Permission Group
+                </th>
+                {actions.map((action) => (
+                  <th
+                    key={action}
+                    className="border-b border-r px-3 py-3 text-center font-medium last:border-r-0 max-w-24"
+                  >
+                    <span
+                      className="flex items-center justify-center gap-1 truncate max-w-[110px]"
+                      title={
+                        POWERFUL_ACTIONS.has(action)
+                          ? `${PERMISSION_ACTION_LABELS[action]} — powerful, grant sparingly`
+                          : PERMISSION_ACTION_LABELS[action]
+                      }
+                    >
+                      {POWERFUL_ACTIONS.has(action) && (
+                        <Star className="size-3 shrink-0 text-amber-500 fill-amber-500" />
+                      )}
+                      <span className="truncate">
+                        {PERMISSION_ACTION_LABELS[action]}
+                      </span>
+                    </span>
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {data.delegations.map((group, i) => {
+                const granted = new Set(group.actions);
+                return (
+                  <tr
+                    key={group.id}
+                    className="hover:bg-muted/30 transition-colors"
+                  >
+                    <td
+                      className={cn(
+                        "sticky left-0 z-10 border-b border-r px-4 py-2.5 font-medium",
+                        i % 2 === 0 ? "bg-background" : "bg-muted/10",
+                      )}
+                    >
+                      {group.name}
+                    </td>
+                    {actions.map((action) => (
+                      <td
+                        key={action}
+                        className="border-b border-r px-3 py-2.5 text-center last:border-r-0"
+                      >
+                        {granted.has(action) ? (
+                          <Check
+                            className="mx-auto size-3.5 text-emerald-600"
+                            aria-label="Granted"
+                          />
+                        ) : (
+                          <span
+                            className="text-muted-foreground/30"
+                            aria-label="Not granted"
+                          >
+                            —
+                          </span>
+                        )}
+                      </td>
+                    ))}
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
       </div>
 
-      <div className="overflow-x-auto rounded-lg border">
-        <table className="w-full text-xs whitespace-nowrap">
-          <thead>
-            <tr className="bg-muted/60">
-              <th className="sticky left-0 z-10 bg-muted/60 border-b border-r px-4 py-3 text-left font-semibold">
-                Role
-              </th>
-              {actions.map((action) => (
-                <th
-                  key={action}
-                  className="border-b border-r px-3 py-3 text-center font-medium last:border-r-0 max-w-24"
-                >
-                  <span className="block truncate max-w-[100px]" title={PERMISSION_ACTION_LABELS[action]}>
-                    {PERMISSION_ACTION_LABELS[action]}
-                  </span>
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {data.roles.map((def, i) => (
-              <tr
-                key={def.role}
+      {/* Per-group cards — same data, grouped and readable instead of a wall of columns */}
+      <div className="space-y-3">
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <Layers className="size-4" />
+          {data.delegations.length} permission group
+          {data.delegations.length !== 1 ? "s" : ""} · {totalActions} delegable
+          actions total
+        </div>
+
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          {data.delegations.map((group, i) => {
+            const granted = new Set(group.actions);
+            const sectionsWithGrants = PERMISSION_ACTION_GROUPS.map(
+              (section) => ({
+                ...section,
+                grantedActions: section.actions.filter((a) => granted.has(a)),
+              }),
+            ).filter((section) => section.grantedActions.length > 0);
+
+            return (
+              <Card
+                key={group.id}
                 className={cn(
-                  "hover:bg-muted/30 transition-colors",
-                  def.role === "super_admin" && "bg-primary/5 font-medium"
+                  "border-t-4 transition-shadow hover:shadow-md",
+                  CARD_ACCENTS[i % CARD_ACCENTS.length],
                 )}
               >
-                <td className={cn(
-                  "sticky left-0 z-10 border-b border-r px-4 py-2.5 font-medium",
-                  i % 2 === 0 ? "bg-background" : "bg-muted/10",
-                  def.role === "super_admin" && "bg-primary/5"
-                )}>
-                  {ROLE_LABELS[def.role] ?? def.role}
-                </td>
-                {actions.map((action) => {
-                  const has = def.actions[action];
-                  const canDelegate = !has && def.role !== "super_admin";
-                  return <Cell key={action} has={has} isDelegatable={canDelegate} />;
-                })}
-              </tr>
-            ))}
-          </tbody>
-        </table>
+                <CardHeader className="pb-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <h3 className="font-semibold leading-tight">
+                      {group.name}
+                    </h3>
+                    <Badge
+                      variant="outline"
+                      className="shrink-0 text-xs font-normal"
+                    >
+                      {group.actions.length} / {totalActions}
+                    </Badge>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-3 pt-0">
+                  {sectionsWithGrants.length === 0 ? (
+                    <p className="text-sm italic text-muted-foreground">
+                      No permissions granted yet
+                    </p>
+                  ) : (
+                    sectionsWithGrants.map((section) => {
+                      const SectionIcon = SECTION_ICONS[section.label];
+                      const color = SECTION_COLORS[section.label] ?? "gray";
+                      return (
+                        <div key={section.label}>
+                          <p className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                            {SectionIcon && (
+                              <SectionIcon className="size-3.5" />
+                            )}
+                            {section.label}
+                          </p>
+                          <div className="flex flex-wrap gap-1.5">
+                            {section.grantedActions.map(
+                              (action: PermissionActionKey) => (
+                                <Badge
+                                  key={action}
+                                  variant="outline"
+                                  className={cn(
+                                    "text-xs font-normal gap-1",
+                                    statusSurface[color],
+                                  )}
+                                >
+                                  {POWERFUL_ACTIONS.has(action) && (
+                                    <Star className="size-2.5 fill-amber-500 text-amber-500" />
+                                  )}
+                                  {PERMISSION_ACTION_LABELS[action]}
+                                </Badge>
+                              ),
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
       </div>
 
-      {data.delegations.length > 0 && (
-        <div className="rounded-lg border p-4">
-          <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            Active delegations by group
-          </p>
-          <ul className="space-y-1.5 text-sm">
-            {data.delegations.map((group) => (
-              <li key={group.id}>
-                <span className="font-medium">{group.name}</span>
-                {group.actions.length > 0 ? (
-                  <span className="text-muted-foreground">
-                    {" "}
-                    — {group.actions.map((a: PermissionActionKey) => PERMISSION_ACTION_LABELS[a]).join(", ")}
-                  </span>
-                ) : (
-                  <span className="text-muted-foreground italic"> — no active grants</span>
-                )}
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
+      <p className="text-xs italic text-muted-foreground">
+        super_admin always has every permission and isn&apos;t shown here — it
+        isn&apos;t a group.
+      </p>
     </div>
   );
 }
