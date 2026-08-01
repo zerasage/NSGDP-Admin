@@ -1,6 +1,6 @@
 "use client";
 
-import { useQuery } from '@tanstack/react-query';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { getAuditLogs, exportAuditLogs, type AuditLogParams } from '@/lib/api/admin';
 
 /**
@@ -11,6 +11,7 @@ export function useAuditLogs(params?: AuditLogParams) {
     queryKey: ['audit-logs', params],
     queryFn: () => getAuditLogs(params),
     staleTime: 10000, // 10 seconds
+    placeholderData: keepPreviousData,
   });
 }
 
