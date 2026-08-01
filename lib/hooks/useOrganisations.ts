@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   getOrganisations,
   getOrganisationBySlug,
@@ -8,16 +8,23 @@ import {
   deleteOrganisation,
   uploadOrganisationAgreement,
   type CreateOrganisationPayload,
+  type GetOrganisationsParams,
   type UpdateOrganisationPayload,
 } from '../api/organisations';
 
 /**
  * Hook to fetch all organisations with pagination
  */
-export function useOrganisations(page: number = 1, limit: number = 50) {
+export function useOrganisations(
+  page: number = 1,
+  limit: number = 50,
+  scope?: 'partners' | 'platform-owner',
+  filters?: Pick<GetOrganisationsParams, 'search' | 'type' | 'status'>
+) {
   return useQuery({
-    queryKey: ['organisations', page, limit],
-    queryFn: () => getOrganisations({ page, limit }),
+    queryKey: ['organisations', page, limit, scope, filters],
+    queryFn: () => getOrganisations({ page, limit, scope, ...filters }),
+    placeholderData: keepPreviousData,
     staleTime: 10 * 60 * 1000, // 10 minutes - organisations don't change often
   });
 }

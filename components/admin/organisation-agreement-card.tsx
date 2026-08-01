@@ -71,7 +71,7 @@ export function OrganisationAgreementCard({ org, orgId, slug, canManage }: Organ
   };
 
   return (
-    <Card>
+    <Card size="sm">
       <CardHeader>
         <CardTitle className="text-base">Data-Sharing Agreement</CardTitle>
       </CardHeader>

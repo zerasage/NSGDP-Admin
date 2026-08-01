@@ -32,6 +32,7 @@ export interface Organisation {
   logo_url?: string;
   acronym?: string;
   is_active: boolean;
+  is_platform_owner: boolean;
   created_at: string;
   updated_at: string;
   agreement_file_path?: string | null;
@@ -53,12 +54,27 @@ export interface OrganisationWithDatasets {
     format: string;
     visibility: string;
     created_at: string;
+    downloadCount?: number;
   }>;
 }
 
 export interface GetOrganisationsParams {
   page?: number;
   limit?: number;
+  scope?: 'partners' | 'platform-owner';
+  search?: string;
+  type?: OrganisationType;
+  status?: 'active' | 'inactive';
+}
+
+interface OrganisationListResponse<T> {
+  data: T[];
+  meta: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
 }
 
 /**
@@ -70,13 +86,24 @@ export interface GetOrganisationsParams {
 export async function getOrganisations(
   params?: GetOrganisationsParams
 ): Promise<PaginatedResponse<Organisation>> {
-  const response = await apiClient.get<ApiResponse<PaginatedResponse<Organisation>>>('/admin/organisations', {
+  const response = await apiClient.get<ApiResponse<OrganisationListResponse<Organisation>>>('/admin/organisations', {
     params: {
       page: params?.page || 1,
       limit: params?.limit || 20,
+      scope: params?.scope,
+      search: params?.search || undefined,
+      type: params?.type,
+      status: params?.status,
     },
   });
-  return response.data.data;
+  const result = response.data.data;
+  return {
+    data: result.data,
+    page: result.meta.page,
+    limit: result.meta.limit,
+    total: result.meta.total,
+    totalPages: result.meta.totalPages,
+  };
 }
 
 /**
