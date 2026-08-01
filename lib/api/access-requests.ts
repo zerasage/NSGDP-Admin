@@ -1,5 +1,4 @@
 import { apiClient } from './client';
-import type { PaginatedResponse } from '../types/common';
 
 interface ApiResponse<T> {
   success: boolean;
@@ -28,12 +27,25 @@ export interface AccessRequest {
   dataset_slug: string;
 }
 
+export interface AccessRequestsResponse {
+  data: AccessRequest[];
+  meta: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+    hasNextPage: boolean;
+    hasPrevPage: boolean;
+  };
+}
+
 export async function getAccessRequests(params?: {
   status?: AccessRequestStatus;
   page?: number;
   limit?: number;
-}): Promise<PaginatedResponse<AccessRequest>> {
-  const response = await apiClient.get<ApiResponse<PaginatedResponse<AccessRequest>>>(
+  search?: string;
+}): Promise<AccessRequestsResponse> {
+  const response = await apiClient.get<ApiResponse<AccessRequestsResponse>>(
     '/admin/access-requests',
     { params: params as Record<string, unknown> }
   );

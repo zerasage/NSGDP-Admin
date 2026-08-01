@@ -14,6 +14,7 @@ import {
 import {
   PERMISSION_ACTION_LABELS,
   PERMISSION_ACTION_GROUPS,
+  POWERFUL_PERMISSION_ACTIONS,
 } from "@/types/permissions";
 import type { PermissionActionKey } from "@/lib/api/permissions";
 import { usePermissionMatrix } from "@/lib/hooks/usePermissionGroups";
@@ -42,29 +43,14 @@ const SECTION_COLORS: Record<string, keyof typeof statusSurface> = {
   "Access Requests": "teal",
 };
 
-// A handful of accent colors cycled across group cards purely for visual
-// variety — not semantically tied to anything about the group itself.
-const CARD_ACCENTS = [
-  "border-t-blue-400 dark:border-t-blue-500",
-  "border-t-purple-400 dark:border-t-purple-500",
-  "border-t-emerald-400 dark:border-t-emerald-500",
-  "border-t-amber-400 dark:border-t-amber-500",
-  "border-t-teal-400 dark:border-t-teal-500",
-  "border-t-rose-400 dark:border-t-rose-500",
-];
-
 // Mirrors the "Powerful: grant only to specific vetted staff, never seed by
 // default" callouts in types/permissions.ts's own descriptions — unscoped,
 // platform-wide-once-held actions that deserve a visible flag wherever they
 // show up, not just in a tooltip nobody reads.
-const POWERFUL_ACTIONS = new Set<PermissionActionKey>([
-  "promote:org-admin",
-  "demote:org-admin",
-  "delete:organisations",
-]);
-
 export function PermissionMatrix() {
-  const { data, isLoading } = usePermissionMatrix();
+  const { data, isLoading, isError, refetch } = usePermissionMatrix();
+
+  if (isError) return <div className="min-h-40 border border-destructive/40 p-8 text-center"><p className="mb-4 text-sm">The permission matrix could not be loaded.</p><button className="min-h-11 rounded-md border px-4 focus-visible:outline-2" onClick={() => refetch()}>Retry</button></div>;
 
   if (isLoading || !data) {
     return (
@@ -93,7 +79,7 @@ export function PermissionMatrix() {
   const totalActions = actions.length;
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-5">
       {/* Overview table — every group vs every action, at a glance */}
       <div className="space-y-3">
         <div className="flex items-center gap-4 text-xs text-muted-foreground flex-wrap">
@@ -108,7 +94,7 @@ export function PermissionMatrix() {
           </span>
         </div>
 
-        <div className="overflow-x-auto rounded-lg border">
+        <div className="hidden overflow-x-auto rounded-lg border xl:block">
           <table className="w-full text-xs whitespace-nowrap">
             <thead>
               <tr className="bg-muted/60">
@@ -123,12 +109,12 @@ export function PermissionMatrix() {
                     <span
                       className="flex items-center justify-center gap-1 truncate max-w-[110px]"
                       title={
-                        POWERFUL_ACTIONS.has(action)
+                        POWERFUL_PERMISSION_ACTIONS.has(action)
                           ? `${PERMISSION_ACTION_LABELS[action]} — powerful, grant sparingly`
                           : PERMISSION_ACTION_LABELS[action]
                       }
                     >
-                      {POWERFUL_ACTIONS.has(action) && (
+                      {POWERFUL_PERMISSION_ACTIONS.has(action) && (
                         <Star className="size-3 shrink-0 text-amber-500 fill-amber-500" />
                       )}
                       <span className="truncate">
@@ -184,7 +170,7 @@ export function PermissionMatrix() {
       </div>
 
       {/* Per-group cards — same data, grouped and readable instead of a wall of columns */}
-      <div className="space-y-3">
+      <div className="space-y-3 xl:hidden">
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <Layers className="size-4" />
           {data.delegations.length} permission group
@@ -193,7 +179,7 @@ export function PermissionMatrix() {
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          {data.delegations.map((group, i) => {
+          {data.delegations.map((group) => {
             const granted = new Set(group.actions);
             const sectionsWithGrants = PERMISSION_ACTION_GROUPS.map(
               (section) => ({
@@ -203,13 +189,7 @@ export function PermissionMatrix() {
             ).filter((section) => section.grantedActions.length > 0);
 
             return (
-              <Card
-                key={group.id}
-                className={cn(
-                  "border-t-4 transition-shadow hover:shadow-md",
-                  CARD_ACCENTS[i % CARD_ACCENTS.length],
-                )}
-              >
+              <Card key={group.id} className="shadow-none">
                 <CardHeader className="pb-3">
                   <div className="flex items-start justify-between gap-2">
                     <h3 className="font-semibold leading-tight">
@@ -251,7 +231,7 @@ export function PermissionMatrix() {
                                     statusSurface[color],
                                   )}
                                 >
-                                  {POWERFUL_ACTIONS.has(action) && (
+                                  {POWERFUL_PERMISSION_ACTIONS.has(action) && (
                                     <Star className="size-2.5 fill-amber-500 text-amber-500" />
                                   )}
                                   {PERMISSION_ACTION_LABELS[action]}
@@ -271,8 +251,7 @@ export function PermissionMatrix() {
       </div>
 
       <p className="text-xs italic text-muted-foreground">
-        super_admin always has every permission and isn&apos;t shown here — it
-        isn&apos;t a group.
+        Inactive groups are omitted. super_admin always has every permission and isn&apos;t shown here — it isn&apos;t a group.
       </p>
     </div>
   );

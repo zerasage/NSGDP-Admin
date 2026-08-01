@@ -149,7 +149,7 @@ export default function DatasetApproveScreenPage({
           <p className="text-sm text-emerald-800 dark:text-emerald-200">
             This dataset passed the 8-dimension QA checklist in a single review session and is
             awaiting director sign-off. Approving does not make it public — publish it separately
-            from the dataset page when it's ready to go live.
+            from the dataset page when it&apos;s ready to go live.
           </p>
         </CardContent>
       </Card>

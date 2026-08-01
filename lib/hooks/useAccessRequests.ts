@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   getAccessRequests,
   approveAccessRequest,
@@ -7,12 +7,13 @@ import {
 } from '../api/access-requests';
 
 export function useAccessRequests(
-  params?: { status?: AccessRequestStatus; page?: number; limit?: number },
+  params?: { status?: AccessRequestStatus; page?: number; limit?: number; search?: string },
   enabled: boolean = true
 ) {
   return useQuery({
     queryKey: ['access-requests', params],
     queryFn: () => getAccessRequests(params),
+    placeholderData: keepPreviousData,
     enabled,
   });
 }

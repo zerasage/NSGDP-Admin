@@ -85,8 +85,11 @@ export function DatasetMap({
   const [loading, setLoading] = useState(true);
   const [mapReady, setMapReady] = useState(false);
 
+  // configureLeafletIcons touches window/document and must run client-only —
+  // there's no render-time equivalent, so this gate can't be pure derived state.
   useEffect(() => {
     configureLeafletIcons();
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setMapReady(true);
     setLoading(false);
   }, []);

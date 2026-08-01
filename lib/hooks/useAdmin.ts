@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   getUsers,
   getUserStats,
@@ -29,6 +29,7 @@ export function useUsers(params?: UserListParams, enabled: boolean = true) {
   return useQuery({
     queryKey: ['admin-users', params],
     queryFn: () => getUsers(params),
+    placeholderData: keepPreviousData,
     staleTime: 2 * 60 * 1000, // 2 minutes
     enabled,
   });
@@ -48,11 +49,11 @@ export function useUserStats() {
 /**
  * Hook to fetch a single user by ID
  */
-export function useUser(userId: string) {
+export function useUser(userId: string, enabled: boolean = true) {
   return useQuery({
     queryKey: ['admin-user', userId],
     queryFn: () => getUserById(userId),
-    enabled: !!userId,
+    enabled: !!userId && enabled,
     staleTime: 2 * 60 * 1000,
   });
 }

@@ -1,61 +1,42 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { KeyRound, CheckCircle2, XCircle, Loader2, Search, Lock } from "lucide-react";
+import { useEffect, useState } from "react";
+import { CheckCircle2, KeyRound, Loader2, Lock, Search, UserRound, X, XCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { EmptyState } from "@/components/feedback/empty-state";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Pagination } from "@/components/data/pagination";
+import { TableRowSkeleton } from "@/components/feedback/skeletons";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/lib/hooks/use-toast";
 import { useAuth } from "@/lib/auth";
 import { usePermissions } from "@/lib/hooks/usePermissions";
-import {
-  useAccessRequests,
-  useApproveAccessRequest,
-  useDenyAccessRequest,
-} from "@/lib/hooks/useAccessRequests";
+import { useAccessRequests, useApproveAccessRequest, useDenyAccessRequest } from "@/lib/hooks/useAccessRequests";
 import type { AccessRequest, AccessRequestStatus } from "@/lib/api/access-requests";
 import { cn } from "@/lib/utils";
 import { formatDate } from "@/lib/utils/date";
 
-const STATUS_BADGE: Record<AccessRequestStatus, string> = {
-  pending: "bg-amber-100 text-amber-800 border-amber-300",
-  approved: "bg-emerald-100 text-emerald-800 border-emerald-300",
-  denied: "bg-red-100 text-red-800 border-red-300",
+const STATUS_CONFIG: Record<AccessRequestStatus, { label: string; className: string }> = {
+  pending: { label: "Pending", className: "bg-warning text-warning-foreground" },
+  approved: { label: "Approved", className: "bg-success text-success-foreground" },
+  denied: { label: "Denied", className: "bg-destructive text-white" },
 };
 
 const TABS: Array<{ key: AccessRequestStatus | "all"; label: string }> = [
   { key: "pending", label: "Pending" },
   { key: "approved", label: "Approved" },
   { key: "denied", label: "Denied" },
-  { key: "all", label: "All" },
+  { key: "all", label: "All requests" },
 ];
+
+function StatusBadge({ status }: { status: AccessRequestStatus }) {
+  const { label, className } = STATUS_CONFIG[status];
+  return <span className={cn("inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium", className)}>{label}</span>;
+}
 
 export default function AccessRequestsPage() {
   const { toast } = useToast();
@@ -63,83 +44,45 @@ export default function AccessRequestsPage() {
   const { hasPermission, hasAnyPermission, isLoading: permissionsLoading } = usePermissions();
   const isSuperAdmin = user?.role === "super_admin";
   const canAdjudicate = isSuperAdmin || hasPermission("approve:access-requests");
-  // Org admins never reach this app at all — only super_admin/staff can log
-  // into the admin portal — so no role bypass is needed here beyond super_admin.
-  const canView =
-    isSuperAdmin || hasAnyPermission("view:access-requests", "approve:access-requests");
+  const canView = isSuperAdmin || hasAnyPermission("view:access-requests", "approve:access-requests");
   const [status, setStatus] = useState<AccessRequestStatus | "all">("pending");
   const [query, setQuery] = useState("");
+  const [debouncedQuery, setDebouncedQuery] = useState("");
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
   const [denyTarget, setDenyTarget] = useState<AccessRequest | null>(null);
   const [comment, setComment] = useState("");
+  const [commentTouched, setCommentTouched] = useState(false);
 
-  const { data, isLoading } = useAccessRequests(
-    {
-      status: status !== "all" ? status : undefined,
-      limit: 50,
-    },
-    canView
-  );
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setDebouncedQuery(query.trim());
+      setPage(1);
+    }, 300);
+    return () => window.clearTimeout(timer);
+  }, [query]);
+
+  const request = useAccessRequests({ status: status === "all" ? undefined : status, page, limit: pageSize, search: debouncedQuery || undefined }, canView);
   const approveMutation = useApproveAccessRequest();
   const denyMutation = useDenyAccessRequest();
+  const requests = request.data?.data ?? [];
+  const meta = request.data?.meta;
+  const total = meta?.total ?? 0;
+  const totalPages = meta?.totalPages ?? 1;
+  const isSearchPending = query.trim() !== debouncedQuery;
 
-  const requests = data?.data ?? [];
-
-  // No backend search param for access requests (list sizes are small
-  // enough that client-side filtering is fine) — match on requester or
-  // dataset.
-  const filteredRequests = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return requests;
-    return requests.filter(
-      (r) =>
-        r.requester_name?.toLowerCase().includes(q) ||
-        r.requester_email?.toLowerCase().includes(q) ||
-        r.dataset_title?.toLowerCase().includes(q)
-    );
-  }, [requests, query]);
-
-  const handleApprove = (id: string) => {
-    approveMutation.mutate(id, {
-      onSuccess: () => toast({ title: "Access request approved" }),
-      onError: (error: unknown) =>
-        toast({
-          title: "Error",
-          description: error instanceof Error ? error.message : undefined,
-          variant: "destructive",
-        }),
+  const approve = (id: string) => approveMutation.mutate(id, {
+    onSuccess: () => toast({ title: "Access request approved" }),
+    onError: (error) => toast({ title: "Could not approve request", description: error instanceof Error ? error.message : undefined, variant: "destructive" }),
+  });
+  const closeDialog = () => { setDenyTarget(null); setComment(""); setCommentTouched(false); };
+  const deny = () => {
+    setCommentTouched(true);
+    if (!denyTarget || comment.trim().length < 20) return;
+    denyMutation.mutate({ id: denyTarget.id, comment: comment.trim() }, {
+      onSuccess: () => { toast({ title: "Access request denied" }); closeDialog(); },
+      onError: (error) => toast({ title: "Could not deny request", description: error instanceof Error ? error.message : undefined, variant: "destructive" }),
     });
-  };
-
-  const closeDenyDialog = () => {
-    setDenyTarget(null);
-    setComment("");
-  };
-
-  const handleDeny = () => {
-    if (!denyTarget) return;
-    if (comment.length < 20) {
-      toast({
-        title: "Error",
-        description: "Denial reason must be at least 20 characters",
-        variant: "destructive",
-      });
-      return;
-    }
-    denyMutation.mutate(
-      { id: denyTarget.id, comment },
-      {
-        onSuccess: () => {
-          toast({ title: "Access request denied" });
-          closeDenyDialog();
-        },
-        onError: (error: unknown) =>
-          toast({
-            title: "Error",
-            description: error instanceof Error ? error.message : undefined,
-            variant: "destructive",
-          }),
-      }
-    );
   };
 
   if (!permissionsLoading && !canView) {
@@ -152,165 +95,249 @@ export default function AccessRequestsPage() {
     );
   }
 
+  const filtered = Boolean(debouncedQuery || status !== "all");
+
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold flex items-center gap-2">
-          <KeyRound className="size-5" />
-          Access Requests
-        </h1>
-        <p className="text-muted-foreground mt-1">
-          Requests from users to access restricted datasets
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold">Access requests</h1>
+          <p className="mt-1 text-sm text-muted-foreground">Review requests for restricted datasets</p>
+        </div>
+        {!request.isLoading && (
+          <Badge variant="outline" className="rounded-full px-3 py-1 text-xs font-medium tabular-nums">
+            {total} {total === 1 ? "request" : "requests"}
+          </Badge>
+        )}
       </div>
 
-      <div className="flex flex-wrap gap-2">
-        {TABS.map((t) => (
-          <Button
-            key={t.key}
-            variant={status === t.key ? "default" : "outline"}
-            size="sm"
-            onClick={() => setStatus(t.key)}
-          >
-            {t.label}
-          </Button>
-        ))}
+      <div className="overflow-hidden rounded-2xl border bg-card">
+        <div className="scrollbar-slim overflow-x-auto border-b px-4">
+          <div className="flex min-w-max gap-1" role="tablist" aria-label="Request status">
+            {TABS.map((tab) => (
+              <button
+                key={tab.key}
+                type="button"
+                role="tab"
+                aria-selected={status === tab.key}
+                onClick={() => { setStatus(tab.key); setPage(1); }}
+                className={cn(
+                  "relative px-3 py-3 text-sm font-medium transition-colors",
+                  status === tab.key
+                    ? "text-foreground after:absolute after:inset-x-3 after:bottom-0 after:h-0.5 after:rounded-full after:bg-primary"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="relative w-full sm:max-w-sm">
+            <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+            <Input
+              placeholder="Search requester, email, or dataset"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              className="h-10 pl-9 pr-10"
+              aria-label="Search access requests"
+            />
+            {query && (
+              <button
+                type="button"
+                onClick={() => setQuery("")}
+                className="absolute right-1 top-1/2 flex size-8 -translate-y-1/2 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                aria-label="Clear search"
+              >
+                <X className="size-4" aria-hidden="true" />
+              </button>
+            )}
+          </div>
+          <div className="flex min-h-5 items-center gap-2 text-xs text-muted-foreground" aria-live="polite">
+            {(isSearchPending || (request.isFetching && !request.isLoading)) && (
+              <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />
+            )}
+            <span>
+              {isSearchPending ? "Searching" : request.isFetching && !request.isLoading ? "Updating" : "Found"}{" "}
+              <span className="font-semibold tabular-nums text-foreground">{total}</span>{" "}
+              {total === 1 ? "result" : "results"}
+            </span>
+          </div>
+        </div>
       </div>
 
-      <div className="relative max-w-sm">
-        <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          placeholder="Search by requester or dataset…"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          className="pl-9"
-        />
-      </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Requests</CardTitle>
-          <CardDescription>
-            Approving grants immediate access; denying requires a reason.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {isLoading ? (
-            <div className="space-y-2">
-              <Skeleton className="h-10" />
-              <Skeleton className="h-10" />
-              <Skeleton className="h-10" />
+      <div aria-busy={request.isFetching || isSearchPending} className="space-y-4">
+        {request.isLoading ? (
+          <>
+            <div className="hidden overflow-hidden rounded-2xl border bg-card xl:block">
+              <table className="w-full text-sm">
+                <tbody>{[...Array(6)].map((_, i) => <TableRowSkeleton key={i} cols={6} />)}</tbody>
+              </table>
             </div>
-          ) : filteredRequests.length === 0 ? (
-            <p className="text-sm text-muted-foreground py-8 text-center">
-              {query
-                ? "No access requests match your search."
-                : `No ${status !== "all" ? status : ""} access requests.`}
-            </p>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Requester</TableHead>
-                  <TableHead>Dataset</TableHead>
-                  <TableHead>Reason</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Requested</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredRequests.map((request) => (
-                  <TableRow key={request.id}>
-                    <TableCell>
-                      <div className="font-medium">{request.requester_name || "—"}</div>
-                      <div className="text-xs text-muted-foreground">{request.requester_email}</div>
-                    </TableCell>
-                    <TableCell className="font-medium">{request.dataset_title}</TableCell>
-                    <TableCell className="max-w-xs truncate" title={request.reason}>
-                      {request.reason}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className={cn("capitalize", STATUS_BADGE[request.status])}>
-                        {request.status}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
-                      {formatDate(request.created_at)}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {request.status === "pending" ? (
-                        canAdjudicate ? (
-                          <div className="flex justify-end gap-2">
-                            <Button
-                              size="sm"
-                              onClick={() => handleApprove(request.id)}
-                              disabled={approveMutation.isPending}
-                            >
-                              <CheckCircle2 className="size-3.5 mr-1" />
-                              Approve
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="destructive"
-                              onClick={() => setDenyTarget(request)}
-                              disabled={denyMutation.isPending}
-                            >
-                              <XCircle className="size-3.5 mr-1" />
-                              Deny
-                            </Button>
+            <div className="grid gap-3 xl:hidden">
+              {[...Array(4)].map((_, i) => <Skeleton key={i} className="h-52 rounded-xl" />)}
+            </div>
+          </>
+        ) : request.isError ? (
+          <div className="rounded-2xl border bg-card p-8 text-center">
+            <p className="font-semibold text-destructive">Access requests could not be loaded.</p>
+            <p className="mt-1 text-sm text-muted-foreground">Check your connection and try again.</p>
+            <Button variant="outline" size="sm" className="mt-4" onClick={() => request.refetch()}>Retry</Button>
+          </div>
+        ) : requests.length === 0 ? (
+          <div className="rounded-2xl border bg-card">
+            <EmptyState
+              icon={KeyRound}
+              title={filtered ? "No matching requests" : "No access requests yet"}
+              description={filtered ? "Try another search or status filter." : "New requests will appear here when users request restricted dataset access."}
+              action={query ? { label: "Clear search", onClick: () => setQuery("") } : undefined}
+            />
+          </div>
+        ) : (
+          <>
+            <div className="hidden overflow-x-auto rounded-2xl border bg-card xl:block">
+              <table className="w-full text-[13px]">
+                <thead>
+                  <tr className="h-11 border-b bg-muted/40 text-left text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                    <th className="px-4 font-semibold">Requester</th>
+                    <th className="px-4 font-semibold">Dataset</th>
+                    <th className="px-4 font-semibold">Reason</th>
+                    <th className="px-4 font-semibold">Status</th>
+                    <th className="px-4 font-semibold">Requested</th>
+                    <th className="px-4 font-semibold">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {requests.map((r) => (
+                    <tr key={r.id} className="border-b transition-colors last:border-0 hover:bg-muted/30">
+                      <td className="max-w-56 px-4 py-3.5">
+                        <div className="flex items-center gap-3">
+                          <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10">
+                            <UserRound className="size-4 text-primary" aria-hidden="true" />
                           </div>
-                        ) : (
-                          <span className="text-xs text-muted-foreground">
-                            Requires approve:access-requests
-                          </span>
-                        )
-                      ) : (
-                        <span className="text-xs text-muted-foreground">
-                          {request.review_comment || "—"}
-                        </span>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
+                          <div className="min-w-0">
+                            <p className="line-clamp-1 font-semibold">{r.requester_name || "Unnamed requester"}</p>
+                            <p className="mt-0.5 line-clamp-1 text-xs text-muted-foreground">{r.requester_email}</p>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="max-w-56 px-4 py-3.5">
+                        <span className="line-clamp-2 font-medium">{r.dataset_title}</span>
+                      </td>
+                      <td className="max-w-sm px-4 py-3.5 text-muted-foreground">
+                        <span className="line-clamp-2" title={r.reason}>{r.reason}</span>
+                      </td>
+                      <td className="px-4 py-3.5"><StatusBadge status={r.status} /></td>
+                      <td className="whitespace-nowrap px-4 py-3.5 text-xs text-muted-foreground">{formatDate(r.created_at)}</td>
+                      <td className="px-4 py-3.5">
+                        <Actions request={r} canAdjudicate={canAdjudicate} busy={approveMutation.isPending || denyMutation.isPending} approve={approve} deny={setDenyTarget} />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
 
-      <Dialog open={!!denyTarget} onOpenChange={(open) => !open && closeDenyDialog()}>
+            <div className="grid gap-3 xl:hidden">
+              {requests.map((r) => (
+                <article key={r.id} className="rounded-xl border bg-card p-4">
+                  <div className="flex items-start gap-3">
+                    <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/10">
+                      <UserRound className="size-5 text-primary" aria-hidden="true" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="line-clamp-1 text-sm font-semibold leading-5">{r.requester_name || "Unnamed requester"}</p>
+                      <p className="mt-1 truncate text-xs text-muted-foreground">{r.requester_email}</p>
+                    </div>
+                    <StatusBadge status={r.status} />
+                  </div>
+
+                  <p className="mt-3 line-clamp-2 text-xs leading-5 text-muted-foreground">{r.reason}</p>
+
+                  <div className="mt-4 grid grid-cols-2 gap-2 border-y py-3">
+                    <div>
+                      <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Dataset</p>
+                      <p className="mt-1 line-clamp-1 text-xs font-medium">{r.dataset_title}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Requested</p>
+                      <p className="mt-1 text-xs font-medium">{formatDate(r.created_at)}</p>
+                    </div>
+                  </div>
+
+                  {r.review_comment && (
+                    <p className="mt-3 text-xs text-muted-foreground">Review note: {r.review_comment}</p>
+                  )}
+
+                  <div className="mt-4">
+                    <Actions request={r} canAdjudicate={canAdjudicate} busy={approveMutation.isPending || denyMutation.isPending} approve={approve} deny={setDenyTarget} mobile />
+                  </div>
+                </article>
+              ))}
+            </div>
+          </>
+        )}
+
+        {!request.isLoading && requests.length > 0 && (
+          <Pagination
+            page={page}
+            totalPages={Math.max(1, totalPages)}
+            pageSize={pageSize}
+            total={total}
+            onPageChange={setPage}
+            onPageSizeChange={(size) => { setPageSize(size); setPage(1); }}
+            className="rounded-xl border bg-card px-4 py-3"
+          />
+        )}
+      </div>
+
+      <Dialog open={Boolean(denyTarget)} onOpenChange={(open) => !open && closeDialog()}>
         <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
-            <DialogTitle>Deny Access Request</DialogTitle>
-            <DialogDescription>{denyTarget?.dataset_title}</DialogDescription>
+            <DialogTitle>Deny access request</DialogTitle>
+            <DialogDescription>Tell the requester why access to {denyTarget?.dataset_title} cannot be granted.</DialogDescription>
           </DialogHeader>
           <div className="space-y-2 py-2">
-            <Label htmlFor="deny-comment">
-              Reason <span className="text-destructive">*</span>
-            </Label>
+            <Label htmlFor="deny-comment">Denial reason <span className="font-normal text-destructive">Required</span></Label>
             <Textarea
               id="deny-comment"
-              placeholder="Explain why this request is being denied (minimum 20 characters)..."
               value={comment}
-              onChange={(e) => setComment(e.target.value)}
+              onChange={(e) => { setComment(e.target.value); setCommentTouched(true); }}
+              onBlur={() => setCommentTouched(true)}
               rows={5}
-              className={comment.length > 0 && comment.length < 20 ? "border-destructive" : ""}
+              aria-describedby="deny-help deny-error"
+              aria-invalid={commentTouched && comment.trim().length < 20}
+              placeholder="Give a specific reason the requester can act on…"
+              className={cn(commentTouched && comment.trim().length < 20 && "border-destructive")}
             />
-            <p className="text-sm text-muted-foreground">{comment.length}/20 characters minimum</p>
+            <p id="deny-help" className="text-xs text-muted-foreground">Minimum 20 characters · {comment.trim().length}/20</p>
+            {commentTouched && comment.trim().length < 20 && <p id="deny-error" className="text-sm text-destructive">Enter at least 20 characters.</p>}
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={closeDenyDialog}>Cancel</Button>
-            <Button
-              variant="destructive"
-              onClick={handleDeny}
-              disabled={denyMutation.isPending || comment.length < 20}
-            >
-              {denyMutation.isPending ? <Loader2 className="size-4 animate-spin" /> : "Deny Request"}
+          <DialogFooter className="flex-col-reverse gap-2 sm:flex-row">
+            <Button variant="outline" className="h-11 w-full sm:h-9 sm:w-auto" onClick={closeDialog}>Cancel</Button>
+            <Button variant="destructive" className="h-11 w-full sm:h-9 sm:w-auto" onClick={deny} disabled={denyMutation.isPending}>
+              {denyMutation.isPending ? <><Loader2 className="size-4 animate-spin" />Denying…</> : "Deny request"}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+    </div>
+  );
+}
+
+function Actions({ request, canAdjudicate, busy, approve, deny, mobile = false }: { request: AccessRequest; canAdjudicate: boolean; busy: boolean; approve: (id: string) => void; deny: (request: AccessRequest) => void; mobile?: boolean }) {
+  if (request.status !== "pending") return <span className="text-xs text-muted-foreground">{request.review_comment || "Review complete"}</span>;
+  if (!canAdjudicate) return <p className="text-xs text-muted-foreground">Read only · approval permission required</p>;
+  return (
+    <div className={cn("flex items-center gap-1.5", mobile && "w-full")}>
+      <Button size="sm" className={cn(mobile && "h-11 flex-1")} onClick={() => approve(request.id)} disabled={busy}>
+        <CheckCircle2 className="size-3.5" />Approve
+      </Button>
+      <Button size="sm" variant="destructive" className={cn(mobile && "h-11 flex-1")} onClick={() => deny(request)} disabled={busy}>
+        <XCircle className="size-3.5" />Deny
+      </Button>
     </div>
   );
 }

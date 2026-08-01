@@ -28,7 +28,7 @@ export function ApprovalPipeline({ currentStage, rejectedAt, className }: Approv
 
   return (
     <div className={cn("overflow-x-auto", className)}>
-      <ol className="flex min-w-max items-start gap-0" aria-label="Approval pipeline">
+      <ol className="flex w-full min-w-[40rem] items-start gap-0" aria-label="Approval pipeline">
         {LIFECYCLE_PIPELINE.map(({ stage, label, role }, idx) => {
           const isDone = currentIdx >= 0 && idx < currentIdx;
           const isCurrent = idx === currentIdx;
@@ -36,7 +36,13 @@ export function ApprovalPipeline({ currentStage, rejectedAt, className }: Approv
           const isPending = currentIdx >= 0 && idx > currentIdx;
 
           return (
-            <li key={stage} className="flex items-center">
+            <li
+              key={stage}
+              className={cn(
+                "flex items-center",
+                idx < LIFECYCLE_PIPELINE.length - 1 ? "flex-1" : "shrink-0"
+              )}
+            >
               <div className="flex flex-col items-center">
                 <div
                   className={cn(
@@ -72,7 +78,7 @@ export function ApprovalPipeline({ currentStage, rejectedAt, className }: Approv
               {idx < LIFECYCLE_PIPELINE.length - 1 && (
                 <div
                   className={cn(
-                    "h-0.5 w-8 -mt-6",
+                    "-mt-6 h-0.5 min-w-8 flex-1",
                     idx < currentIdx ? "bg-emerald-400" : "bg-muted-foreground/20"
                   )}
                   aria-hidden

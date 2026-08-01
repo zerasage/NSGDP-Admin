@@ -36,13 +36,18 @@ export function QAChecklistItem({
   const { icon: Icon, className } = RESULT_CONFIG[result];
 
   return (
-    <div className={cn("rounded-lg border p-4 transition-colors", className)}>
+    <div className={cn("border-0 p-4 transition-colors", className)}>
       <div className="flex items-start gap-3">
-        <Icon className="size-5 shrink-0 mt-0.5" aria-hidden />
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center justify-between gap-2">
-            <p className="font-medium text-sm">{dimension.label}</p>
-            <div className="flex items-center gap-1 shrink-0">
+        <div className="flex size-8 shrink-0 items-center justify-center rounded-lg border border-current/20 bg-background/70">
+          <Icon className="size-4" aria-hidden />
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <p className="text-sm font-semibold">{dimension.label}</p>
+              <p className="mt-0.5 text-xs leading-5 text-muted-foreground">{dimension.description}</p>
+            </div>
+            <div className="flex shrink-0 items-center gap-1">
               {(["pass", "fail", "na"] as QAResult[]).map((r) => (
                 <button
                   key={r}
@@ -50,11 +55,12 @@ export function QAChecklistItem({
                   onClick={() => !disabled && onResultChange(r)}
                   disabled={disabled}
                   className={cn(
-                    "rounded px-2 py-0.5 text-xs font-medium border transition-colors",
+                    "h-9 rounded-lg border px-2.5 text-xs font-medium transition-colors sm:h-8",
                     result === r
-                      ? RESULT_CONFIG[r].className + " border-current font-bold"
+                      ? RESULT_CONFIG[r].className + " border-current font-semibold"
                       : "border-border bg-background hover:bg-muted text-muted-foreground"
                   )}
+                  aria-pressed={result === r}
                 >
                   {RESULT_CONFIG[r].label}
                 </button>
@@ -62,17 +68,15 @@ export function QAChecklistItem({
               <button
                 type="button"
                 onClick={() => setExpanded(!expanded)}
-                className="ml-1 text-muted-foreground hover:text-foreground"
+                className="ml-1 flex size-9 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground sm:size-8"
                 aria-label={expanded ? "Collapse guidance" : "Expand guidance"}
               >
                 {expanded ? <ChevronUp className="size-4" /> : <ChevronDown className="size-4" />}
               </button>
             </div>
           </div>
-          <p className="text-xs text-muted-foreground mt-0.5">{dimension.description}</p>
-
           {expanded && (
-            <ul className="mt-3 space-y-1">
+            <ul className="mt-3 space-y-1.5 rounded-lg bg-muted/40 p-3">
               {dimension.guidanceItems.map((item, i) => (
                 <li key={i} className="flex items-start gap-2 text-xs">
                   <span className="text-muted-foreground mt-0.5">•</span>
@@ -84,7 +88,7 @@ export function QAChecklistItem({
 
           {!disabled && (
             <textarea
-              className="mt-2 w-full rounded-md border bg-background px-2 py-1.5 text-xs placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring resize-none"
+              className="mt-3 w-full resize-none rounded-lg border bg-background px-3 py-2 text-xs placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
               rows={2}
               placeholder={`Notes for ${dimension.label}…`}
               value={notes ?? ""}

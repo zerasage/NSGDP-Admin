@@ -1,4 +1,5 @@
 import { apiClient } from './client';
+import type { PaginatedResponse } from '../types/common';
 
 interface ApiResponse<T> {
   success: boolean;
@@ -15,6 +16,7 @@ export interface StaffMember {
   status: 'pending' | 'active' | 'suspended' | 'archived';
   groupId: string | null;
   groupName: string | null;
+  groupIsActive: boolean | null;
   createdAt: string;
   lastLoginAt: string | null;
 }
@@ -30,6 +32,30 @@ export interface StaffInvite {
   expiresAt: string;
   acceptedAt?: string;
   createdAt: string;
+}
+
+interface StaffListResponse<T> {
+  data: T[];
+  meta: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
+}
+
+export interface StaffMemberListParams {
+  page?: number;
+  limit?: number;
+  search?: string;
+  status?: StaffMember['status'];
+}
+
+export interface StaffInviteListParams {
+  page?: number;
+  limit?: number;
+  search?: string;
+  status?: StaffInvite['status'];
 }
 
 export interface CreateStaffInvitePayload {
@@ -60,14 +86,36 @@ export interface AcceptStaffInviteResponse {
   tokens: { accessToken: string; refreshToken: string; expiresIn: number };
 }
 
-export async function getStaffMembers(): Promise<StaffMember[]> {
-  const response = await apiClient.get<ApiResponse<StaffMember[]>>('/admin/staff');
-  return response.data.data;
+export async function getStaffMembers(
+  params?: StaffMemberListParams,
+): Promise<PaginatedResponse<StaffMember>> {
+  const response = await apiClient.get<ApiResponse<StaffListResponse<StaffMember>>>('/admin/staff', {
+    params: params as Record<string, unknown>,
+  });
+  const result = response.data.data;
+  return {
+    data: result.data,
+    page: result.meta.page,
+    limit: result.meta.limit,
+    total: result.meta.total,
+    totalPages: result.meta.totalPages,
+  };
 }
 
-export async function getStaffInvites(): Promise<StaffInvite[]> {
-  const response = await apiClient.get<ApiResponse<StaffInvite[]>>('/admin/staff/invites');
-  return response.data.data;
+export async function getStaffInvites(
+  params?: StaffInviteListParams,
+): Promise<PaginatedResponse<StaffInvite>> {
+  const response = await apiClient.get<ApiResponse<StaffListResponse<StaffInvite>>>('/admin/staff/invites', {
+    params: params as Record<string, unknown>,
+  });
+  const result = response.data.data;
+  return {
+    data: result.data,
+    page: result.meta.page,
+    limit: result.meta.limit,
+    total: result.meta.total,
+    totalPages: result.meta.totalPages,
+  };
 }
 
 export async function createStaffInvite(payload: CreateStaffInvitePayload): Promise<StaffInvite> {

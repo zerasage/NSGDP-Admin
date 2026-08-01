@@ -1,9 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { X, Mail, UserPlus, Info } from "lucide-react";
+import { Mail, UserPlus, Info } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { createInvite, InviteRole } from "@/lib/api/admin";
+import { ApiError } from "@/lib/api/client";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -47,9 +48,9 @@ export function InviteMemberModal({
       queryClient.invalidateQueries({ queryKey: ["org-invites", organisationId] });
       handleClose();
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       toast.error("Failed to send invite", {
-        description: error.response?.data?.message || "Please try again",
+        description: error instanceof ApiError ? error.message : "Please try again",
       });
     },
   });

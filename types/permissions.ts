@@ -34,6 +34,15 @@ export const PROGRAM_PERMISSION_ACTIONS: PermissionAction[] = [
   "upload:programs",
 ];
 
+export const POWERFUL_PERMISSION_ACTIONS = new Set<PermissionAction>([
+  "promote:org-admin",
+  "demote:org-admin",
+  "delete:organisations",
+]);
+
+export const isPowerfulPermission = (action: PermissionAction) =>
+  POWERFUL_PERMISSION_ACTIONS.has(action);
+
 export const PERMISSION_ACTION_LABELS: Record<PermissionAction, string> = {
   "approve:datasets": "Approve Datasets",
   "publish:datasets": "Publish Datasets",

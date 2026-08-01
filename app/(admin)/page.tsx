@@ -7,21 +7,28 @@ import {
   Users,
   Download,
   AlertTriangle,
-  ExternalLink,
-  BarChart3,
-  Upload,
   Building2,
+  Megaphone,
 } from "lucide-react";
+import { formatDistanceToNow } from "date-fns";
 import { useDashboardStats, useDashboardActivity } from "@/lib/hooks/useDashboard";
 import { useNotifications } from "@/lib/hooks/useNotifications";
+import { getAdminNotificationHref } from "@/lib/api/notifications";
 import { ActivityGraph } from "@/components/charts/activity-graph";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { cn } from "@/lib/utils";
-import { formatDateTime } from "@/lib/utils/date";
 import { PageHeaderSkeleton } from "@/components/feedback/skeletons";
 import { Skeleton } from "@/components/ui/skeleton";
+
+function getActivityIcon(type: string) {
+  if (type.includes("rejected") || type.includes("suspended")) return AlertTriangle;
+  if (type === "system_announcement") return Megaphone;
+  if (type.includes("organisation")) return Building2;
+  if (type.includes("user") || type.includes("account") || type.includes("admin")) return Users;
+  if (type.includes("approved") || type.includes("published")) return FileCheck;
+  return Database;
+}
 
 export default function AdminDashboardPage() {
   const { data: stats, isLoading, isError, error, refetch, isFetching } =
@@ -31,11 +38,12 @@ export default function AdminDashboardPage() {
 
   if (isLoading) {
     return (
-      <div className="space-y-8">
+      <div className="space-y-6">
         <PageHeaderSkeleton />
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {[...Array(5)].map((_, i) => (
-            <Skeleton key={i} className="h-28" />
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          <Skeleton className="h-[220px] rounded-2xl md:col-span-2 xl:row-span-2" />
+          {[...Array(4)].map((_, i) => (
+            <Skeleton key={i} className="h-[104px] rounded-2xl" />
           ))}
         </div>
       </div>
@@ -44,10 +52,10 @@ export default function AdminDashboardPage() {
 
   if (isError) {
     return (
-      <div className="space-y-8">
+      <div className="space-y-6">
         <div>
           <h1 className="text-2xl font-bold">Admin Dashboard</h1>
-          <p className="text-muted-foreground mt-1">Platform overview and key metrics</p>
+          <p className="mt-1 text-sm text-muted-foreground">Platform overview and key metrics</p>
         </div>
         <Alert variant="destructive">
           <AlertTriangle />
@@ -69,30 +77,64 @@ export default function AdminDashboardPage() {
     );
   }
 
+  const topDatasets = stats?.downloadStats?.topDatasets?.slice(0, 5) ?? [];
+  const maxDownloads = Math.max(...topDatasets.map((item) => item.downloads), 1);
+  const statusEntries = Object.entries(stats?.datasetStats?.byStatus ?? {});
+  const totalStatuses = Math.max(
+    statusEntries.reduce((total, [, count]) => total + count, 0),
+    1
+  );
+
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold">Admin Dashboard</h1>
-        <p className="text-muted-foreground mt-1">Platform overview and key metrics</p>
+        <p className="mt-1 text-sm text-muted-foreground">Platform overview and key metrics</p>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        <Card className="md:col-span-2 xl:row-span-2">
+          <CardContent className="h-full">
+            <div className="flex min-h-[188px] h-full flex-col justify-between">
+              <div className="flex items-start justify-between gap-6">
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                    Data catalogue
+                  </p>
+                  <p className="mt-2 text-sm text-muted-foreground">Total datasets on the platform</p>
+                </div>
+                <div className="flex size-14 shrink-0 items-center justify-center rounded-2xl bg-primary/10">
+                  <Database className="size-7 text-primary" aria-hidden="true" />
+                </div>
+              </div>
+              <div>
+                <p className="text-4xl font-bold tracking-tight tabular-nums sm:text-5xl">
+                  {stats?.totalDatasets ?? '—'}
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
         {[
           { label: "Total Users", value: stats?.totalUsers, icon: Users },
           { label: "Organisations", value: stats?.totalOrganisations, icon: Building2 },
-          { label: "Total Datasets", value: stats?.totalDatasets, icon: Database },
           { label: "Pending Review", value: stats?.pendingDatasets, icon: FileCheck },
           { label: "Total Downloads", value: stats?.totalDownloads?.toLocaleString(), icon: Download },
         ].map(({ label, value, icon: Icon }) => (
-          <Card key={label}>
-            <CardContent className="pt-6">
-              <div className="flex items-center gap-3">
-                <div className="flex size-10 items-center justify-center rounded-lg bg-primary/10">
-                  <Icon className="size-5 text-primary" />
+          <Card key={label} size="sm">
+            <CardContent>
+              <div className="flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                    {label}
+                  </p>
+                  <p className="mt-2 text-xl font-bold tabular-nums md:text-2xl">
+                    {value ?? '—'}
+                  </p>
                 </div>
-                <div>
-                  <p className="text-2xl font-bold">{value ?? '—'}</p>
-                  <p className="text-xs text-muted-foreground">{label}</p>
+                <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 md:size-10">
+                  <Icon className="size-5 text-primary" aria-hidden="true" />
                 </div>
               </div>
             </CardContent>
@@ -100,8 +142,24 @@ export default function AdminDashboardPage() {
         ))}
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        <Card>
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,2fr)_minmax(300px,1fr)]">
+        <Card className="min-w-0">
+          <CardHeader>
+            <CardTitle className="text-base">Views &amp; Downloads</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {isActivityLoading ? (
+              <Skeleton className="h-64 rounded-xl" />
+            ) : (
+              <ActivityGraph
+                data7d={activity?.data7d ?? []}
+                data30d={activity?.data30d ?? []}
+              />
+            )}
+          </CardContent>
+        </Card>
+
+        <Card className="min-w-0">
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle className="text-base">Recent Activity</CardTitle>
             <Link href="/notifications" className="text-xs text-primary hover:underline">
@@ -112,131 +170,119 @@ export default function AdminDashboardPage() {
             {!notifications?.data || notifications.data.length === 0 ? (
               <p className="text-sm text-muted-foreground">No recent activity</p>
             ) : (
-              <ul className="space-y-3">
-                {notifications.data.map((item) => (
-                  <li key={item.id} className="text-sm">
-                    <p className="font-medium">{item.title}</p>
-                    <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{item.message}</p>
-                    <p className="text-xs text-muted-foreground/60 mt-0.5">
-                      {formatDateTime(item.created_at)}
-                    </p>
-                  </li>
-                ))}
+              <ul className="scrollbar-slim max-h-72 space-y-1 overflow-y-auto pr-1">
+                {notifications.data.map((item) => {
+                  const Icon = getActivityIcon(item.type);
+
+                  return (
+                    <li key={item.id}>
+                      <Link
+                        href={getAdminNotificationHref(item.link)}
+                        className={`group flex items-start gap-3 rounded-xl p-3 transition-colors hover:bg-muted/70 ${
+                          !item.is_read ? "bg-primary/5" : ""
+                        }`}
+                      >
+                        <div className="flex size-9 shrink-0 items-center justify-center rounded-lg border bg-background transition-transform group-hover:scale-105">
+                          <Icon className="size-4 text-primary" aria-hidden="true" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-start justify-between gap-2">
+                            <p className="truncate text-sm font-semibold leading-5">{item.title}</p>
+                            {!item.is_read && (
+                              <span className="mt-1.5 size-2 shrink-0 rounded-full bg-primary" aria-label="Unread" />
+                            )}
+                          </div>
+                          <p className="mt-0.5 line-clamp-2 text-xs leading-4 text-muted-foreground">
+                            {item.message}
+                          </p>
+                          <p className="mt-1.5 text-[11px] font-medium text-muted-foreground/70">
+                            {formatDistanceToNow(new Date(item.created_at), { addSuffix: true })}
+                          </p>
+                        </div>
+                      </Link>
+                    </li>
+                  );
+                })}
               </ul>
             )}
           </CardContent>
         </Card>
+      </div>
 
-        <Card>
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1.4fr)_minmax(340px,1fr)]">
+        <Card className="min-w-0">
           <CardHeader>
             <CardTitle className="text-base">Top Downloaded Datasets</CardTitle>
           </CardHeader>
           <CardContent>
-            {!stats?.downloadStats?.topDatasets || stats.downloadStats.topDatasets.length === 0 ? (
+            {topDatasets.length === 0 ? (
               <p className="text-sm text-muted-foreground">No download data available</p>
             ) : (
-              <ul className="space-y-3">
-                {stats.downloadStats.topDatasets.slice(0, 5).map((item) => (
-                  <li key={item.datasetId} className="text-sm flex justify-between items-center">
-                    <span className="truncate flex-1 font-medium">{item.datasetTitle}</span>
-                    <span className="text-muted-foreground ml-2">{item.downloads.toLocaleString()} downloads</span>
+              <ol className="space-y-4">
+                {topDatasets.map((item, index) => (
+                  <li key={item.datasetId} className="grid grid-cols-[24px_minmax(0,1fr)_auto] items-center gap-x-3 gap-y-2">
+                    <span className="row-span-2 flex size-6 items-center justify-center rounded-md bg-muted text-[11px] font-semibold tabular-nums text-muted-foreground">
+                      {index + 1}
+                    </span>
+                    <span className="truncate text-sm font-medium">{item.datasetTitle}</span>
+                    <span className="text-xs tabular-nums text-muted-foreground">
+                      {item.downloads.toLocaleString()}
+                    </span>
+                    <div className="col-span-2 h-1.5 overflow-hidden rounded-full bg-muted">
+                      <div
+                        className="h-full rounded-full bg-primary"
+                        style={{ width: `${Math.max((item.downloads / maxDownloads) * 100, 4)}%` }}
+                      />
+                    </div>
                   </li>
                 ))}
-              </ul>
+              </ol>
             )}
           </CardContent>
         </Card>
-      </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Views &amp; Downloads</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {isActivityLoading ? (
-            <Skeleton className="h-64" />
-          ) : (
-            <ActivityGraph
-              data7d={activity?.data7d ?? []}
-              data30d={activity?.data30d ?? []}
-            />
-          )}
-        </CardContent>
-      </Card>
-
-      <div className="grid gap-6 lg:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Datasets by Status</CardTitle>
+            <CardTitle className="text-base">Dataset Overview</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-3">
-              {stats?.datasetStats?.byStatus && Object.entries(stats.datasetStats.byStatus).map(([status, count]) => (
-                <div key={status} className="flex justify-between items-center text-sm">
-                  <span className="capitalize">{status.replace(/_/g, ' ')}</span>
-                  <span className="font-medium">{count}</span>
+            {statusEntries.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No dataset statistics available</p>
+            ) : (
+              <div className="space-y-3">
+                {statusEntries.map(([status, count]) => (
+                  <div key={status}>
+                    <div className="mb-1.5 flex items-center justify-between gap-3 text-xs">
+                      <span className="capitalize text-muted-foreground">{status.replace(/_/g, ' ')}</span>
+                      <span className="font-semibold tabular-nums">{count}</span>
+                    </div>
+                    <div className="h-1.5 overflow-hidden rounded-full bg-muted">
+                      <div
+                        className="h-full rounded-full bg-primary"
+                        style={{ width: `${Math.max((count / totalStatuses) * 100, count > 0 ? 4 : 0)}%` }}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="mt-5 grid grid-cols-3 border-t pt-4 text-center">
+              {[
+                { label: "Uploads", value: stats?.uploadStats?.total ?? 0 },
+                { label: "Month", value: stats?.uploadStats?.thisMonth ?? 0 },
+                { label: "Week", value: stats?.uploadStats?.thisWeek ?? 0 },
+              ].map(({ label, value }, index) => (
+                <div key={label} className={index > 0 ? "border-l" : undefined}>
+                  <p className="text-lg font-bold tabular-nums">{value}</p>
+                  <p className="mt-1 text-[11px] uppercase tracking-wide text-muted-foreground">{label}</p>
                 </div>
               ))}
-              {!stats?.datasetStats?.byStatus && (
-                <p className="text-sm text-muted-foreground">No dataset statistics available</p>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Upload Statistics</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              <div className="flex justify-between items-center text-sm">
-                <span>Total Uploads</span>
-                <span className="font-medium">{stats?.uploadStats?.total ?? 0}</span>
-              </div>
-              <div className="flex justify-between items-center text-sm">
-                <span>This Month</span>
-                <span className="font-medium">{stats?.uploadStats?.thisMonth ?? 0}</span>
-              </div>
-              <div className="flex justify-between items-center text-sm">
-                <span>This Week</span>
-                <span className="font-medium">{stats?.uploadStats?.thisWeek ?? 0}</span>
-              </div>
             </div>
           </CardContent>
         </Card>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Public Portal</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-sm text-muted-foreground mb-4">
-            Leave the admin console to view the public-facing data portal.
-          </p>
-          <div className="flex flex-wrap gap-2">
-            {[
-              { href: "/", label: "Portal Home", icon: ExternalLink },
-              { href: "/dataportal", label: "Browse Datasets", icon: Database },
-              { href: "/analytics", label: "Health Analytics", icon: BarChart3 },
-              { href: "/submit", label: "Submit Dataset", icon: Upload },
-            ].map(({ href, label, icon: Icon }) => (
-              <Link
-                key={href}
-                href={`${process.env.NEXT_PUBLIC_PORTAL_URL}${href}`}
-                className={cn(
-                  buttonVariants({ variant: "outline", size: "sm" }),
-                  "gap-1.5"
-                )}
-              >
-                <Icon className="size-3.5" />
-                {label}
-              </Link>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
     </div>
   );
 }

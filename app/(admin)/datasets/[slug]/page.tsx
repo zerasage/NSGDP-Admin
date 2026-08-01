@@ -6,6 +6,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowLeft,
   Archive,
+  ArchiveRestore,
   Building2,
   Calendar,
   Download,
@@ -20,6 +21,7 @@ import {
   Tag,
   User,
 } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -27,15 +29,18 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { EmptyState } from "@/components/feedback/empty-state";
+import { StatusBadge } from "@/components/data/status-badge";
+import { VisibilityBadge } from "@/components/data/visibility-badge";
 import { apiClient } from "@/lib/api/client";
-import { adminApi, archiveDataset, getUserById, publishDataset, unpublishDataset } from "@/lib/api/admin";
+import { adminApi, archiveDataset, getUserById, publishDataset, unarchiveDataset, unpublishDataset } from "@/lib/api/admin";
 import { getCategories } from "@/lib/api/categories";
 import { useDatasetVersions, useDownloadDataset, useDatasetFiles } from "@/lib/hooks/useDatasets";
-import type { DatasetFile } from "@/lib/api/datasets";
+import type { DatasetFile, DatasetStatus } from "@/lib/api/datasets";
+import type { Visibility } from "@/types";
 import { useToast } from "@/lib/hooks/use-toast";
 import { useAuth } from "@/lib/auth";
 import { usePermissions } from "@/lib/hooks/usePermissions";
-import { DatasetPreviewCard } from "@/components/data/dataset-preview-card";
+import { DatasetPreviewCard, DatasetPreviewDialog } from "@/components/data/dataset-preview-card";
 import { formatDate } from "@/lib/utils/date";
 
 function formatFileSize(bytes: number | string | null): string {
@@ -62,8 +67,8 @@ interface Dataset {
   slug: string;
   description: string;
   format: string;
-  visibility: string;
-  status: string;
+  visibility: Visibility;
+  status: DatasetStatus;
   tags: string[];
   geographic_coverage: string[];
   license: string;
@@ -92,14 +97,19 @@ interface Organisation {
   name: string;
 }
 
-const statusColors: Record<string, string> = {
-  draft: "bg-gray-100 text-gray-800 border-gray-300",
-  pending: "bg-yellow-100 text-yellow-800 border-yellow-300",
-  under_review: "bg-blue-100 text-blue-800 border-blue-300",
-  approved: "bg-green-100 text-green-800 border-green-300",
-  rejected: "bg-red-100 text-red-800 border-red-300",
-  archived: "bg-gray-100 text-gray-600 border-gray-300",
-};
+function InfoRow({ icon: Icon, label, value }: { icon: LucideIcon; label: string; value: string }) {
+  return (
+    <div className="flex gap-3 py-3 first:pt-0 last:pb-0">
+      <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-muted">
+        <Icon className="size-4 text-muted-foreground" aria-hidden="true" />
+      </div>
+      <div className="min-w-0">
+        <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{label}</p>
+        <p className="mt-0.5 break-words text-sm font-medium">{value}</p>
+      </div>
+    </div>
+  );
+}
 
 export default function DatasetDetailPage({
   params,
@@ -118,6 +128,7 @@ export default function DatasetDetailPage({
   const canPublish = isSuperAdmin || hasPermission("publish:datasets");
   const canArchive = isSuperAdmin || hasPermission("archive:datasets");
   const [archiveOpen, setArchiveOpen] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
 
   const { data: dataset, isLoading, error } = useQuery({
     queryKey: ['dataset', slug],
@@ -168,12 +179,30 @@ export default function DatasetDetailPage({
     mutationFn: () => archiveDataset(slug),
     onSuccess: () => {
       toast({ title: "Success", description: "Dataset archived" });
+      setArchiveOpen(false);
       queryClient.invalidateQueries({ queryKey: ["dataset", slug] });
+      queryClient.invalidateQueries({ queryKey: ["admin", "datasets", "queue"] });
     },
     onError: (error: unknown) =>
       toast({
         title: "Error",
         description: error instanceof Error ? error.message : "Failed to archive dataset",
+        variant: "destructive",
+      }),
+  });
+
+  const unarchiveMutation = useMutation({
+    mutationFn: () => unarchiveDataset(slug),
+    onSuccess: () => {
+      toast({ title: "Success", description: "Dataset restored from archive" });
+      setArchiveOpen(false);
+      queryClient.invalidateQueries({ queryKey: ["dataset", slug] });
+      queryClient.invalidateQueries({ queryKey: ["admin", "datasets", "queue"] });
+    },
+    onError: (error: unknown) =>
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to restore dataset",
         variant: "destructive",
       }),
   });
@@ -209,18 +238,7 @@ export default function DatasetDetailPage({
   const downloadMutation = useDownloadDataset();
 
   const handleView = () => {
-    downloadMutation.mutate(
-      { slug, mode: "view" },
-      {
-        onSuccess: (data) => window.open(data.downloadUrl, "_blank", "noopener,noreferrer"),
-        onError: (error: unknown) =>
-          toast({
-            title: "Error",
-            description: error instanceof Error ? error.message : "Failed to open file",
-            variant: "destructive",
-          }),
-      }
-    );
+    setPreviewOpen(true);
   };
 
   const handleDownload = () => {
@@ -287,8 +305,19 @@ export default function DatasetDetailPage({
   if (isLoading) {
     return (
       <div className="space-y-6">
-        <Skeleton className="h-10 w-64" />
-        <Skeleton className="h-96" />
+        <div className="space-y-3">
+          <Skeleton className="h-8 w-20" />
+          <Skeleton className="h-8 w-full max-w-2xl" />
+          <Skeleton className="h-5 w-72" />
+        </div>
+        <Skeleton className="h-20 rounded-2xl" />
+        <div className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(280px,1fr)]">
+          <div className="space-y-6">
+            <Skeleton className="h-40 rounded-2xl" />
+            <Skeleton className="h-80 rounded-2xl" />
+          </div>
+          <Skeleton className="h-[28rem] rounded-2xl" />
+        </div>
       </div>
     );
   }
@@ -315,37 +344,33 @@ export default function DatasetDetailPage({
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="mb-3 -ml-3"
-            onClick={() => router.back()}
-          >
-            <ArrowLeft className="size-4" />
-            Back
-          </Button>
-          <h1 className="text-2xl font-bold">{dataset.title}</h1>
-          <p className="text-muted-foreground mt-1">Dataset Details</p>
+      <div>
+        <Button variant="ghost" size="sm" className="mb-3 -ml-3 gap-1.5" onClick={() => router.back()}>
+          <ArrowLeft className="size-4" aria-hidden="true" />
+          Datasets
+        </Button>
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+          <div className="min-w-0">
+            <h1 className="text-2xl font-bold leading-8">{dataset.title}</h1>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {organisation?.name ?? "Unknown organisation"} · Updated {formatDate(dataset.updated_at)}
+            </p>
+          </div>
+          <div className="flex shrink-0 flex-wrap items-center gap-2">
+            <StatusBadge status={dataset.status} publishedAt={dataset.published_at} />
+            <VisibilityBadge visibility={dataset.visibility} />
+            <Badge variant="outline" className="rounded-full text-[11px] font-semibold uppercase">
+              {dataset.format}
+            </Badge>
+          </div>
         </div>
-        <div className="flex items-center gap-2">
-          <Badge
-            className={
-              dataset.status === 'approved' && !dataset.published_at
-                ? "bg-amber-100 text-amber-800 border-amber-300"
-                : statusColors[dataset.status] || "bg-gray-100 text-gray-800"
-            }
-          >
-            {dataset.status === 'approved'
-              ? (dataset.published_at ? 'PUBLISHED' : 'APPROVED (NOT PUBLISHED)')
-              : dataset.status.replace('_', ' ').toUpperCase()}
-          </Badge>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2 rounded-2xl border bg-card p-3 [&>button]:h-11 sm:p-4 sm:[&>button]:h-8">
           {canApprove && (dataset.status === 'pending' || dataset.status === 'under_review') && (
-            <Button size="sm" onClick={() => router.push(`/datasets/${slug}/review`)}>
-              <Eye className="size-4 mr-1" />
-              Review
+            <Button size="sm" className="gap-1.5" onClick={() => router.push(`/datasets/${slug}/review`)}>
+              <Eye className="size-4" aria-hidden="true" />
+              Review dataset
             </Button>
           )}
           {canPublish && dataset.status === 'approved' && !dataset.published_at && (
@@ -354,8 +379,8 @@ export default function DatasetDetailPage({
               onClick={() => publishMutation.mutate()}
               disabled={publishMutation.isPending}
             >
-              <Globe className="size-4 mr-1" />
-              Publish
+              <Globe className="size-4" aria-hidden="true" />
+              Publish dataset
             </Button>
           )}
           {canPublish && dataset.status === 'approved' && dataset.published_at && (
@@ -365,7 +390,7 @@ export default function DatasetDetailPage({
               onClick={() => unpublishMutation.mutate()}
               disabled={unpublishMutation.isPending}
             >
-              <Globe className="size-4 mr-1" />
+              <Globe className="size-4" aria-hidden="true" />
               Unpublish
             </Button>
           )}
@@ -375,10 +400,9 @@ export default function DatasetDetailPage({
                 size="sm"
                 variant="outline"
                 onClick={handleView}
-                disabled={downloadMutation.isPending}
               >
-                <Eye className="size-4 mr-1" />
-                View File
+                <Eye className="size-4" aria-hidden="true" />
+                View file
               </Button>
               <Button
                 size="sm"
@@ -386,30 +410,33 @@ export default function DatasetDetailPage({
                 onClick={handleDownload}
                 disabled={downloadMutation.isPending}
               >
-                <Download className="size-4 mr-1" />
+                <Download className="size-4" aria-hidden="true" />
                 Download
               </Button>
             </>
           )}
-          {canArchive && dataset.status !== 'archived' && (
-            <Button size="sm" variant="outline" onClick={() => setArchiveOpen(true)}>
-              <Archive className="size-4 mr-1" />
-              Archive
+          {canArchive && (
+            <Button size="sm" variant="ghost" className="gap-1.5 sm:ml-auto" onClick={() => setArchiveOpen(true)}>
+              {dataset.status === "archived" ? (
+                <ArchiveRestore className="size-4" aria-hidden="true" />
+              ) : (
+                <Archive className="size-4" aria-hidden="true" />
+              )}
+              {dataset.status === "archived" ? "Restore" : "Archive"}
             </Button>
           )}
-        </div>
       </div>
 
-      {/* Main Content */}
-      <div className="grid gap-6 md:grid-cols-3">
-        {/* Left Column - Main Info */}
-        <div className="md:col-span-2 space-y-6">
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(280px,1fr)]">
+        <div className="min-w-0 space-y-6">
           <Card>
-            <CardHeader>
+            <CardHeader className="border-b">
               <CardTitle>Description</CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-sm leading-relaxed">{dataset.description}</p>
+              <p className="text-sm leading-6 text-muted-foreground">
+                {dataset.description || "No description was provided for this dataset."}
+              </p>
             </CardContent>
           </Card>
 
@@ -417,46 +444,53 @@ export default function DatasetDetailPage({
 
           {files && files.length > 0 && (
             <Card>
-              <CardHeader>
+              <CardHeader className="border-b">
                 <CardTitle className="flex items-center gap-2">
-                  <FileStack className="size-4" />
+                  <FileStack className="size-4 text-muted-foreground" aria-hidden="true" />
                   Files
                   {files.length > 1 && (
-                    <Badge variant="secondary" className="ml-1">{files.length}</Badge>
+                    <Badge variant="secondary" className="ml-1 rounded-full tabular-nums">{files.length}</Badge>
                   )}
                 </CardTitle>
               </CardHeader>
-              <CardContent>
+              <CardContent className="-my-4">
                 <ul className="divide-y">
                   {files.map((file) => (
-                    <li key={file.id} className="flex items-center justify-between gap-3 py-3 first:pt-0 last:pb-0">
-                      <div className="min-w-0">
-                        <p className="text-sm font-medium truncate">{file.file_name}</p>
-                        <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
-                          <Badge variant="secondary" className="uppercase text-[10px]">
+                    <li key={file.id} className="flex items-center justify-between gap-3 py-4">
+                      <div className="flex min-w-0 items-center gap-3">
+                        <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted">
+                          <FileStack className="size-4 text-muted-foreground" aria-hidden="true" />
+                        </div>
+                        <div className="min-w-0">
+                        <p className="truncate text-sm font-semibold">{file.file_name}</p>
+                        <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                          <Badge variant="outline" className="rounded-full uppercase text-[10px]">
                             {file.format}
                           </Badge>
                           <span>{formatFileSize(file.file_size)}</span>
                           <span>·</span>
                           <span>{formatDate(file.created_at)}</span>
                         </div>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-2 shrink-0">
+                      <div className="flex shrink-0 items-center gap-1">
                         <Button
-                          size="sm"
+                          size="icon-sm"
                           variant="ghost"
                           onClick={() => handleFileView(file)}
                           disabled={downloadMutation.isPending}
+                          aria-label={`View ${file.file_name}`}
                         >
-                          <Eye className="size-4" />
+                          <Eye className="size-4" aria-hidden="true" />
                         </Button>
                         <Button
-                          size="sm"
+                          size="icon-sm"
                           variant="ghost"
                           onClick={() => handleFileDownload(file)}
                           disabled={downloadMutation.isPending}
+                          aria-label={`Download ${file.file_name}`}
                         >
-                          <Download className="size-4" />
+                          <Download className="size-4" aria-hidden="true" />
                         </Button>
                       </div>
                     </li>
@@ -468,7 +502,7 @@ export default function DatasetDetailPage({
 
           {(dataset.status === 'rejected' || dataset.review_comment) && (
             <Card className="border-destructive/30 bg-destructive/5">
-              <CardHeader>
+              <CardHeader className="border-b border-destructive/20">
                 <CardTitle className="flex items-center gap-2 text-base text-destructive">
                   <MessageSquareWarning className="size-4" />
                   Review Feedback
@@ -487,7 +521,7 @@ export default function DatasetDetailPage({
 
           {dataset.status === 'archived' && (dataset.archived_reason || dataset.archived_at) && (
             <Card className="border-muted bg-muted/30">
-              <CardHeader>
+              <CardHeader className="border-b">
                 <CardTitle className="flex items-center gap-2 text-base">
                   <Archive className="size-4" />
                   Archive Info
@@ -506,7 +540,7 @@ export default function DatasetDetailPage({
 
           {dataset.tags && dataset.tags.length > 0 && (
             <Card>
-              <CardHeader>
+              <CardHeader className="border-b">
                 <CardTitle className="flex items-center gap-2">
                   <Tag className="size-4" />
                   Tags
@@ -526,7 +560,7 @@ export default function DatasetDetailPage({
 
           {dataset.geographic_coverage && dataset.geographic_coverage.length > 0 && (
             <Card>
-              <CardHeader>
+              <CardHeader className="border-b">
                 <CardTitle className="flex items-center gap-2">
                   <MapPin className="size-4" />
                   Geographic Coverage
@@ -545,90 +579,46 @@ export default function DatasetDetailPage({
           )}
         </div>
 
-        {/* Right Column - Metadata */}
-        <div className="space-y-6">
+        <div className="space-y-6 lg:sticky lg:top-6 lg:self-start">
           <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Dataset Information</CardTitle>
+            <CardHeader className="border-b">
+              <CardTitle>Dataset information</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center gap-2 text-sm">
-                <Building2 className="size-4 text-muted-foreground shrink-0" />
-                <span>{organisation?.name ?? 'Unknown organisation'}</span>
-              </div>
-
-              <div className="flex items-center gap-2 text-sm">
-                <FolderOpen className="size-4 text-muted-foreground shrink-0" />
-                <span>{category?.name ?? 'Uncategorised'}</span>
-              </div>
-
-              <div className="flex items-center gap-2 text-sm">
-                <User className="size-4 text-muted-foreground shrink-0" />
-                <span>
-                  {owner ? `${owner.first_name} ${owner.last_name}` : 'Unknown submitter'}
-                </span>
-              </div>
-
-              <div className="pt-2 border-t space-y-4">
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground mb-1">Format</p>
-                  <Badge variant="secondary" className="uppercase">
-                    {dataset.format}
-                  </Badge>
-                </div>
-
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground mb-1">Visibility</p>
-                  <Badge variant="outline" className="capitalize">
-                    {dataset.visibility}
-                  </Badge>
-                </div>
-
-                {dataset.license && (
-                  <div>
-                    <p className="text-sm font-medium text-muted-foreground mb-1">License</p>
-                    <p className="text-sm">{dataset.license}</p>
-                  </div>
-                )}
-              </div>
-
-              <div className="flex items-center gap-2 text-sm text-muted-foreground pt-2 border-t">
-                <Download className="size-4" />
-                <span>{dataset.download_count || 0} downloads · {dataset.view_count || 0} views</span>
-              </div>
-
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Calendar className="size-4" />
-                <span>
-                  {dataset.submitted_at
-                    ? `Submitted ${formatDate(dataset.submitted_at)}`
-                    : `Created ${formatDate(dataset.created_at)}`}
-                </span>
-              </div>
-
+            <CardContent className="divide-y">
+              <InfoRow icon={Building2} label="Organisation" value={organisation?.name ?? "Unknown organisation"} />
+              <InfoRow icon={FolderOpen} label="Category" value={category?.name ?? "Uncategorised"} />
+              <InfoRow
+                icon={User}
+                label="Submitted by"
+                value={owner ? `${owner.first_name} ${owner.last_name}` : "Unknown submitter"}
+              />
+              {dataset.license && <InfoRow icon={Tag} label="License" value={dataset.license} />}
+              <InfoRow
+                icon={Download}
+                label="Engagement"
+                value={`${dataset.download_count || 0} downloads · ${dataset.view_count || 0} views`}
+              />
+              <InfoRow
+                icon={Calendar}
+                label={dataset.submitted_at ? "Submitted" : "Created"}
+                value={formatDate(dataset.submitted_at || dataset.created_at)}
+              />
               {dataset.approved_at && (
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Calendar className="size-4" />
-                  <span>Approved {formatDate(dataset.approved_at)}</span>
-                </div>
+                <InfoRow icon={Calendar} label="Approved" value={formatDate(dataset.approved_at)} />
               )}
-
-              {dataset.status === 'approved' && (
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Globe className="size-4" />
-                  <span>
-                    {dataset.published_at
-                      ? `Published ${formatDate(dataset.published_at)}`
-                      : 'Not yet published'}
-                  </span>
-                </div>
+              {dataset.status === "approved" && (
+                <InfoRow
+                  icon={Globe}
+                  label="Publication"
+                  value={dataset.published_at ? formatDate(dataset.published_at) : "Not yet published"}
+                />
               )}
             </CardContent>
           </Card>
 
           {versionHistory && versionHistory.versions.length > 0 && (
             <Card>
-              <CardHeader>
+              <CardHeader className="border-b">
                 <CardTitle className="text-base flex items-center gap-2">
                   <History className="size-4" />
                   Version History
@@ -653,9 +643,9 @@ export default function DatasetDetailPage({
           )}
 
           {dataset.status === 'draft' && (
-            <Card className="border-amber-200 bg-amber-50">
-              <CardContent className="pt-6">
-                <p className="text-sm text-amber-800">
+            <Card className="bg-muted/30">
+              <CardContent>
+                <p className="text-sm leading-5">
                   <strong>Draft Status:</strong> This dataset is not yet published and is only visible to administrators.
                 </p>
               </CardContent>
@@ -663,9 +653,9 @@ export default function DatasetDetailPage({
           )}
 
           {dataset.status === 'pending' && (
-            <Card className="border-blue-200 bg-blue-50">
-              <CardContent className="pt-6">
-                <p className="text-sm text-blue-800">
+            <Card className="bg-muted/30">
+              <CardContent>
+                <p className="text-sm leading-5">
                   <strong>Pending Review:</strong> This dataset is awaiting review and approval.
                 </p>
               </CardContent>
@@ -677,12 +667,28 @@ export default function DatasetDetailPage({
       <ConfirmDialog
         open={archiveOpen}
         onOpenChange={setArchiveOpen}
-        title="Archive dataset?"
-        description={`"${dataset.title}" will be removed from the public catalogue but remains accessible to admins.`}
-        confirmLabel="Archive"
-        variant="destructive"
-        loading={archiveMutation.isPending}
-        onConfirm={() => archiveMutation.mutate()}
+        title={dataset.status === "archived" ? "Restore dataset?" : "Archive dataset?"}
+        description={
+          dataset.status === "archived"
+            ? `"${dataset.title}" will be restored to its previous workflow status.`
+            : `"${dataset.title}" will be removed from the public catalogue but remains accessible to admins.`
+        }
+        confirmLabel={dataset.status === "archived" ? "Restore" : "Archive"}
+        variant={dataset.status === "archived" ? "default" : "destructive"}
+        loading={archiveMutation.isPending || unarchiveMutation.isPending}
+        onConfirm={() => {
+          if (dataset.status === "archived") {
+            unarchiveMutation.mutate();
+          } else {
+            archiveMutation.mutate();
+          }
+        }}
+      />
+      <DatasetPreviewDialog
+        slug={slug}
+        title={dataset.title}
+        open={previewOpen}
+        onOpenChange={setPreviewOpen}
       />
     </div>
   );

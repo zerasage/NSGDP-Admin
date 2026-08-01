@@ -84,7 +84,6 @@ export interface PermissionMatrix {
 export interface CreatePermissionGroupPayload {
   name: string;
   description?: string;
-  initialActions?: PermissionActionKey[];
 }
 
 export interface UpdatePermissionGroupPayload {
@@ -137,8 +136,27 @@ export async function addGroupMember(groupId: string, userId: string): Promise<P
   return response.data.data;
 }
 
-export async function removeGroupMember(groupId: string, userId: string): Promise<void> {
-  await apiClient.delete(`/admin/permission-groups/${groupId}/members/${userId}`);
+export interface GroupMemberAssignment {
+  membership: {
+    id: string;
+    user_id: string;
+    group_id: string;
+    joined_at: string;
+  };
+  source: { id: string } | null;
+  target: { id: string; name: string; slug: string };
+}
+
+export async function assignGroupMember(
+  targetGroupId: string,
+  userId: string,
+  expectedCurrentGroupId: string | null
+): Promise<GroupMemberAssignment> {
+  const response = await apiClient.put<ApiResponse<GroupMemberAssignment>>(
+    `/admin/permission-groups/${targetGroupId}/members/${userId}`,
+    { expectedCurrentGroupId }
+  );
+  return response.data.data;
 }
 
 export async function grantPermission(

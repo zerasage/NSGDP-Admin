@@ -1,6 +1,8 @@
 "use client";
 
-import { ShieldCheck, Lock } from "lucide-react";
+import { useState } from "react";
+import { Lock, Users, Grid3X3, Plus } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PermissionMatrix } from "@/components/admin/permission-matrix";
 import { PermissionGroupsPanel } from "@/components/admin/permission-groups-panel";
@@ -24,27 +26,42 @@ export default function PermissionGroupsPage() {
     );
   }
 
+  return <PermissionWorkspace />;
+}
+
+function PermissionWorkspace() {
+  const [activeTab, setActiveTab] = useState("groups");
+  const [createOpen, setCreateOpen] = useState(false);
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       <div>
-        <h1 className="text-2xl font-bold flex items-center gap-2">
-          <ShieldCheck className="size-5" />
-          Permission Groups
-        </h1>
-        <p className="text-muted-foreground mt-1">
+        <h1 className="text-2xl font-bold">Permission Groups</h1>
+        <p className="mt-1 text-sm text-muted-foreground">
           Manage groups of users, their membership, and the delegated permissions granted to them.
         </p>
       </div>
 
-      <Tabs defaultValue="groups" className="w-full">
-        <TabsList>
-          <TabsTrigger value="groups">Groups</TabsTrigger>
-          <TabsTrigger value="matrix">Permission Matrix</TabsTrigger>
-        </TabsList>
-        <TabsContent value="groups" className="mt-6">
-          <PermissionGroupsPanel />
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full gap-0 overflow-hidden rounded-2xl border bg-card">
+        <div className="border-b p-3 sm:p-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <h2 className="text-sm font-semibold">Access-control workspace</h2>
+              <p className="mt-0.5 text-xs text-muted-foreground">Configure staff groups or compare effective delegated access.</p>
+            </div>
+            {activeTab === "groups" && <Button className="h-11 w-full sm:w-auto" onClick={() => setCreateOpen(true)}><Plus className="size-4" />New Group</Button>}
+          </div>
+          <div className="mt-3 overflow-x-auto rounded-xl bg-muted/60 p-1">
+            <TabsList className="h-11 min-w-max justify-start gap-1 bg-transparent p-0">
+              <TabsTrigger value="groups" className="h-11 min-w-40 gap-2 px-4 data-active:bg-primary data-active:text-primary-foreground data-active:shadow-none"><Users className="size-4" />Groups</TabsTrigger>
+              <TabsTrigger value="matrix" className="h-11 min-w-48 gap-2 px-4 data-active:bg-primary data-active:text-primary-foreground data-active:shadow-none"><Grid3X3 className="size-4" />Permission matrix</TabsTrigger>
+            </TabsList>
+          </div>
+        </div>
+        <TabsContent value="groups" className="bg-background p-4 sm:p-5">
+          <PermissionGroupsPanel createOpen={createOpen} onCreateOpenChange={setCreateOpen} />
         </TabsContent>
-        <TabsContent value="matrix" className="mt-6">
+        <TabsContent value="matrix" className="bg-background p-4 sm:p-5">
           <PermissionMatrix />
         </TabsContent>
       </Tabs>

@@ -40,9 +40,9 @@ function AcceptStaffInviteForm() {
   const searchParams = useSearchParams();
   const token = searchParams.get("token") ?? "";
 
-  const [state, setState] = useState<LoadState>("loading");
+  const [state, setState] = useState<LoadState>(token ? "loading" : "invalid");
   const [invite, setInvite] = useState<ValidateStaffInviteResponse | null>(null);
-  const [error, setError] = useState("");
+  const [error, setError] = useState(token ? "" : "This invite link is missing its token.");
 
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
@@ -56,11 +56,7 @@ function AcceptStaffInviteForm() {
   useEffect(() => {
     tokenStorage.clearTokens();
 
-    if (!token) {
-      setState("invalid");
-      setError("This invite link is missing its token.");
-      return;
-    }
+    if (!token) return;
 
     validateStaffInviteToken(token)
       .then((result) => {

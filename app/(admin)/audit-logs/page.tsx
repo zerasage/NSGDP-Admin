@@ -1,369 +1,341 @@
 "use client";
 
-import { Fragment, useState, useMemo } from "react";
-import {
-  Download,
-  Search,
-  AlertTriangle,
-  CheckCircle2,
-  XCircle,
-  ChevronDown,
-  ChevronRight,
-} from "lucide-react";
+import { Fragment, useEffect, useMemo, useState } from "react";
+import { AlertCircle, AlertTriangle, CheckCircle2, ChevronDown, ChevronRight, Download, Loader2, RotateCcw, Search, UserRound, X, XCircle } from "lucide-react";
 import { useAuditLogs, downloadAuditLogsCsv } from "@/lib/hooks/useAuditLogs";
 import type { AuditLog } from "@/lib/api/admin";
+import { Badge } from "@/components/ui/badge";
 import { Pagination } from "@/components/data/pagination";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { EmptyState } from "@/components/feedback/empty-state";
 import { TableRowSkeleton } from "@/components/feedback/skeletons";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
 import { statusPill } from "@/lib/constants/status-surfaces";
 import { cn } from "@/lib/utils";
 import { formatDateTime } from "@/lib/utils/date";
 import { toast } from "sonner";
 
-const ACTION_GROUPS: Array<{ label: string; actions: Array<{ value: string; label: string }> }> = [
-  {
-    label: "Data Actions",
-    actions: [
-      { value: "upload", label: "Upload" },
-      { value: "download", label: "Download" },
-      { value: "export", label: "Export" },
-    ],
-  },
-  {
-    label: "Approval Actions",
-    actions: [
-      { value: "approve", label: "Approve" },
-      { value: "reject", label: "Reject" },
-    ],
-  },
-  {
-    label: "Record Actions",
-    actions: [
-      { value: "create", label: "Create" },
-      { value: "update", label: "Update" },
-      { value: "delete", label: "Delete" },
-    ],
-  },
-  {
-    label: "Access",
-    actions: [
-      { value: "login", label: "Login" },
-      { value: "logout", label: "Logout" },
-    ],
-  },
-];
-
-const ENTITY_TYPES = [
-  "dataset",
-  "user",
-  "organisation",
-  "access_request",
-  "organisation_invite",
-  "staff_invite",
-  "permission_group",
-  "auth",
-];
-
-const PERIOD_PRESETS: Array<{ key: string; label: string; days: number | null }> = [
-  { key: "all", label: "All time", days: null },
+const ACTIONS = ["upload", "download", "export", "approve", "reject", "create", "update", "delete", "login", "logout"];
+const ENTITIES = ["dataset", "user", "organisation", "access_request", "organisation_invite", "staff_invite", "permission_group", "auth"];
+const PERIODS = [
+  { key: "all", label: "All time", days: 0 },
   { key: "today", label: "Today", days: 1 },
   { key: "7d", label: "Last 7 days", days: 7 },
   { key: "30d", label: "Last 30 days", days: 30 },
   { key: "90d", label: "Last 90 days", days: 90 },
-  { key: "custom", label: "Custom range", days: null },
+  { key: "custom", label: "Custom range", days: 0 },
 ];
+const RISK = ["delete", "reject"];
+const POSITIVE = ["approve", "create"];
+const label = (value: string) => value.replace(/_/g, " ");
+const isoDate = (date: Date) => date.toISOString().slice(0, 10);
 
-function toIsoDate(d: Date): string {
-  return d.toISOString().slice(0, 10);
-}
-
-const RISK_ACTIONS: string[] = ["delete", "reject"];
-const SUCCESS_ACTIONS: string[] = ["approve", "create"];
-
-function ActionBadge({ action, success }: { action: string; success: boolean }) {
-  const isRisk = RISK_ACTIONS.includes(action);
-  const isSuccess = SUCCESS_ACTIONS.includes(action);
+function ActionBadge({ entry }: { entry: AuditLog }) {
+  const tone = !entry.success || RISK.includes(entry.action)
+    ? "bg-destructive/10 text-destructive"
+    : POSITIVE.includes(entry.action)
+      ? statusPill.emerald
+      : "bg-muted text-muted-foreground";
   return (
-    <span
-      className={cn(
-        "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium",
-        !success   && "bg-destructive/10 text-destructive",
-        success && isRisk    && "bg-destructive/10 text-destructive",
-        success && isSuccess && statusPill.emerald,
-        success && !isRisk && !isSuccess && "bg-muted text-muted-foreground"
-      )}
-    >
-      {!success && <XCircle className="size-2.5" />}
-      {success && isRisk    && <AlertTriangle className="size-2.5" />}
-      {success && isSuccess && <CheckCircle2 className="size-2.5" />}
-      {action.replace(/_/g, " ")}
+    <span className={cn("inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium capitalize", tone)}>
+      {!entry.success ? <XCircle className="size-3" /> : RISK.includes(entry.action) ? <AlertTriangle className="size-3" /> : POSITIVE.includes(entry.action) ? <CheckCircle2 className="size-3" /> : null}
+      {label(entry.action)}
     </span>
   );
 }
 
-function ValueDiff({ label, values }: { label: string; values: Record<string, unknown> | null }) {
-  if (!values || Object.keys(values).length === 0) return null;
+function ValueDiff({ label: title, values }: { label: string; values: Record<string, unknown> | null }) {
+  if (!values || !Object.keys(values).length) return null;
   return (
     <div>
-      <div className="text-xs font-semibold text-muted-foreground mb-1">{label}</div>
-      <pre className="rounded-md bg-muted/50 p-2 text-xs overflow-x-auto whitespace-pre-wrap break-all">
-        {JSON.stringify(values, null, 2)}
-      </pre>
+      <p className="mb-1 text-xs font-semibold text-muted-foreground">{title}</p>
+      <pre className="overflow-x-auto whitespace-pre-wrap break-all rounded-md bg-muted/50 p-2 text-xs">{JSON.stringify(values, null, 2)}</pre>
     </div>
   );
 }
 
-function AuditLogDetailRow({ entry }: { entry: AuditLog }) {
-  const hasDiff = entry.old_values || entry.new_values;
+function Details({ entry }: { entry: AuditLog }) {
   return (
-    <tr className="border-b bg-muted/20 font-sans text-xs">
-      <td colSpan={6} className="px-4 py-3">
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <div>
-            <div className="text-xs font-semibold text-muted-foreground mb-1">User agent</div>
-            <div className="break-all">{entry.user_agent || "—"}</div>
-          </div>
-          <div>
-            <div className="text-xs font-semibold text-muted-foreground mb-1">Permission group</div>
-            <div className="break-all">{entry.permission_group_id || "—"}</div>
-          </div>
-          <div>
-            <div className="text-xs font-semibold text-muted-foreground mb-1">Entity</div>
-            <div className="break-all">
-              {entry.entity_type}
-              {entry.entity_id ? `/${entry.entity_id}` : ""}
-            </div>
-          </div>
-          {!entry.success && (
-            <div>
-              <div className="text-xs font-semibold text-muted-foreground mb-1">Failure reason</div>
-              <div className="break-all text-destructive">{entry.failure_reason || "—"}</div>
-            </div>
-          )}
-        </div>
-        {hasDiff && (
-          <div className="mt-3 grid gap-3 sm:grid-cols-2">
-            <ValueDiff label="Before" values={entry.old_values} />
-            <ValueDiff label="After" values={entry.new_values} />
-          </div>
-        )}
-        {entry.metadata && Object.keys(entry.metadata).length > 0 && (
-          <div className="mt-3">
-            <ValueDiff label="Metadata" values={entry.metadata} />
-          </div>
-        )}
-      </td>
-    </tr>
+    <div className="space-y-3 text-xs">
+      <dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div><dt className="font-semibold text-muted-foreground">User agent</dt><dd className="mt-1 break-all">{entry.user_agent || "—"}</dd></div>
+        <div><dt className="font-semibold text-muted-foreground">Permission group</dt><dd className="mt-1 break-all">{entry.permission_group_id || "—"}</dd></div>
+        <div><dt className="font-semibold text-muted-foreground">Entity</dt><dd className="mt-1 break-all">{entry.entity_type}{entry.entity_id ? `/${entry.entity_id}` : ""}</dd></div>
+        {!entry.success && <div><dt className="font-semibold text-muted-foreground">Failure reason</dt><dd className="mt-1 break-all text-destructive">{entry.failure_reason || "—"}</dd></div>}
+      </dl>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <ValueDiff label="Before" values={entry.old_values} />
+        <ValueDiff label="After" values={entry.new_values} />
+      </div>
+      <ValueDiff label="Metadata" values={entry.metadata} />
+    </div>
   );
 }
 
 export default function AdminAuditLogsPage() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
-  const [action, setAction] = useState<string>("all");
-  const [entityType, setEntityType] = useState<string>("all");
-  const [outcome, setOutcome] = useState<string>("all");
+  const [action, setAction] = useState("all");
+  const [entityType, setEntityType] = useState("all");
+  const [outcome, setOutcome] = useState("all");
+  const [period, setPeriod] = useState("all");
   const [query, setQuery] = useState("");
-  const [period, setPeriod] = useState<string>("all");
+  const [search, setSearch] = useState("");
   const [customStart, setCustomStart] = useState("");
   const [customEnd, setCustomEnd] = useState("");
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [exporting, setExporting] = useState(false);
 
-  // Resolve the selected time period into concrete dates — shared by both
-  // the list view and CSV export so they never see different date ranges.
-  const { startDate, endDate } = useMemo(() => {
-    if (period === "custom") {
-      return { startDate: customStart || undefined, endDate: customEnd || undefined };
-    }
-    const preset = PERIOD_PRESETS.find((p) => p.key === period);
-    if (!preset?.days) return { startDate: undefined, endDate: undefined };
+  useEffect(() => {
+    const timer = setTimeout(() => { setSearch(query.trim()); setPage(1); }, 300);
+    return () => clearTimeout(timer);
+  }, [query]);
 
+  const dates = useMemo(() => {
+    if (period === "custom") return { startDate: customStart || undefined, endDate: customEnd || undefined };
+    const days = PERIODS.find((item) => item.key === period)?.days || 0;
+    if (!days) return {};
     const end = new Date();
     const start = new Date();
-    start.setDate(start.getDate() - (preset.days - 1));
-    return { startDate: toIsoDate(start), endDate: toIsoDate(end) };
+    start.setDate(start.getDate() - days + 1);
+    return { startDate: isoDate(start), endDate: isoDate(end) };
   }, [period, customStart, customEnd]);
 
-  // Fetch audit logs with filters
-  const params = useMemo(() => ({
-    page,
-    limit: pageSize,
-    action: action !== "all" ? action : undefined,
-    entityType: entityType !== "all" ? entityType : undefined,
-    search: query || undefined,
-    startDate,
-    endDate,
+  const filters = {
+    action: action === "all" ? undefined : action,
+    entityType: entityType === "all" ? undefined : entityType,
     success: outcome === "all" ? undefined : outcome === "success",
-  }), [page, pageSize, action, entityType, query, startDate, endDate, outcome]);
+    search: search || undefined,
+    ...dates,
+  };
 
-  const { data, isLoading } = useAuditLogs(params);
+  const { data, isLoading, isFetching, isError, refetch } = useAuditLogs({ page, limit: pageSize, ...filters });
+  const entries = data?.data ?? [];
+  const total = data?.meta.total ?? 0;
+  const totalPages = data?.meta.totalPages ?? 1;
+  const searchPending = query.trim() !== search;
+  const activeCount = [query.trim(), action !== "all", entityType !== "all", outcome !== "all", period !== "all", period === "custom" && customStart, period === "custom" && customEnd].filter(Boolean).length;
 
-  const entries = data?.data || [];
-  const total = data?.meta?.total || 0;
-  const totalPages = data?.meta?.totalPages || 1;
+  const clearFilters = () => {
+    setQuery(""); setSearch(""); setAction("all"); setEntityType("all");
+    setOutcome("all"); setPeriod("all"); setCustomStart(""); setCustomEnd(""); setPage(1);
+  };
 
-  const handleExport = async () => {
+  const exportCsv = async () => {
+    setExporting(true);
     try {
-      await downloadAuditLogsCsv({
-        action: action !== "all" ? action : undefined,
-        entityType: entityType !== "all" ? entityType : undefined,
-        search: query || undefined,
-        startDate,
-        endDate,
-        success: outcome === "all" ? undefined : outcome === "success",
-      });
+      await downloadAuditLogsCsv(filters);
       toast.success("Audit logs exported successfully");
-    } catch (error) {
+    } catch {
       toast.error("Failed to export audit logs");
+    } finally {
+      setExporting(false);
     }
   };
 
+  const toggle = (id: string) => setExpandedId((current) => (current === id ? null : id));
+
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-4">
+      <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold">Audit Log</h1>
-          <p className="text-muted-foreground mt-1">Immutable record of all platform actions</p>
+          <h1 className="text-2xl font-bold">Audit logs</h1>
+          <p className="mt-1 text-sm text-muted-foreground">Immutable record of platform actions</p>
         </div>
-        <Button variant="outline" onClick={handleExport}>
-          <Download className="size-4" />
-          Export CSV
-        </Button>
+        <div className="flex items-center gap-2">
+          {!isLoading && (
+            <Badge variant="outline" className="rounded-full px-3 py-1 text-xs font-medium tabular-nums">
+              {total} {total === 1 ? "record" : "records"}
+            </Badge>
+          )}
+          <Button variant="outline" className="h-11 gap-1.5 sm:h-9" onClick={exportCsv} disabled={exporting || total === 0}>
+            {exporting ? <Loader2 className="size-4 animate-spin" /> : <Download className="size-4" />}
+            {exporting ? "Exporting…" : "Export CSV"}
+          </Button>
+        </div>
       </div>
 
-      <div className="flex flex-wrap gap-3">
-        <div className="relative max-w-xs flex-1">
-          <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            placeholder="Search user or resource…"
-            value={query}
-            onChange={(e) => { setQuery(e.target.value); setPage(1); }}
-            className="pl-9"
-          />
+      <section className="rounded-2xl border bg-card p-4" aria-label="Audit log filters">
+        <div className="flex flex-col gap-3 lg:flex-row lg:flex-wrap">
+          <div className="relative min-w-64 flex-1">
+            <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+            <Input className="h-10 pl-9 pr-10" placeholder="Search actor or resource" aria-label="Search audit logs" value={query} onChange={(e) => setQuery(e.target.value)} />
+            {query && (
+              <button
+                type="button"
+                onClick={() => setQuery("")}
+                className="absolute right-1 top-1/2 flex size-8 -translate-y-1/2 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                aria-label="Clear search"
+              >
+                <X className="size-4" aria-hidden="true" />
+              </button>
+            )}
+          </div>
+          <Filter value={action} setValue={(value) => { setAction(value); setPage(1); }} name="action" options={ACTIONS} />
+          <Filter value={entityType} setValue={(value) => { setEntityType(value); setPage(1); }} name="entity" options={ENTITIES} />
+          <Filter value={outcome} setValue={(value) => { setOutcome(value); setPage(1); }} name="outcome" options={["success", "failure"]} />
+          <Select value={period} onValueChange={(v) => { if (v) { setPeriod(v); setPage(1); } }}>
+            <SelectTrigger className="h-10 w-full sm:w-44" aria-label="Filter by period">
+              <SelectValue>{(v: string) => PERIODS.find((p) => p.key === v)?.label ?? "All time"}</SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              {PERIODS.map((item) => <SelectItem key={item.key} value={item.key}>{item.label}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          {period === "custom" && (
+            <>
+              <Input type="date" aria-label="From date" className="h-10 sm:w-40" value={customStart} onChange={(e) => { setCustomStart(e.target.value); setPage(1); }} />
+              <Input type="date" aria-label="To date" className="h-10 sm:w-40" value={customEnd} onChange={(e) => { setCustomEnd(e.target.value); setPage(1); }} />
+            </>
+          )}
         </div>
-        <Select value={action} onValueChange={(v) => { if (v) { setAction(v); setPage(1); } }}>
-          <SelectTrigger className="w-52"><SelectValue placeholder="Action type" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All actions</SelectItem>
-            {ACTION_GROUPS.map((group) => (
-              <div key={group.label}>
-                <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">{group.label}</div>
-                {group.actions.map((a) => (
-                  <SelectItem key={a.value} value={a.value}>{a.label}</SelectItem>
-                ))}
-              </div>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select value={entityType} onValueChange={(v) => { if (v) { setEntityType(v); setPage(1); } }}>
-          <SelectTrigger className="w-44"><SelectValue placeholder="Entity type" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All entities</SelectItem>
-            {ENTITY_TYPES.map((type) => (
-              <SelectItem key={type} value={type} className="capitalize">
-                {type.replace(/_/g, " ")}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select value={outcome} onValueChange={(v) => { if (v) { setOutcome(v); setPage(1); } }}>
-          <SelectTrigger className="w-36"><SelectValue placeholder="Outcome" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All outcomes</SelectItem>
-            <SelectItem value="success">Success</SelectItem>
-            <SelectItem value="failure">Failed</SelectItem>
-          </SelectContent>
-        </Select>
-        <Select value={period} onValueChange={(v) => { if (v) { setPeriod(v); setPage(1); } }}>
-          <SelectTrigger className="w-40"><SelectValue placeholder="Time period" /></SelectTrigger>
-          <SelectContent>
-            {PERIOD_PRESETS.map((p) => (
-              <SelectItem key={p.key} value={p.key}>{p.label}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        {period === "custom" && (
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t pt-3 text-xs text-muted-foreground">
+          <div>{activeCount > 0 && <Button variant="ghost" size="sm" onClick={clearFilters}><X className="size-4" />Clear all ({activeCount})</Button>}</div>
+          <div className="flex items-center gap-2" aria-live="polite">
+            {(searchPending || (isFetching && !isLoading)) && <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />}
+            <span>
+              {searchPending ? "Searching" : isFetching && !isLoading ? "Updating" : "Found"}{" "}
+              <strong className="text-foreground tabular-nums">{total}</strong> {total === 1 ? "record" : "records"}
+            </span>
+          </div>
+        </div>
+      </section>
+
+      <div aria-busy={isLoading || isFetching || searchPending} className="space-y-4">
+        {isLoading ? (
           <>
-            <Input
-              type="date"
-              aria-label="From date"
-              value={customStart}
-              onChange={(e) => { setCustomStart(e.target.value); setPage(1); }}
-              className="w-40"
+            <div className="hidden overflow-hidden rounded-2xl border bg-card xl:block">
+              <table className="w-full text-sm">
+                <tbody>{Array.from({ length: 6 }, (_, index) => <TableRowSkeleton key={index} cols={6} />)}</tbody>
+              </table>
+            </div>
+            <div className="grid gap-3 xl:hidden">
+              {Array.from({ length: 4 }, (_, index) => <Skeleton key={index} className="h-52 rounded-xl" />)}
+            </div>
+          </>
+        ) : isError ? (
+          <div className="rounded-2xl border bg-card p-8 text-center">
+            <AlertCircle className="mx-auto size-8 text-destructive" />
+            <h2 className="mt-3 font-semibold">Could not load audit logs</h2>
+            <p className="mt-1 text-sm text-muted-foreground">Check your connection and try again.</p>
+            <Button variant="outline" size="sm" className="mt-4" onClick={() => refetch()}><RotateCcw className="size-4" />Try again</Button>
+          </div>
+        ) : entries.length === 0 ? (
+          <div className="rounded-2xl border bg-card">
+            <EmptyState
+              icon={Search}
+              title={activeCount ? "No matching audit records" : "No audit records yet"}
+              description={activeCount ? "Try changing or clearing the active filters." : "Platform activity will appear here when it is recorded."}
+              action={activeCount ? { label: "Clear filters", onClick: clearFilters } : undefined}
             />
-            <Input
-              type="date"
-              aria-label="To date"
-              value={customEnd}
-              onChange={(e) => { setCustomEnd(e.target.value); setPage(1); }}
-              className="w-40"
-            />
+          </div>
+        ) : (
+          <>
+            <div className="hidden overflow-x-auto rounded-2xl border bg-card xl:block">
+              <table className="w-full text-[13px]">
+                <thead>
+                  <tr className="h-11 border-b bg-muted/40 text-left text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                    <th className="w-14 px-4 font-semibold"><span className="sr-only">Details</span></th>
+                    <th className="px-4 font-semibold">Timestamp</th>
+                    <th className="px-4 font-semibold">Actor</th>
+                    <th className="px-4 font-semibold">Action</th>
+                    <th className="px-4 font-semibold">Entity / description</th>
+                    <th className="px-4 font-semibold">IP address</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {entries.map((entry) => (
+                    <Fragment key={entry.id}>
+                      <tr className={cn("border-b transition-colors last:border-0 hover:bg-muted/30", (!entry.success || RISK.includes(entry.action)) && "bg-destructive/5")}>
+                        <td className="px-2 py-3.5">
+                          <Button variant="ghost" size="icon" aria-expanded={expandedId === entry.id} aria-label={`${expandedId === entry.id ? "Collapse" : "Expand"} audit record`} onClick={() => toggle(entry.id)}>
+                            {expandedId === entry.id ? <ChevronDown className="size-4" /> : <ChevronRight className="size-4" />}
+                          </Button>
+                        </td>
+                        <td className="whitespace-nowrap px-4 py-3.5 font-mono">{formatDateTime(entry.created_at)}</td>
+                        <td className="max-w-56 px-4 py-3.5">
+                          <div className="flex items-center gap-3">
+                            <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary/10">
+                              <UserRound className="size-3.5 text-primary" aria-hidden="true" />
+                            </div>
+                            <span className="line-clamp-1 break-all">{entry.user_email || entry.user_id || "—"}</span>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3.5"><ActionBadge entry={entry} /></td>
+                        <td className="max-w-xs px-4 py-3.5">
+                          <p className="line-clamp-2">{entry.description || `${entry.entity_type}${entry.entity_id ? `/${entry.entity_id}` : ""}`}</p>
+                        </td>
+                        <td className="px-4 py-3.5 font-mono text-muted-foreground">{entry.ip_address || "—"}</td>
+                      </tr>
+                      {expandedId === entry.id && (
+                        <tr className="border-b bg-muted/20">
+                          <td colSpan={6} className="px-4 py-4"><Details entry={entry} /></td>
+                        </tr>
+                      )}
+                    </Fragment>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="grid gap-3 xl:hidden">
+              {entries.map((entry) => (
+                <article key={entry.id} className="rounded-xl border bg-card p-4">
+                  <div className="flex items-start gap-3">
+                    <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/10">
+                      <UserRound className="size-5 text-primary" aria-hidden="true" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="break-all text-sm font-semibold leading-5">{entry.user_email || entry.user_id || "Unknown actor"}</p>
+                      <p className="mt-1 text-xs text-muted-foreground">{formatDateTime(entry.created_at)}</p>
+                    </div>
+                    <ActionBadge entry={entry} />
+                  </div>
+                  <div className="mt-3 border-y py-3">
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{label(entry.entity_type)}</p>
+                    <p className="mt-1 text-sm">{entry.description || entry.entity_id || "No description"}</p>
+                    <p className="mt-2 text-xs text-muted-foreground">IP {entry.ip_address || "—"}</p>
+                  </div>
+                  <Button variant="ghost" className="mt-2 h-11 w-full justify-between" aria-expanded={expandedId === entry.id} onClick={() => toggle(entry.id)}>
+                    Record details
+                    {expandedId === entry.id ? <ChevronDown className="size-4" /> : <ChevronRight className="size-4" />}
+                  </Button>
+                  {expandedId === entry.id && <div className="border-t pt-3"><Details entry={entry} /></div>}
+                </article>
+              ))}
+            </div>
           </>
         )}
-      </div>
 
-      <div className="rounded-lg border overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b bg-muted/50 text-left">
-              <th className="px-4 py-3 font-medium w-8" />
-              <th className="px-4 py-3 font-medium">Timestamp</th>
-              <th className="px-4 py-3 font-medium">User</th>
-              <th className="px-4 py-3 font-medium">Action</th>
-              <th className="px-4 py-3 font-medium">Resource / Detail</th>
-              <th className="px-4 py-3 font-medium">IP Address</th>
-            </tr>
-          </thead>
-          <tbody>
-            {isLoading
-              ? [...Array(5)].map((_, i) => <TableRowSkeleton key={i} cols={6} />)
-              : entries.map((e: AuditLog) => {
-                  const isExpanded = expandedId === e.id;
-                  return (
-                    <Fragment key={e.id}>
-                      <tr
-                        onClick={() => setExpandedId(isExpanded ? null : e.id)}
-                        className={cn(
-                          "border-b font-mono text-xs cursor-pointer hover:bg-muted/30",
-                          e.success === false && "bg-destructive/5",
-                          e.success !== false && RISK_ACTIONS.includes(e.action) && "bg-destructive/5"
-                        )}
-                      >
-                        <td className="px-4 py-3 text-muted-foreground">
-                          {isExpanded ? <ChevronDown className="size-3.5" /> : <ChevronRight className="size-3.5" />}
-                        </td>
-                        <td className="px-4 py-3 whitespace-nowrap">{formatDateTime(e.created_at)}</td>
-                        <td className="px-4 py-3">{e.user_email || e.user_id || "—"}</td>
-                        <td className="px-4 py-3"><ActionBadge action={e.action} success={e.success !== false} /></td>
-                        <td className="px-4 py-3 max-w-xs truncate font-sans" title={e.description ?? undefined}>
-                          {e.description || `${e.entity_type}${e.entity_id ? `/${e.entity_id}` : ""}`}
-                        </td>
-                        <td className="px-4 py-3 text-muted-foreground">{e.ip_address || "—"}</td>
-                      </tr>
-                      {isExpanded && <AuditLogDetailRow entry={e} />}
-                    </Fragment>
-                  );
-                })}
-          </tbody>
-        </table>
+        {!isLoading && entries.length > 0 && (
+          <Pagination
+            page={page}
+            totalPages={Math.max(1, totalPages)}
+            pageSize={pageSize}
+            total={total}
+            onPageChange={setPage}
+            onPageSizeChange={(size) => { setPageSize(size); setPage(1); }}
+            className="rounded-xl border bg-card px-4 py-3"
+          />
+        )}
       </div>
-
-      <Pagination
-        page={page}
-        totalPages={Math.max(1, totalPages)}
-        pageSize={pageSize}
-        total={total}
-        onPageChange={setPage}
-        onPageSizeChange={(s) => { setPageSize(s); setPage(1); }}
-      />
     </div>
+  );
+}
+
+function Filter({ value, setValue, name, options }: { value: string; setValue: (value: string) => void; name: string; options: string[] }) {
+  const allLabel = `All ${name === "entity" ? "entities" : `${name}s`}`;
+  return (
+    <Select value={value} onValueChange={(next) => { if (next) setValue(next); }}>
+      <SelectTrigger className="h-10 w-full sm:w-44" aria-label={`Filter by ${name}`}>
+        <SelectValue>{(v: string) => (v === "all" ? allLabel : label(v))}</SelectValue>
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value="all">{allLabel}</SelectItem>
+        {options.map((option) => <SelectItem key={option} value={option} className="capitalize">{label(option)}</SelectItem>)}
+      </SelectContent>
+    </Select>
   );
 }

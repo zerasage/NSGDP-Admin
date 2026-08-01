@@ -9,8 +9,11 @@ export function ThemeToggle() {
   const { theme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
 
-  // Ensure component only renders after mounting to avoid hydration mismatch
+  // Ensure component only renders after mounting to avoid hydration mismatch.
+  // There's no render-time signal for "has the client hydrated yet" — this is
+  // the documented next-themes pattern, not a derivable-during-render value.
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setMounted(true);
   }, []);
 
