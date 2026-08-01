@@ -283,7 +283,7 @@ export default function AdminUsersPage() {
       </div>
 
       <div className="overflow-hidden rounded-2xl border bg-card">
-        <div className="scrollbar-slim overflow-x-auto border-b px-4">
+        <div className="scrollbar-hide overflow-x-auto border-b px-4">
           <div className="flex min-w-max gap-1" role="tablist" aria-label="User status">
             {statusTabs.map((tab) => (
               <button
@@ -339,7 +339,7 @@ export default function AdminUsersPage() {
               }}
             >
               <SelectTrigger className="h-11 w-full sm:h-10 sm:w-52" aria-label="Filter users by role">
-                <SelectValue placeholder="All roles" />
+                <SelectValue>{(v: string) => (v === "all" ? "All roles" : roleOptions.find((option) => option.value === v)?.label ?? v)}</SelectValue>
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All roles</SelectItem>
@@ -398,7 +398,7 @@ export default function AdminUsersPage() {
                 </TableBody>
               </Table>
             </div>
-            <div className="grid gap-3 xl:hidden">
+            <div className="grid grid-cols-1 gap-3 xl:hidden">
               {Array.from({ length: 4 }).map((_, index) => (
                 <Skeleton key={index} className="h-64 rounded-xl" />
               ))}
@@ -469,7 +469,7 @@ export default function AdminUsersPage() {
               </Table>
             </div>
 
-            <div className="grid gap-3 xl:hidden">
+            <div className="grid grid-cols-1 gap-3 xl:hidden">
               {users.map((listedUser) => (
                 <article key={listedUser.id} className="rounded-xl border bg-card p-4">
                   <div className="flex items-start gap-3">
@@ -487,19 +487,19 @@ export default function AdminUsersPage() {
                   </div>
 
                   <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3 border-y py-3">
-                    <div>
+                    <div className="min-w-0">
                       <dt className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Role</dt>
-                      <dd className="mt-1"><RoleBadge role={listedUser.role} /></dd>
+                      <dd className="mt-1 truncate"><RoleBadge role={listedUser.role} /></dd>
                     </div>
-                    <div>
+                    <div className="min-w-0">
                       <dt className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Last login</dt>
-                      <dd className="mt-1 text-xs font-medium">
+                      <dd className="mt-1 truncate text-xs font-medium">
                         {listedUser.last_login_at ? formatDate(listedUser.last_login_at) : "Never"}
                       </dd>
                     </div>
-                    <div className="col-span-2">
+                    <div className="col-span-2 min-w-0">
                       <dt className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Organisation</dt>
-                      <dd className="mt-1 text-xs font-medium">{organisationName(listedUser.organisation_id)}</dd>
+                      <dd className="mt-1 truncate text-xs font-medium">{organisationName(listedUser.organisation_id)}</dd>
                     </div>
                   </dl>
 

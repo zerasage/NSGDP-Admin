@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import { CheckCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -24,6 +25,20 @@ export function Stepper({
   orientation = "horizontal",
   className,
 }: StepperProps) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const activeStepRef = useRef<HTMLButtonElement>(null);
+
+  // Horizontal variant only: keep the active step visible (and roughly
+  // centered) as currentStep advances, since the step row is wider than the
+  // viewport on mobile and would otherwise silently scroll off-screen.
+  useEffect(() => {
+    activeStepRef.current?.scrollIntoView({
+      behavior: "smooth",
+      inline: "center",
+      block: "nearest",
+    });
+  }, [currentStep]);
+
   if (orientation === "vertical") {
     return (
       <ol className={cn("space-y-0.5", className)} aria-label="Upload steps">
@@ -85,12 +100,13 @@ export function Stepper({
   }
 
   return (
-    <div className={cn("scrollbar-slim overflow-x-auto", className)}>
+    <div ref={scrollRef} className={cn("scrollbar-hide overflow-x-auto", className)}>
       <div className="flex w-full min-w-[44rem] items-start">
       {steps.map((step, index) => {
         const Icon = step.icon;
         const isComplete = currentStep > step.id;
         const isActive = currentStep >= step.id;
+        const isCurrent = currentStep === step.id;
         const clickable = onStepClick && step.id < currentStep;
 
         return (
@@ -99,6 +115,7 @@ export function Stepper({
             className={cn("flex items-center", index < steps.length - 1 ? "flex-1" : "shrink-0")}
           >
             <button
+              ref={isCurrent ? activeStepRef : undefined}
               type="button"
               className={cn(
                 "flex flex-col items-center",
@@ -106,7 +123,7 @@ export function Stepper({
               )}
               onClick={() => clickable && onStepClick(step.id)}
               disabled={!clickable}
-              aria-current={currentStep === step.id ? "step" : undefined}
+              aria-current={isCurrent ? "step" : undefined}
             >
               <div
                 className={cn(

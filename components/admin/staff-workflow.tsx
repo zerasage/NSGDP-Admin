@@ -341,7 +341,7 @@ export function StaffWorkflow({ organisationId }: { organisationId: string }) {
             <h3 className="text-sm font-semibold">Agency workspace</h3>
             <p className="mt-0.5 text-xs text-muted-foreground">Choose a section to manage staff access, invitations, or datasets.</p>
           </div>
-          <div className="scrollbar-slim overflow-x-auto rounded-xl bg-muted/70 p-1">
+          <div className="scrollbar-hide overflow-x-auto rounded-xl bg-muted/70 p-1">
             <TabsList className="h-auto min-w-max justify-start gap-1 bg-transparent p-0">
               <TabsTrigger value="staff" className="min-h-11 flex-none gap-2 px-4 data-active:bg-primary data-active:text-primary-foreground data-active:shadow-none dark:data-active:bg-primary dark:data-active:text-primary-foreground">
                 <Users className="size-4" aria-hidden="true" /> Staff
