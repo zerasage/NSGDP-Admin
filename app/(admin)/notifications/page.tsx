@@ -5,8 +5,11 @@ import Link from "next/link";
 import { Bell, CheckCheck } from "lucide-react";
 import { useNotifications, useMarkNotificationAsRead, useMarkAllNotificationsAsRead } from "@/lib/hooks/useNotifications";
 import { getAdminNotificationHref, type Notification, type NotificationType } from "@/lib/api/notifications";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Pagination } from "@/components/data/pagination";
+import { EmptyState } from "@/components/feedback/empty-state";
+import { Skeleton } from "@/components/ui/skeleton";
 import { formatDateTime } from "@/lib/utils/date";
 import { cn } from "@/lib/utils";
 
@@ -48,13 +51,17 @@ export default function NotificationsPage() {
   const [page, setPage] = useState(1);
   const limit = 20;
 
-  const { data, isLoading } = useNotifications(page, limit, tab === "unread");
+  const { data, isLoading, isFetching } = useNotifications(page, limit, tab === "unread");
+  // Platform-wide unread count, independent of the current page/tab —
+  // filtering the current page's items would undercount whenever unread
+  // notifications exist outside the page currently in view.
+  const { data: unreadData } = useNotifications(1, 1, true);
   const markRead = useMarkNotificationAsRead();
   const markAllRead = useMarkAllNotificationsAsRead();
 
   const items = data?.data ?? [];
   const meta = data?.meta;
-  const unreadCount = items.filter((n) => !n.is_read).length;
+  const unreadCount = unreadData?.meta.total ?? 0;
 
   const handleClick = (n: Notification) => {
     if (!n.is_read) markRead.mutate(n.id);
@@ -62,88 +69,114 @@ export default function NotificationsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-4">
+      <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold">Notifications</h1>
-          <p className="text-muted-foreground mt-1">
-            {meta ? `${meta.total} notification${meta.total !== 1 ? "s" : ""}` : "Loading…"}
-          </p>
+          <p className="mt-1 text-sm text-muted-foreground">Platform activity and alerts for your account</p>
         </div>
-        {unreadCount > 0 && (
-          <Button
-            variant="outline"
-            onClick={() => markAllRead.mutate()}
-            disabled={markAllRead.isPending}
-          >
-            <CheckCheck className="size-4" />
-            Mark all read
-          </Button>
-        )}
+        <div className="flex items-center gap-2">
+          {meta && (
+            <Badge variant="outline" className="rounded-full px-3 py-1 text-xs font-medium tabular-nums">
+              {meta.total} {meta.total === 1 ? "notification" : "notifications"}
+            </Badge>
+          )}
+          {unreadCount > 0 && (
+            <Button
+              variant="outline"
+              className="h-11 sm:h-9"
+              onClick={() => markAllRead.mutate()}
+              disabled={markAllRead.isPending}
+            >
+              <CheckCheck className="size-4" aria-hidden="true" />
+              Mark all read
+            </Button>
+          )}
+        </div>
       </div>
 
-      <div className="flex gap-2">
-        {TABS.map(({ key, label }) => (
-          <button
-            key={key}
-            onClick={() => {
-              setTab(key);
-              setPage(1);
-            }}
-            className={cn(
-              "rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
-              tab === key
-                ? "bg-primary text-primary-foreground"
-                : "bg-muted text-muted-foreground hover:bg-muted/70"
-            )}
-          >
-            {label}
-          </button>
-        ))}
+      <div className="overflow-hidden rounded-2xl border bg-card">
+        <div className="scrollbar-slim overflow-x-auto px-4">
+          <div className="flex min-w-max gap-1" role="tablist" aria-label="Notification filter">
+            {TABS.map((t) => (
+              <button
+                key={t.key}
+                type="button"
+                role="tab"
+                aria-selected={tab === t.key}
+                onClick={() => { setTab(t.key); setPage(1); }}
+                className={cn(
+                  "relative px-3 py-3 text-sm font-medium transition-colors",
+                  tab === t.key
+                    ? "text-foreground after:absolute after:inset-x-3 after:bottom-0 after:h-0.5 after:rounded-full after:bg-primary"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                {t.label}
+                {t.key === "unread" && unreadCount > 0 && (
+                  <span className="ml-1.5 rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-semibold tabular-nums text-foreground">
+                    {unreadCount}
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
 
-      <div className="rounded-lg border overflow-hidden">
+      <div aria-busy={isLoading || isFetching} className="space-y-4">
         {isLoading ? (
-          <div className="p-8 text-center text-sm text-muted-foreground">Loading…</div>
+          <div className="divide-y overflow-hidden rounded-2xl border bg-card">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <div key={i} className="flex items-start gap-3 px-4 py-4">
+                <Skeleton className="mt-1.5 size-2 shrink-0 rounded-full" />
+                <div className="flex-1 space-y-2">
+                  <Skeleton className="h-4 w-1/3" />
+                  <Skeleton className="h-3 w-2/3" />
+                </div>
+              </div>
+            ))}
+          </div>
         ) : items.length === 0 ? (
-          <div className="flex flex-col items-center gap-2 p-12 text-center">
-            <Bell className="size-8 text-muted-foreground/40" />
-            <p className="text-sm text-muted-foreground">
-              {tab === "unread" ? "No unread notifications" : "No notifications yet"}
-            </p>
+          <div className="rounded-2xl border bg-card">
+            <EmptyState
+              icon={Bell}
+              title={tab === "unread" ? "No unread notifications" : "No notifications yet"}
+              description={tab === "unread" ? "You're all caught up." : "Platform activity will appear here as it happens."}
+            />
           </div>
         ) : (
-          <ul className="divide-y">
+          <ul className="divide-y overflow-hidden rounded-2xl border bg-card">
             {items.map((n) => (
               <li
                 key={n.id}
                 className={cn(
-                  "flex items-start gap-3 px-4 py-4 hover:bg-muted/30 transition-colors",
+                  "flex items-start gap-3 px-4 py-4 transition-colors hover:bg-muted/30",
                   !n.is_read && "bg-primary/5"
                 )}
               >
                 <span
                   className={cn(
-                    "mt-1.5 size-2 rounded-full shrink-0",
+                    "mt-1.5 size-2 shrink-0 rounded-full",
                     TYPE_DOT_CLASS[n.type] ?? "bg-muted-foreground"
                   )}
-                  aria-hidden
+                  aria-hidden="true"
                 />
                 <Link
                   href={getAdminNotificationHref(n.link)}
                   onClick={() => handleClick(n)}
-                  className="flex-1 min-w-0"
+                  className="min-w-0 flex-1"
                 >
-                  <div className="flex items-center gap-2 flex-wrap">
+                  <div className="flex flex-wrap items-center gap-2">
                     <p className={cn("text-sm", !n.is_read && "font-semibold")}>{n.title}</p>
-                    <span className="text-[10px] uppercase tracking-wide text-muted-foreground bg-muted rounded px-1.5 py-0.5">
+                    <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-muted-foreground">
                       {TYPE_LABELS[n.type] ?? n.type}
                     </span>
                     {!n.is_read && (
                       <span className="size-1.5 rounded-full bg-primary" aria-label="Unread" />
                     )}
                   </div>
-                  <p className="text-sm text-muted-foreground mt-1">{n.message}</p>
-                  <p className="text-xs text-muted-foreground/60 mt-1">
+                  <p className="mt-1 text-sm text-muted-foreground">{n.message}</p>
+                  <p className="mt-1 text-xs text-muted-foreground/60">
                     {formatDateTime(n.created_at)}
                   </p>
                 </Link>
@@ -162,17 +195,18 @@ export default function NotificationsPage() {
             ))}
           </ul>
         )}
-      </div>
 
-      {meta && meta.totalPages > 1 && (
-        <Pagination
-          page={page}
-          totalPages={meta.totalPages}
-          pageSize={limit}
-          total={meta.total}
-          onPageChange={setPage}
-        />
-      )}
+        {meta && meta.totalPages > 1 && (
+          <Pagination
+            page={page}
+            totalPages={meta.totalPages}
+            pageSize={limit}
+            total={meta.total}
+            onPageChange={setPage}
+            className="rounded-xl border bg-card px-4 py-3"
+          />
+        )}
+      </div>
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getNotifications, markNotificationAsRead, markAllNotificationsAsRead } from '../api/notifications';
 
 /**
@@ -9,6 +9,7 @@ export function useNotifications(page = 1, limit = 20, unreadOnly = false) {
     queryKey: ['notifications', page, limit, unreadOnly],
     queryFn: () => getNotifications(page, limit, unreadOnly),
     refetchInterval: 30_000, // near-live unread count / bell dropdown
+    placeholderData: keepPreviousData,
   });
 }
 
