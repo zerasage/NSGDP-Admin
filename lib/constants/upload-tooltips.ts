@@ -17,6 +17,8 @@ export const UPLOAD_FIELD_TOOLTIPS = {
     "Describe the area this dataset covers. E.g. 'All 25 LGAs, Niger State' or 'Minna, Bosso, and Paikoro LGAs'.",
   reportingPeriod:
     "The calendar period this data represents. E.g. 'January – December 2024' or 'Q4 2024'.",
+  diseaseIndicators:
+    "The specific diseases, conditions, or health indicators this dataset tracks. Add one at a time — e.g. 'Confirmed cases', 'Malaria', 'ANC attendance'.",
 
   // Technical
   category:
@@ -29,6 +31,10 @@ export const UPLOAD_FIELD_TOOLTIPS = {
   // Governance
   dataLicense:
     "The license under which this data can be used. 'CC BY 4.0' allows open reuse with attribution. 'Restricted Use' means internal/partner access only.",
+  methodology:
+    "How this data was collected. E.g. 'Facility-based routine reporting via DHIS2' or 'Household survey, cluster sampling'.",
+  limitations:
+    "Known gaps, biases, or caveats a user of this data should be aware of. E.g. 'Reporting delays from rural facilities' or 'Excludes private-sector facilities'.",
 
   // Description
   description:
