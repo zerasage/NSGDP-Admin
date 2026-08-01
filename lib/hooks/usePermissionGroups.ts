@@ -8,7 +8,7 @@ import {
   deactivatePermissionGroup,
   deletePermissionGroup,
   addGroupMember,
-  removeGroupMember,
+  assignGroupMember,
   grantPermission,
   revokePermission,
   type CreatePermissionGroupPayload,
@@ -58,6 +58,9 @@ export function useUpdatePermissionGroup() {
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['permission-groups'] });
       queryClient.invalidateQueries({ queryKey: ['permission-group', variables.id] });
+      // isActive toggles (reactivate) flip every member's derived group-access
+      // state — keep the staff directory's "Group deactivated" badge in sync.
+      queryClient.invalidateQueries({ queryKey: ['admin-staff'] });
     },
   });
 }
@@ -69,6 +72,7 @@ export function useDeactivatePermissionGroup() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['permission-groups'] });
       queryClient.invalidateQueries({ queryKey: ['permission-matrix'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-staff'] });
     },
   });
 }
@@ -97,13 +101,18 @@ export function useAddGroupMember() {
   });
 }
 
-export function useRemoveGroupMember() {
+export function useAssignGroupMember() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ groupId, userId }: { groupId: string; userId: string }) => removeGroupMember(groupId, userId),
+    mutationFn: ({ targetGroupId, userId, expectedCurrentGroupId }: {
+      targetGroupId: string; userId: string; expectedCurrentGroupId: string | null;
+    }) => assignGroupMember(targetGroupId, userId, expectedCurrentGroupId),
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['permission-groups'] });
-      queryClient.invalidateQueries({ queryKey: ['permission-group', variables.groupId] });
+      queryClient.invalidateQueries({ queryKey: ['permission-group', variables.targetGroupId] });
+      if (variables.expectedCurrentGroupId) {
+        queryClient.invalidateQueries({ queryKey: ['permission-group', variables.expectedCurrentGroupId] });
+      }
       queryClient.invalidateQueries({ queryKey: ['admin-staff'] });
     },
   });

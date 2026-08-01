@@ -21,6 +21,7 @@ interface ConfirmDialogProps {
   variant?: "default" | "destructive";
   onConfirm: () => void;
   loading?: boolean;
+  closeOnConfirm?: boolean;
 }
 
 export function ConfirmDialog({
@@ -33,10 +34,11 @@ export function ConfirmDialog({
   variant = "default",
   onConfirm,
   loading = false,
+  closeOnConfirm = true,
 }: ConfirmDialogProps) {
   const handleConfirm = () => {
     onConfirm();
-    onOpenChange(false);
+    if (closeOnConfirm) onOpenChange(false);
   };
 
   return (

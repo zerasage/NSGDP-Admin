@@ -1,33 +1,34 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Trash2, UserPlus, Info } from "lucide-react";
+import { UserPlus, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   usePermissionGroup,
-  useAddGroupMember,
-  useRemoveGroupMember,
+  useAssignGroupMember,
 } from "@/lib/hooks/usePermissionGroups";
 import { useStaffMembers } from "@/lib/hooks/useStaff";
 import { useToast } from "@/lib/hooks/use-toast";
 
-export function MemberManager({ groupId }: { groupId: string }) {
+export function MemberManager({ groupId, disabled = false }: { groupId: string; disabled?: boolean }) {
   const { data: group, isLoading } = usePermissionGroup(groupId);
-  const { data: staff, isLoading: staffLoading } = useStaffMembers();
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const { data: staffData, isLoading: staffLoading, isFetching: staffFetching, isError: staffError } = useStaffMembers({ limit: 20, search: debouncedSearch || undefined });
+  const staff = useMemo(() => staffData?.data ?? [], [staffData]);
   const [movingId, setMovingId] = useState<string | null>(null);
-  const addMember = useAddGroupMember();
-  const removeMember = useRemoveGroupMember();
+  const assignMember = useAssignGroupMember();
   const { toast } = useToast();
 
-  // addMember alone 409s if the staff member already belongs to a group —
-  // the backend enforces one group at a time and won't silently reassign.
-  // Do the reassignment explicitly here: remove from their current group,
-  // then add to this one.
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(search.trim()), 300);
+    return () => clearTimeout(timer);
+  }, [search]);
+
   const handleAdd = (member: { id: string; fullName: string; groupId: string | null }) => {
     const onAdded = () => {
       setMovingId(null);
@@ -43,19 +44,9 @@ export function MemberManager({ groupId }: { groupId: string }) {
       });
     };
 
-    if (member.groupId === null) {
-      addMember.mutate({ groupId, userId: member.id }, { onSuccess: onAdded, onError: onFailed });
-      return;
-    }
-
     setMovingId(member.id);
-    removeMember.mutate(
-      { groupId: member.groupId, userId: member.id },
-      {
-        onSuccess: () => addMember.mutate({ groupId, userId: member.id }, { onSuccess: onAdded, onError: onFailed }),
-        onError: onFailed,
-      },
-    );
+    assignMember.mutate({ targetGroupId: groupId, userId: member.id, expectedCurrentGroupId: member.groupId },
+      { onSuccess: onAdded, onError: onFailed });
   };
 
   const existingIds = useMemo(
@@ -64,20 +55,14 @@ export function MemberManager({ groupId }: { groupId: string }) {
   );
 
   const candidates = useMemo(() => {
-    const pool = (staff ?? []).filter((s) => !existingIds.has(s.id));
-    const q = search.trim().toLowerCase();
-    const filtered = q
-      ? pool.filter(
-          (s) => s.fullName.toLowerCase().includes(q) || s.email.toLowerCase().includes(q),
-        )
-      : pool;
+    const pool = staff.filter((s) => !existingIds.has(s.id));
     // Eligible (no group yet) first, then everyone else already spoken for
-    return [...filtered].sort((a, b) => {
+    return [...pool].sort((a, b) => {
       const aFree = a.groupId === null ? 0 : 1;
       const bFree = b.groupId === null ? 0 : 1;
       return aFree - bFree;
     });
-  }, [staff, existingIds, search]);
+  }, [staff, existingIds]);
 
   if (isLoading || !group) {
     return <Skeleton className="h-24" />;
@@ -94,27 +79,12 @@ export function MemberManager({ groupId }: { groupId: string }) {
         ) : (
           <ul className="space-y-1.5">
             {group.members.map((member) => (
-              <li key={member.id} className="flex items-center justify-between rounded-md border px-3 py-2 text-sm">
-                <div>
-                  <span className="font-medium">{member.first_name} {member.last_name}</span>
-                  <span className="text-muted-foreground ml-2">{member.email}</span>
+              <li key={member.id} className="flex flex-col gap-2 rounded-xl border px-3 py-2 text-sm sm:flex-row sm:items-center">
+                <div className="min-w-0">
+                  <Link href={`/users/${member.user_id}`} className="font-medium underline-offset-4 hover:underline focus-visible:outline-2">{member.first_name} {member.last_name}</Link>
+                  <span className="block break-all text-muted-foreground sm:ml-2 sm:inline">{member.email}</span>
                   <Badge variant="outline" className="ml-2 text-xs capitalize">{member.role}</Badge>
                 </div>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="size-7 text-muted-foreground hover:text-destructive"
-                  onClick={() =>
-                    removeMember.mutate(
-                      { groupId, userId: member.user_id },
-                      { onSuccess: () => toast({ title: "Member removed" }) }
-                    )
-                  }
-                  disabled={removeMember.isPending}
-                  aria-label="Remove member"
-                >
-                  <Trash2 className="size-3.5" />
-                </Button>
               </li>
             ))}
           </ul>
@@ -122,17 +92,16 @@ export function MemberManager({ groupId }: { groupId: string }) {
       </div>
 
       <div>
-        <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Add member</p>
+        <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Assign or move staff</p>
         <p className="mb-2 flex items-start gap-1.5 text-xs text-muted-foreground">
           <Info className="size-3.5 mt-0.5 shrink-0" />
-          Only agency staff can be added, and each staff member belongs to one group at a time —
-          adding them here moves them out of any other group.
+          Every staff member must belong to one active group. Moving someone here transfers their membership to {group.name} in one safe operation.
         </p>
 
-        {!staffLoading && (staff ?? []).length === 0 ? (
+        {!staffLoading && staff.length === 0 ? (
           <p className="rounded-md border border-dashed px-3 py-4 text-sm text-muted-foreground">
             No agency staff exist yet.{" "}
-            <Link href="/staff" className="text-primary underline underline-offset-2">
+            <Link href="/agency" className="text-primary underline underline-offset-2">
               Invite one
             </Link>{" "}
             first, then come back here to assign them a group.
@@ -145,8 +114,10 @@ export function MemberManager({ groupId }: { groupId: string }) {
               placeholder="Search staff by name or email..."
               className="mb-2"
             />
-            {staffLoading ? (
+            {staffLoading || staffFetching || search.trim() !== debouncedSearch ? (
               <Skeleton className="h-10" />
+            ) : staffError ? (
+              <p className="rounded-xl border border-destructive/40 p-3 text-sm text-destructive">Staff matches could not be loaded. Try your search again.</p>
             ) : candidates.length === 0 ? (
               <p className="text-sm text-muted-foreground italic">
                 {search ? "No matching staff." : "Every staff member is already in this group."}
@@ -158,11 +129,11 @@ export function MemberManager({ groupId }: { groupId: string }) {
                   return (
                     <li
                       key={member.id}
-                      className="flex items-center justify-between rounded-md border px-3 py-2 text-sm"
+                      className="flex flex-col gap-2 rounded-xl border px-3 py-2 text-sm sm:flex-row sm:items-center sm:justify-between"
                     >
                       <div className="min-w-0">
                         <span className="font-medium">{member.fullName}</span>
-                        <span className="text-muted-foreground ml-2">{member.email}</span>
+                        <span className="block break-all text-muted-foreground sm:ml-2 sm:inline">{member.email}</span>
                         {member.status !== "active" && (
                           <Badge variant="destructive" className="ml-2 text-xs capitalize">
                             {member.status}
@@ -177,12 +148,12 @@ export function MemberManager({ groupId }: { groupId: string }) {
                       <Button
                         variant="outline"
                         size="sm"
-                        className="shrink-0"
+                        className="h-11 w-full shrink-0 sm:h-8 sm:w-auto"
                         onClick={() => handleAdd(member)}
-                        disabled={movingId === member.id || (addMember.isPending && !movingId)}
+                        disabled={disabled || movingId === member.id || (assignMember.isPending && !movingId)}
                       >
                         <UserPlus className="size-3.5 mr-1" />
-                        {movingId === member.id ? "Moving..." : takenElsewhere ? "Move here" : "Add"}
+                        {movingId === member.id ? "Moving..." : takenElsewhere ? "Move here" : "Assign"}
                       </Button>
                     </li>
                   );
@@ -192,6 +163,7 @@ export function MemberManager({ groupId }: { groupId: string }) {
           </>
         )}
       </div>
+      {disabled && <p className="border-l-4 border-amber-500 pl-3 text-sm">Members cannot be changed while this group is inactive.</p>}
     </div>
   );
 }

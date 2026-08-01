@@ -1,260 +1,66 @@
 "use client";
 
 import { useState } from "react";
-import { Ban, ChevronDown, ChevronUp, Pencil, Plus, RotateCcw, Trash2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Ban, Ellipsis, KeyRound, Pencil, RotateCcw, Trash2, Users } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Skeleton } from "@/components/ui/skeleton";
-import { PermissionGroupForm } from "@/components/admin/permission-group-form";
-import { MemberManager } from "@/components/admin/member-manager";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { GroupPermissions } from "@/components/admin/group-permissions";
-import {
-  usePermissionGroups,
-  usePermissionMatrix,
-  useCreatePermissionGroup,
-  useUpdatePermissionGroup,
-  useDeactivatePermissionGroup,
-  useDeletePermissionGroup,
-} from "@/lib/hooks/usePermissionGroups";
+import { MemberManager } from "@/components/admin/member-manager";
+import { PermissionGroupForm } from "@/components/admin/permission-group-form";
 import type { PermissionGroup } from "@/lib/api/permissions";
-import { PERMISSION_ACTION_LABELS } from "@/types/permissions";
 import { useToast } from "@/lib/hooks/use-toast";
+import { useCreatePermissionGroup, useDeactivatePermissionGroup, useDeletePermissionGroup, usePermissionGroups, useUpdatePermissionGroup } from "@/lib/hooks/usePermissionGroups";
 import { cn } from "@/lib/utils";
 
-export function PermissionGroupsPanel() {
-  const { data: groups, isLoading } = usePermissionGroups();
-  const { data: matrix } = usePermissionMatrix();
+export function PermissionGroupsPanel({ createOpen, onCreateOpenChange }: { createOpen: boolean; onCreateOpenChange: (open: boolean) => void }) {
+  const { data: groups, isLoading, isError, refetch } = usePermissionGroups();
   const createGroup = useCreatePermissionGroup();
   const updateGroup = useUpdatePermissionGroup();
   const deactivateGroup = useDeactivatePermissionGroup();
   const deleteGroup = useDeletePermissionGroup();
   const { toast } = useToast();
-
   const [formTarget, setFormTarget] = useState<PermissionGroup | "new" | null>(null);
-  const [expanded, setExpanded] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [pendingDeactivate, setPendingDeactivate] = useState<string | null>(null);
   const [pendingDelete, setPendingDelete] = useState<string | null>(null);
+  const [pendingReactivate, setPendingReactivate] = useState<string | null>(null);
+  const selected = groups?.find((group) => group.id === selectedId) ?? groups?.[0] ?? null;
+  const effectiveSelectedId = selected?.id ?? null;
+  const deactivationTarget = groups?.find((group) => group.id === pendingDeactivate);
+  const activeFormTarget = createOpen ? "new" : formTarget;
 
-  const toggleExpand = (id: string) => setExpanded((prev) => (prev === id ? null : id));
+  const errorToast = (error: unknown, title = "Error") => toast({ title, description: error instanceof Error ? error.message : undefined, variant: "destructive" });
+  const closeForm = () => { setFormTarget(null); onCreateOpenChange(false); };
 
-  return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-end">
-        {!formTarget && (
-          <Button onClick={() => setFormTarget("new")} size="sm">
-            <Plus className="size-4 mr-1.5" />
-            New Group
-          </Button>
-        )}
-      </div>
+  return <div className="space-y-4">
+    {activeFormTarget && <PermissionGroupForm initial={activeFormTarget === "new" ? undefined : activeFormTarget} onCancel={closeForm} isSaving={createGroup.isPending || updateGroup.isPending} onSave={(payload) => {
+      const done = () => { toast({ title: activeFormTarget === "new" ? "Group created" : "Group updated" }); closeForm(); };
+      if (activeFormTarget === "new") createGroup.mutate(payload, { onSuccess: done, onError: (error) => errorToast(error) });
+      else updateGroup.mutate({ id: activeFormTarget.id, payload }, { onSuccess: done, onError: (error) => errorToast(error) });
+    }} />}
 
-      {formTarget && (
-        <PermissionGroupForm
-          initial={formTarget === "new" ? undefined : formTarget}
-          onCancel={() => setFormTarget(null)}
-          isSaving={createGroup.isPending || updateGroup.isPending}
-          onSave={(payload) => {
-            if (formTarget === "new") {
-              createGroup.mutate(payload, {
-                onSuccess: () => {
-                  toast({ title: "Group created" });
-                  setFormTarget(null);
-                },
-                onError: (error: unknown) =>
-                  toast({
-                    title: "Error",
-                    description: error instanceof Error ? error.message : undefined,
-                    variant: "destructive",
-                  }),
-              });
-            } else {
-              updateGroup.mutate(
-                { id: formTarget.id, payload },
-                {
-                  onSuccess: () => {
-                    toast({ title: "Group updated" });
-                    setFormTarget(null);
-                  },
-                  onError: (error: unknown) =>
-                    toast({
-                      title: "Error",
-                      description: error instanceof Error ? error.message : undefined,
-                      variant: "destructive",
-                    }),
-                }
-              );
-            }
-          }}
-        />
-      )}
+    {isError ? <State title="Permission groups could not be loaded."><Button variant="outline" className="h-11" onClick={() => refetch()}>Try again</Button></State>
+      : isLoading ? <div className="grid gap-4 xl:grid-cols-[minmax(280px,.8fr)_minmax(0,1.4fr)]"><Skeleton className="h-80 rounded-2xl" /><Skeleton className="h-80 rounded-2xl" /></div>
+      : !groups?.length ? <State title="No permission groups yet." description="Create one to start delegating permissions." />
+      : <div className="grid items-start gap-4 xl:grid-cols-[minmax(280px,.8fr)_minmax(0,1.4fr)]">
+        <div className="overflow-hidden rounded-2xl border bg-card" role="listbox" aria-label="Permission groups">{groups.map((group) => <button key={group.id} type="button" role="option" aria-selected={effectiveSelectedId === group.id} onClick={() => setSelectedId(group.id)} className={cn("block min-h-20 w-full border-b p-4 text-left last:border-b-0 focus-visible:relative focus-visible:z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring", effectiveSelectedId === group.id && "bg-primary/10")}><span className="flex items-start justify-between gap-2"><span className="min-w-0"><span className="block truncate font-semibold">{group.name}</span><span className="mt-1 line-clamp-1 text-xs text-muted-foreground">{group.description || "No description"}</span></span><Badge variant={group.is_active ? "secondary" : "outline"}>{group.is_active ? "Active" : "Inactive"}</Badge></span><span className="mt-2 flex gap-2 text-xs text-muted-foreground"><span>{group.member_count} members</span><span aria-hidden="true">·</span><span>{group.grant_count} permissions</span></span></button>)}</div>
+        {selected ? <section className="overflow-hidden rounded-2xl border bg-card" aria-labelledby="selected-group-title">
+          <div className="flex items-start justify-between gap-3 border-b p-4"><div className="min-w-0"><h2 id="selected-group-title" className="text-lg font-semibold">{selected.name}</h2><p className="mt-1 text-sm text-muted-foreground">{selected.description || "No description provided."}</p></div><DropdownMenu><DropdownMenuTrigger render={<Button variant="outline" size="icon" className="size-11 shrink-0" aria-label={`Actions for ${selected.name}`} />}><Ellipsis className="size-4" /></DropdownMenuTrigger><DropdownMenuContent align="end" className="w-64"><DropdownMenuGroup><DropdownMenuLabel>Group lifecycle</DropdownMenuLabel><DropdownMenuItem onClick={() => { onCreateOpenChange(false); setFormTarget(selected); }}><Pencil />Edit group</DropdownMenuItem>{selected.is_active ? <DropdownMenuItem onClick={() => setPendingDeactivate(selected.id)}><Ban />Deactivate group and accounts</DropdownMenuItem> : <DropdownMenuItem onClick={() => setPendingReactivate(selected.id)}><RotateCcw />Reactivate group</DropdownMenuItem>}<DropdownMenuItem variant="destructive" disabled={selected.member_count > 0} onClick={() => setPendingDelete(selected.id)}><Trash2 />{selected.member_count > 0 ? "Move members before deleting" : "Permanently delete"}</DropdownMenuItem></DropdownMenuGroup></DropdownMenuContent></DropdownMenu></div>
+          {!selected.is_active && <div className="border-b border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm">This group is inactive. Permission and membership changes are disabled.</div>}
+          <Tabs defaultValue="permissions" className="gap-0"><div className="overflow-x-auto border-b p-3"><TabsList className="h-11 min-w-max bg-muted p-1"><TabsTrigger value="permissions" className="h-9 min-w-40 data-active:bg-primary data-active:text-primary-foreground"><KeyRound />Permissions <Badge variant="secondary">{selected.grant_count}</Badge></TabsTrigger><TabsTrigger value="members" className="h-9 min-w-40 data-active:bg-primary data-active:text-primary-foreground"><Users />Members <Badge variant="secondary">{selected.member_count}</Badge></TabsTrigger></TabsList></div><TabsContent value="permissions" className="p-4"><GroupPermissions group={selected} /></TabsContent><TabsContent value="members" className="p-4"><MemberManager groupId={selected.id} disabled={!selected.is_active} /></TabsContent></Tabs>
+        </section> : <State title="Choose a group" description="Select a group to inspect its permissions and members." />}
+      </div>}
 
-      {isLoading ? (
-        <div className="space-y-3">
-          <Skeleton className="h-20" />
-          <Skeleton className="h-20" />
-        </div>
-      ) : !groups || groups.length === 0 ? (
-        <Card>
-          <CardContent className="py-10 text-center text-muted-foreground text-sm">
-            No permission groups yet. Create one to start delegating permissions.
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="space-y-3">
-          {groups.map((group) => {
-            const isOpen = expanded === group.id;
-            return (
-              <Card key={group.id} className={cn(isOpen && "ring-1 ring-primary/20")}>
-                <CardHeader className="pb-3">
-                  <div className="flex w-full items-start justify-between gap-3">
-                    <button
-                      type="button"
-                      className="flex flex-1 items-start gap-3 text-left"
-                      onClick={() => toggleExpand(group.id)}
-                      aria-expanded={isOpen}
-                    >
-                      <div className="min-w-0 flex-1">
-                        <CardTitle className="text-base">{group.name}</CardTitle>
-                        {group.description && (
-                          <CardDescription className="mt-0.5">{group.description}</CardDescription>
-                        )}
-                        <div className="mt-2 flex flex-wrap gap-1.5">
-                          <Badge variant="secondary" className="text-xs">{group.member_count} members</Badge>
-                          {!group.is_active && <Badge variant="outline" className="text-xs">Inactive</Badge>}
-                          {(matrix?.delegations.find((d) => d.id === group.id)?.actions ?? []).map((action) => (
-                            <Badge key={action} variant="outline" className="text-xs">
-                              {PERMISSION_ACTION_LABELS[action]}
-                            </Badge>
-                          ))}
-                          {group.grant_count === 0 && (
-                            <span className="text-xs text-muted-foreground italic">No delegated permissions</span>
-                          )}
-                        </div>
-                      </div>
-                      <div className="shrink-0">
-                        {isOpen ? <ChevronUp className="size-4 text-muted-foreground" /> : <ChevronDown className="size-4 text-muted-foreground" />}
-                      </div>
-                    </button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="size-8 text-muted-foreground shrink-0"
-                      onClick={() => setFormTarget(group)}
-                      aria-label="Edit group"
-                    >
-                      <Pencil className="size-4" />
-                    </Button>
-                    {group.is_active ? (
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="size-8 text-muted-foreground shrink-0"
-                        onClick={() => setPendingDeactivate(group.id)}
-                        aria-label="Deactivate group"
-                        title="Deactivate group"
-                      >
-                        <Ban className="size-4" />
-                      </Button>
-                    ) : (
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="size-8 text-muted-foreground shrink-0"
-                        onClick={() =>
-                          updateGroup.mutate(
-                            { id: group.id, payload: { isActive: true } },
-                            { onSuccess: () => toast({ title: "Group reactivated" }) }
-                          )
-                        }
-                        aria-label="Reactivate group"
-                        title="Reactivate group"
-                      >
-                        <RotateCcw className="size-4" />
-                      </Button>
-                    )}
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="size-8 text-muted-foreground hover:text-destructive shrink-0"
-                      onClick={() => setPendingDelete(group.id)}
-                      aria-label="Delete group"
-                      title="Permanently delete group"
-                    >
-                      <Trash2 className="size-4" />
-                    </Button>
-                  </div>
-                </CardHeader>
-                {isOpen && (
-                  <CardContent className="pt-0 space-y-5">
-                    <GroupPermissions group={group} />
-                    <div className="border-t pt-4">
-                      <MemberManager groupId={group.id} />
-                    </div>
-                  </CardContent>
-                )}
-              </Card>
-            );
-          })}
-        </div>
-      )}
+    <ConfirmDialog open={!!pendingDeactivate} onOpenChange={(open) => !open && setPendingDeactivate(null)} title="Deactivate group and staff access?" description={`This disables the group and immediately signs out its ${deactivationTarget?.member_count ?? 0} linked staff member${deactivationTarget?.member_count === 1 ? "" : "s"}, blocking sign-in until the group is reactivated. Their account status and any independent suspension are unaffected — this only gates access, it never changes an account's own status.`} confirmLabel="Deactivate group and accounts" variant="destructive" loading={deactivateGroup.isPending} closeOnConfirm={false} onConfirm={() => pendingDeactivate && deactivateGroup.mutate(pendingDeactivate, { onSuccess: () => { toast({ title: "Group and linked staff accounts deactivated" }); setPendingDeactivate(null); }, onError: (error) => errorToast(error) })} />
+    <ConfirmDialog open={!!pendingDelete} onOpenChange={(open) => !open && setPendingDelete(null)} title="Permanently delete this empty group?" description="This permanently removes the group and its delegated permissions. Invite history may still block deletion. This cannot be undone." confirmLabel="Delete" variant="destructive" loading={deleteGroup.isPending} closeOnConfirm={false} onConfirm={() => pendingDelete && deleteGroup.mutate(pendingDelete, { onSuccess: () => { toast({ title: "Group deleted" }); setPendingDelete(null); }, onError: (error) => errorToast(error, "Can't delete this group") })} />
+    <ConfirmDialog open={!!pendingReactivate} onOpenChange={(open) => !open && setPendingReactivate(null)} title="Reactivate group and staff access?" description="Sign-in access is restored for this group's staff members. Anyone independently suspended stays suspended until an admin reactivates them individually." confirmLabel="Reactivate group and accounts" loading={updateGroup.isPending} closeOnConfirm={false} onConfirm={() => pendingReactivate && updateGroup.mutate({ id: pendingReactivate, payload: { isActive: true } }, { onSuccess: () => { toast({ title: "Group and linked staff accounts reactivated" }); setPendingReactivate(null); }, onError: (error) => errorToast(error) })} />
+  </div>;
+}
 
-      <ConfirmDialog
-        open={!!pendingDeactivate}
-        onOpenChange={(open) => !open && setPendingDeactivate(null)}
-        title="Deactivate this group?"
-        description="The group and its delegated permissions will stop applying to its members. You can reactivate it later."
-        confirmLabel="Deactivate"
-        variant="destructive"
-        loading={deactivateGroup.isPending}
-        onConfirm={() => {
-          if (!pendingDeactivate) return;
-          deactivateGroup.mutate(pendingDeactivate, {
-            onSuccess: () => {
-              toast({ title: "Group deactivated" });
-              setPendingDeactivate(null);
-            },
-            onError: (error: unknown) =>
-              toast({
-                title: "Error",
-                description: error instanceof Error ? error.message : undefined,
-                variant: "destructive",
-              }),
-          });
-        }}
-      />
-
-      <ConfirmDialog
-        open={!!pendingDelete}
-        onOpenChange={(open) => !open && setPendingDelete(null)}
-        title="Permanently delete this group?"
-        description="This removes the group, its members, and its delegated permissions for good. This cannot be undone."
-        confirmLabel="Delete"
-        variant="destructive"
-        loading={deleteGroup.isPending}
-        onConfirm={() => {
-          if (!pendingDelete) return;
-          deleteGroup.mutate(pendingDelete, {
-            onSuccess: () => {
-              toast({ title: "Group deleted" });
-              setPendingDelete(null);
-            },
-            onError: (error: unknown) =>
-              toast({
-                title: "Can't delete this group",
-                description: error instanceof Error ? error.message : undefined,
-                variant: "destructive",
-              }),
-          });
-        }}
-      />
-    </div>
-  );
+function State({ title, description, children }: { title: string; description?: string; children?: React.ReactNode }) {
+  return <div className="flex min-h-64 flex-col items-center justify-center rounded-2xl border bg-card p-8 text-center"><h2 className="font-semibold">{title}</h2>{description && <p className="mt-2 text-sm text-muted-foreground">{description}</p>}{children && <div className="mt-4">{children}</div>}</div>;
 }
