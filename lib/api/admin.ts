@@ -27,6 +27,12 @@ export interface AdminUser {
   updated_at: string;
   last_login_at: string | null;
   phone_number?: string | null;
+  lga?: string | null;
+  ward?: string | null;
+  email_verified?: boolean;
+  email_verified_at?: string | null;
+  mfa_enabled?: boolean;
+  approved_at?: string | null;
 }
 
 export interface UserStats {
@@ -42,6 +48,16 @@ export interface UserListParams {
   status?: string;
   search?: string;
   organisationId?: string;
+}
+
+interface UserListResponse {
+  data: AdminUser[];
+  meta: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
 }
 
 export interface UpdateUserRoleDto {
@@ -144,11 +160,18 @@ export interface AuditLogsResponse {
 export async function getUsers(
   params?: UserListParams
 ): Promise<PaginatedResponse<AdminUser>> {
-  const response = await apiClient.get<ApiResponse<PaginatedResponse<AdminUser>>>(
+  const response = await apiClient.get<ApiResponse<UserListResponse>>(
     '/admin/users',
     { params: params as Record<string, unknown> }
   );
-  return response.data.data;
+  const result = response.data.data;
+  return {
+    data: result.data,
+    page: result.meta.page,
+    limit: result.meta.limit,
+    total: result.meta.total,
+    totalPages: result.meta.totalPages,
+  };
 }
 
 /**

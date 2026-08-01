@@ -1,15 +1,34 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { Download, Lock, Search } from "lucide-react";
+import { useEffect, useState } from "react";
+import Link from "next/link";
+import {
+  AlertCircle,
+  Download,
+  Loader2,
+  Lock,
+  RotateCcw,
+  Search,
+  UserRound,
+  X,
+} from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { usePermissions } from "@/lib/hooks/usePermissions";
-import { useUsers, useUpdateUserStatus, useDeactivateUserDelegated } from "@/lib/hooks/useAdmin";
-import { adminApi, type AdminUser } from "@/lib/api/admin";
+import {
+  useDeactivateUserDelegated,
+  useUpdateUserStatus,
+  useUsers,
+} from "@/lib/hooks/useAdmin";
+import { useOrganisations } from "@/lib/hooks/useOrganisations";
+import type { AdminUser } from "@/lib/api/admin";
+import type { UserRole } from "@/types";
 import { RoleBadge } from "@/components/data/role-badge";
+import { Pagination } from "@/components/data/pagination";
 import { EmptyState } from "@/components/feedback/empty-state";
+import { TableRowSkeleton } from "@/components/feedback/skeletons";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -18,20 +37,37 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { TableRowSkeleton } from "@/components/feedback/skeletons";
-import { alertSurface } from "@/lib/constants/status-surfaces";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 import { formatDate } from "@/lib/utils/date";
 import { toast } from "sonner";
 
-const STATUS_TABS: Array<{ key: string; label: string }> = [
-  { key: "all", label: "All" },
-  { key: "pending", label: "Pending" },
-  { key: "active", label: "Active" },
-  { key: "suspended", label: "Suspended" },
-  { key: "archived", label: "Archived" },
+const statusTabs = [
+  { value: "all", label: "All" },
+  { value: "pending", label: "Pending" },
+  { value: "active", label: "Active" },
+  { value: "suspended", label: "Suspended" },
+  { value: "archived", label: "Archived" },
+] as const;
+
+const roleOptions: Array<{ value: UserRole; label: string }> = [
+  { value: "public", label: "Public" },
+  { value: "registered", label: "Registered" },
+  { value: "contributor", label: "Contributor" },
+  { value: "admin", label: "Organisation admin" },
+  { value: "staff", label: "Agency staff" },
+  { value: "super_admin", label: "Super admin" },
 ];
+
+type UserStatusFilter = (typeof statusTabs)[number]["value"];
 
 export default function AdminUsersPage() {
   const { user } = useAuth();
@@ -39,60 +75,71 @@ export default function AdminUsersPage() {
   const isSuperAdmin = user?.role === "super_admin";
   const canViewUsers =
     isSuperAdmin ||
-    hasAnyPermission("invite:users", "promote:org-admin", "demote:org-admin", "remove:org-members");
-  // Deactivating a user is super_admin only — not delegatable.
-  const canSuspend = isSuperAdmin;
+    hasAnyPermission(
+      "invite:users",
+      "promote:org-admin",
+      "demote:org-admin",
+      "remove:org-members"
+    );
 
-  const [roleFilter, setRoleFilter] = useState<string>("all");
-  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
+  const [role, setRole] = useState<UserRole | "all">("all");
+  const [status, setStatus] = useState<UserStatusFilter>("all");
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const [suspendTarget, setSuspendTarget] = useState<AdminUser | null>(null);
 
-  // Debounce the search box so we're not firing a new request per keystroke
   useEffect(() => {
-    const timer = setTimeout(() => setDebouncedQuery(query), 300);
+    const timer = setTimeout(() => {
+      setDebouncedQuery(query.trim());
+      setPage(1);
+    }, 300);
+
     return () => clearTimeout(timer);
   }, [query]);
 
-  // Super admin sees all users
-  const isOrgScoped = false; // Admin portal is super_admin only
-  const orgId = undefined;
-
-  // Fetch users from real API — role/status/search are all server-side filters
-  const { data: usersData, isLoading } = useUsers({
-    page: 1,
-    limit: 100,
-    organisationId: isOrgScoped ? orgId : undefined,
-    role: roleFilter !== "all" ? roleFilter : undefined,
-    status: statusFilter !== "all" ? statusFilter : undefined,
-    search: debouncedQuery || undefined,
-  }, canViewUsers);
-
+  const {
+    data: usersData,
+    isLoading,
+    isFetching,
+    isError,
+    refetch,
+  } = useUsers(
+    {
+      page,
+      limit: pageSize,
+      role: role === "all" ? undefined : role,
+      status: status === "all" ? undefined : status,
+      search: debouncedQuery || undefined,
+    },
+    canViewUsers
+  );
+  const { data: organisationsData } = useOrganisations(1, 200);
   const updateStatusMutation = useUpdateUserStatus();
   const deactivateMutation = useDeactivateUserDelegated();
 
-  const { data: organisationsData } = useQuery({
-    queryKey: ["admin", "organisations"],
-    queryFn: async () => {
-      const response = await adminApi.get<{ data: { data: { id: string; name: string }[] } }>(
-        "/admin/organisations?page=1&limit=100"
-      );
-      return response.data.data;
-    },
-  });
-  const orgName = (id: string | null) =>
-    organisationsData?.data?.find((o) => o.id === id)?.name ?? "—";
+  const users = usersData?.data ?? [];
+  const total = usersData?.total ?? 0;
+  const totalPages = usersData?.totalPages ?? 1;
+  const isSearchPending = query.trim() !== debouncedQuery;
+  const hasFilters = !!query || !!debouncedQuery || role !== "all" || status !== "all";
+  const organisationNames = new Map(
+    (organisationsData?.data ?? []).map((organisation) => [organisation.id, organisation.name])
+  );
+  const organisationName = (id: string | null) =>
+    (id ? organisationNames.get(id) : undefined) ?? "No organisation";
 
-  const users = useMemo(() => {
-    return usersData?.data || [];
-  }, [usersData]);
+  const clearFilters = () => {
+    setQuery("");
+    setDebouncedQuery("");
+    setRole("all");
+    setStatus("all");
+    setPage(1);
+  };
 
-  // Role/status/search are already applied server-side above.
-  const filtered = users;
-
-  const exportCsv = () => {
-    if (filtered.length === 0) {
+  const exportCurrentPage = () => {
+    if (users.length === 0) {
       toast.error("No users to export");
       return;
     }
@@ -108,64 +155,101 @@ export default function AdminUsersPage() {
       "Last Login",
       "Created",
     ];
-    const rows = filtered.map((u) => [
-      u.first_name,
-      u.last_name,
-      u.email,
-      u.phone_number ?? "",
-      u.role,
-      u.status,
-      orgName(u.organisation_id),
-      u.last_login_at ? formatDate(u.last_login_at) : "Never",
-      formatDate(u.created_at),
+    const rows = users.map((listedUser) => [
+      listedUser.first_name,
+      listedUser.last_name,
+      listedUser.email,
+      listedUser.phone_number ?? "",
+      listedUser.role,
+      listedUser.status,
+      organisationName(listedUser.organisation_id),
+      listedUser.last_login_at ? formatDate(listedUser.last_login_at) : "Never",
+      formatDate(listedUser.created_at),
     ]);
-
     const csvContent = [headers, ...rows]
       .map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(","))
       .join("\n");
-
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
+    const url = URL.createObjectURL(new Blob([csvContent], { type: "text/csv;charset=utf-8;" }));
     const link = document.createElement("a");
     link.href = url;
-    link.download = `users-${new Date().toISOString().split("T")[0]}.csv`;
+    link.download = `users-page-${page}-${new Date().toISOString().split("T")[0]}.csv`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
-
-    toast.success(`Exported ${filtered.length} user${filtered.length !== 1 ? "s" : ""}`);
+    toast.success(`Exported ${users.length} users from this page`);
   };
 
-  const changeStatus = (u: AdminUser, status: AdminUser["status"]) => {
+  const changeStatus = (listedUser: AdminUser, nextStatus: AdminUser["status"]) => {
     updateStatusMutation.mutate(
-      { userId: u.id, data: { status } },
+      { userId: listedUser.id, data: { status: nextStatus } },
       {
         onSuccess: () => {
-          const verb = status === "active" ? "Approved" : status === "suspended" ? "Suspended" : "Reactivated";
-          toast.success(`${verb} ${u.first_name} ${u.last_name}`);
+          const verb = nextStatus === "active" && listedUser.status === "pending" ? "Approved" : "Reactivated";
+          toast.success(`${verb} ${listedUser.first_name} ${listedUser.last_name}`);
           setSuspendTarget(null);
         },
-        onError: () => {
-          toast.error("Failed to update status");
-        },
+        onError: () => toast.error("Failed to update status"),
       }
     );
   };
 
-  const suspendUser = (u: AdminUser) => {
+  const suspendUser = (listedUser: AdminUser) => {
     deactivateMutation.mutate(
-      { userId: u.id },
+      { userId: listedUser.id },
       {
         onSuccess: () => {
-          toast.success(`Suspended ${u.first_name} ${u.last_name}`);
+          toast.success(`Suspended ${listedUser.first_name} ${listedUser.last_name}`);
           setSuspendTarget(null);
         },
-        onError: () => {
-          toast.error("Failed to suspend user");
-        },
+        onError: () => toast.error("Failed to suspend user"),
       }
     );
+  };
+
+  const renderActions = (listedUser: AdminUser, mobile = false) => {
+    if (!isSuperAdmin || listedUser.id === user?.id || listedUser.status === "archived") {
+      return <span className="text-xs text-muted-foreground">No actions</span>;
+    }
+
+    const className = mobile ? "h-11 w-full" : undefined;
+    if (listedUser.status === "pending") {
+      return (
+        <Button
+          className={className}
+          disabled={updateStatusMutation.isPending}
+          onClick={() => changeStatus(listedUser, "active")}
+        >
+          Approve user
+        </Button>
+      );
+    }
+    if (listedUser.status === "active") {
+      return (
+        <Button
+          variant="outline"
+          className={className}
+          disabled={deactivateMutation.isPending}
+          onClick={() => setSuspendTarget(listedUser)}
+        >
+          Suspend
+        </Button>
+      );
+    }
+    if (listedUser.status === "suspended") {
+      return (
+        <Button
+          variant="outline"
+          className={className}
+          disabled={updateStatusMutation.isPending}
+          onClick={() => changeStatus(listedUser, "active")}
+        >
+          Reactivate
+        </Button>
+      );
+    }
+
+    return <span className="text-xs text-muted-foreground">No actions</span>;
   };
 
   if (!permissionsLoading && !canViewUsers) {
@@ -173,143 +257,271 @@ export default function AdminUsersPage() {
       <EmptyState
         icon={Lock}
         title="Access restricted"
-        description="Viewing users requires invite:users, promote:org-admin, demote:org-admin, or remove:org-members. Ask a super_admin to grant your group one of these."
+        description="Viewing users requires invite:users, promote:org-admin, demote:org-admin, or remove:org-members. Ask a super admin to grant your group one of these permissions."
       />
     );
   }
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-4">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold">User Management</h1>
-          <p className="text-muted-foreground mt-1">
-            {isOrgScoped
-              ? "Manage users within your organisation only"
-              : `${users.length} platform users`}
+          <h1 className="text-2xl font-bold">Users</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Review platform accounts, access roles, and account status
           </p>
         </div>
-        <Button variant="outline" onClick={exportCsv}>
-          <Download className="size-4" />
-          Export CSV
+        <Button
+          variant="outline"
+          className="h-11 w-full sm:h-8 sm:w-auto"
+          onClick={exportCurrentPage}
+          disabled={users.length === 0}
+        >
+          <Download className="size-4" aria-hidden="true" />
+          Export page
         </Button>
       </div>
 
-      {isOrgScoped && (
-        <div className={cn("rounded-lg border px-4 py-3 text-sm", alertSurface.amber)}>
-          Organisation-scoped view: you can only view and manage users belonging to your organisation.
+      <div className="overflow-hidden rounded-2xl border bg-card">
+        <div className="scrollbar-slim overflow-x-auto border-b px-4">
+          <div className="flex min-w-max gap-1" role="tablist" aria-label="User status">
+            {statusTabs.map((tab) => (
+              <button
+                key={tab.value}
+                type="button"
+                role="tab"
+                aria-selected={status === tab.value}
+                onClick={() => {
+                  setStatus(tab.value);
+                  setPage(1);
+                }}
+                className={cn(
+                  "relative min-h-11 px-3 text-sm font-medium transition-colors",
+                  status === tab.value
+                    ? "text-foreground after:absolute after:inset-x-3 after:bottom-0 after:h-0.5 after:rounded-full after:bg-primary"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
         </div>
-      )}
 
-      <div className="flex flex-wrap gap-2">
-        {STATUS_TABS.map((t) => (
-          <Button
-            key={t.key}
-            variant={statusFilter === t.key ? "default" : "outline"}
-            size="sm"
-            onClick={() => setStatusFilter(t.key)}
-          >
-            {t.label}
-          </Button>
-        ))}
-      </div>
+        <div className="flex flex-col gap-3 p-4 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex flex-1 flex-col gap-3 sm:flex-row">
+            <div className="relative w-full sm:max-w-sm">
+              <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+              <Input
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="Search name or email"
+                className="h-11 pl-9 pr-10 sm:h-10"
+                aria-label="Search users"
+              />
+              {query && (
+                <button
+                  type="button"
+                  onClick={() => setQuery("")}
+                  className="absolute right-0 top-1/2 flex size-11 -translate-y-1/2 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground sm:size-10"
+                  aria-label="Clear user search"
+                >
+                  <X className="size-4" aria-hidden="true" />
+                </button>
+              )}
+            </div>
 
-      <div className="flex flex-wrap gap-3">
-        <div className="relative max-w-sm flex-1 min-w-[200px]">
-          <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            placeholder="Search by name or email…"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            className="pl-9"
-          />
-        </div>
-        <Select value={roleFilter} onValueChange={(v) => v && setRoleFilter(v)}>
-          <SelectTrigger className="w-48"><SelectValue placeholder="Filter by role" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All roles</SelectItem>
-            <SelectItem value="public">Public</SelectItem>
-            <SelectItem value="registered">Registered</SelectItem>
-            <SelectItem value="contributor">Contributor</SelectItem>
-            <SelectItem value="admin">Org Admin</SelectItem>
-            <SelectItem value="super_admin">Super Admin</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
+            <Select
+              value={role}
+              onValueChange={(value) => {
+                setRole(value as UserRole | "all");
+                setPage(1);
+              }}
+            >
+              <SelectTrigger className="h-11 w-full sm:h-10 sm:w-52" aria-label="Filter users by role">
+                <SelectValue placeholder="All roles" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All roles</SelectItem>
+                {roleOptions.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
 
-      <div className="rounded-lg border overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b bg-muted/50 text-left">
-              <th className="px-4 py-3 font-medium">Name</th>
-              <th className="px-4 py-3 font-medium">Email</th>
-              <th className="px-4 py-3 font-medium">Organisation</th>
-              <th className="px-4 py-3 font-medium">Role</th>
-              <th className="px-4 py-3 font-medium">Status</th>
-              <th className="px-4 py-3 font-medium">Last Login</th>
-              <th className="px-4 py-3 font-medium">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {isLoading ? (
-              [...Array(5)].map((_, i) => <TableRowSkeleton key={i} cols={7} />)
-            ) : filtered.length === 0 ? (
-              <tr>
-                <td colSpan={7} className="p-12 text-center text-muted-foreground">
-                  <p className="text-lg">No users found</p>
-                  <p className="text-sm mt-2">No users match your filters</p>
-                </td>
-              </tr>
-            ) : (
-              filtered.map((u) => (
-                  <tr key={u.id} className="border-b hover:bg-muted/30">
-                    <td className="px-4 py-3 font-medium">{u.first_name} {u.last_name}</td>
-                    <td className="px-4 py-3 text-muted-foreground">{u.email}</td>
-                    <td className="px-4 py-3 text-muted-foreground">{orgName(u.organisation_id)}</td>
-                    <td className="px-4 py-3"><RoleBadge role={u.role} /></td>
-                    <td className="px-4 py-3 capitalize">{u.status}</td>
-                    <td className="px-4 py-3 text-muted-foreground">
-                      {u.last_login_at ? formatDate(u.last_login_at) : "Never"}
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex gap-1.5">
-                        {isSuperAdmin && u.id !== user?.id && u.status === "pending" && (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            disabled={updateStatusMutation.isPending}
-                            onClick={() => changeStatus(u, "active")}
-                          >
-                            Approve
-                          </Button>
-                        )}
-                        {canSuspend && u.id !== user?.id && u.status === "active" && (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            disabled={deactivateMutation.isPending}
-                            onClick={() => setSuspendTarget(u)}
-                          >
-                            Suspend
-                          </Button>
-                        )}
-                        {isSuperAdmin && u.id !== user?.id && u.status === "suspended" && (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            disabled={updateStatusMutation.isPending}
-                            onClick={() => changeStatus(u, "active")}
-                          >
-                            Reactivate
-                          </Button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))
+            {hasFilters && (
+              <Button variant="ghost" className="h-11 sm:h-10" onClick={clearFilters}>
+                <X className="size-4" aria-hidden="true" />
+                Clear filters
+              </Button>
             )}
-          </tbody>
-        </table>
+          </div>
+
+          <div className="flex min-h-5 items-center gap-2 text-xs text-muted-foreground" aria-live="polite">
+            {(isSearchPending || (isFetching && !isLoading)) && (
+              <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />
+            )}
+            <span>
+              {isSearchPending ? "Searching" : isFetching && !isLoading ? "Updating" : "Found"}{" "}
+              <span className="font-semibold tabular-nums text-foreground">{total}</span>{" "}
+              {total === 1 ? "user" : "users"}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <div aria-busy={isLoading || isFetching || isSearchPending} className="space-y-4">
+        {isError ? (
+          <div className="rounded-2xl border bg-card px-4 py-12 text-center">
+            <div className="mx-auto flex size-14 items-center justify-center rounded-full bg-destructive/10 text-destructive">
+              <AlertCircle className="size-7" aria-hidden="true" />
+            </div>
+            <h2 className="mt-4 text-base font-semibold">Could not load users</h2>
+            <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
+              Check your connection and try loading the user directory again.
+            </p>
+            <Button variant="outline" className="mt-5 h-11 sm:h-8" onClick={() => refetch()}>
+              <RotateCcw className="size-4" aria-hidden="true" />
+              Try again
+            </Button>
+          </div>
+        ) : isLoading ? (
+          <>
+            <div className="hidden overflow-hidden rounded-2xl border bg-card xl:block">
+              <Table>
+                <TableBody>
+                  {Array.from({ length: 6 }).map((_, index) => (
+                    <TableRowSkeleton key={index} cols={7} />
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+            <div className="grid gap-3 xl:hidden">
+              {Array.from({ length: 4 }).map((_, index) => (
+                <Skeleton key={index} className="h-64 rounded-xl" />
+              ))}
+            </div>
+          </>
+        ) : users.length === 0 ? (
+          <div className="rounded-2xl border bg-card">
+            <EmptyState
+              icon={UserRound}
+              title={hasFilters ? "No matching users" : "No users yet"}
+              description={
+                hasFilters
+                  ? "Try a different search term, status, or account role."
+                  : "User accounts will appear here after registration."
+              }
+              action={hasFilters ? { label: "Clear filters", onClick: clearFilters } : undefined}
+            />
+          </div>
+        ) : (
+          <>
+            <div className="hidden overflow-hidden rounded-2xl border bg-card xl:block">
+              <Table>
+                <TableHeader>
+                  <TableRow className="h-11 bg-muted/40 text-[11px] uppercase tracking-wide hover:bg-muted/40">
+                    <TableHead className="h-11 px-4">User</TableHead>
+                    <TableHead className="h-11 px-4">Organisation</TableHead>
+                    <TableHead className="h-11 px-4">Role</TableHead>
+                    <TableHead className="h-11 px-4">Status</TableHead>
+                    <TableHead className="h-11 px-4">Last login</TableHead>
+                    <TableHead className="h-11 px-4">Joined</TableHead>
+                    <TableHead className="h-11 px-4 text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {users.map((listedUser) => (
+                    <TableRow key={listedUser.id} className="hover:bg-muted/30">
+                      <TableCell className="max-w-sm px-4 py-3.5">
+                        <div className="flex items-center gap-3">
+                          <UserAvatar user={listedUser} />
+                          <div className="min-w-0">
+                            <Link
+                              href={`/users/${listedUser.id}`}
+                              className="line-clamp-1 font-semibold hover:underline"
+                            >
+                              {listedUser.first_name} {listedUser.last_name}
+                            </Link>
+                            <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                              {listedUser.email}
+                            </p>
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell className="max-w-56 px-4 py-3.5 text-xs text-muted-foreground">
+                        <span className="line-clamp-2">{organisationName(listedUser.organisation_id)}</span>
+                      </TableCell>
+                      <TableCell className="px-4 py-3.5"><RoleBadge role={listedUser.role} /></TableCell>
+                      <TableCell className="px-4 py-3.5"><UserStatusBadge status={listedUser.status} /></TableCell>
+                      <TableCell className="whitespace-nowrap px-4 py-3.5 text-xs text-muted-foreground">
+                        {listedUser.last_login_at ? formatDate(listedUser.last_login_at) : "Never"}
+                      </TableCell>
+                      <TableCell className="whitespace-nowrap px-4 py-3.5 text-xs text-muted-foreground">
+                        {formatDate(listedUser.created_at)}
+                      </TableCell>
+                      <TableCell className="px-4 py-3.5 text-right">{renderActions(listedUser)}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+
+            <div className="grid gap-3 xl:hidden">
+              {users.map((listedUser) => (
+                <article key={listedUser.id} className="rounded-xl border bg-card p-4">
+                  <div className="flex items-start gap-3">
+                    <UserAvatar user={listedUser} mobile />
+                    <div className="min-w-0 flex-1">
+                      <Link
+                        href={`/users/${listedUser.id}`}
+                        className="line-clamp-2 text-sm font-semibold leading-5 hover:underline"
+                      >
+                        {listedUser.first_name} {listedUser.last_name}
+                      </Link>
+                      <p className="mt-1 truncate text-xs text-muted-foreground">{listedUser.email}</p>
+                    </div>
+                    <UserStatusBadge status={listedUser.status} />
+                  </div>
+
+                  <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3 border-y py-3">
+                    <div>
+                      <dt className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Role</dt>
+                      <dd className="mt-1"><RoleBadge role={listedUser.role} /></dd>
+                    </div>
+                    <div>
+                      <dt className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Last login</dt>
+                      <dd className="mt-1 text-xs font-medium">
+                        {listedUser.last_login_at ? formatDate(listedUser.last_login_at) : "Never"}
+                      </dd>
+                    </div>
+                    <div className="col-span-2">
+                      <dt className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Organisation</dt>
+                      <dd className="mt-1 text-xs font-medium">{organisationName(listedUser.organisation_id)}</dd>
+                    </div>
+                  </dl>
+
+                  <div className="mt-4">{renderActions(listedUser, true)}</div>
+                </article>
+              ))}
+            </div>
+
+            <Pagination
+              page={page}
+              totalPages={Math.max(1, totalPages)}
+              pageSize={pageSize}
+              total={total}
+              onPageChange={setPage}
+              onPageSizeChange={(size) => {
+                setPageSize(size);
+                setPage(1);
+              }}
+              className="rounded-xl border bg-card px-4 py-3"
+            />
+          </>
+        )}
       </div>
 
       <ConfirmDialog
@@ -320,11 +532,40 @@ export default function AdminUsersPage() {
         confirmLabel="Suspend"
         variant="destructive"
         loading={deactivateMutation.isPending}
-        onConfirm={() => {
-          if (!suspendTarget) return;
-          suspendUser(suspendTarget);
-        }}
+        onConfirm={() => suspendTarget && suspendUser(suspendTarget)}
       />
     </div>
+  );
+}
+
+function UserAvatar({ user, mobile = false }: { user: AdminUser; mobile?: boolean }) {
+  const initials = `${user.first_name.charAt(0)}${user.last_name.charAt(0)}`.toUpperCase();
+  return (
+    <div
+      className={cn(
+        "flex shrink-0 items-center justify-center rounded-lg bg-primary/10 font-semibold text-primary",
+        mobile ? "size-10 text-xs" : "size-9 text-[11px]"
+      )}
+      aria-hidden="true"
+    >
+      {initials || <UserRound className="size-4" />}
+    </div>
+  );
+}
+
+function UserStatusBadge({ status }: { status: AdminUser["status"] }) {
+  const variant =
+    status === "active"
+      ? "default"
+      : status === "suspended"
+        ? "destructive"
+        : status === "archived"
+          ? "secondary"
+          : "outline";
+
+  return (
+    <Badge variant={variant} className="capitalize text-[11px]">
+      {status}
+    </Badge>
   );
 }
