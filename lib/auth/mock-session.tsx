@@ -56,11 +56,14 @@ export function MockSessionProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  // Session expiry check
+  // Session expiry check. The already-expired branch calls logout()
+  // synchronously (covers a stale sessionExpiresAt restored at mount) — the
+  // normal case schedules the setState-bearing logout() in a timer callback.
   useEffect(() => {
     if (!sessionExpiresAt || !isAuthenticated) return;
     const remaining = sessionExpiresAt - Date.now();
     if (remaining <= 0) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       logout();
       toast.error("Your session has expired. Please log in again.");
       return;

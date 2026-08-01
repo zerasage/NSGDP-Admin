@@ -68,7 +68,12 @@ export function DatasetDownloadActions({
   const [requestOpen, setRequestOpen] = useState(false);
   const [reason, setReason] = useState("");
 
+  // `state` also transitions locally (see submitAccessRequest below setting
+  // "pending"/"approved"), so it can't be pure derived-render state — this
+  // re-syncs it whenever the access-relevant props change (e.g. the user
+  // logs in via the modal while this component stays mounted).
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setState(getInitialState(visibility, isAuthenticated, accessState));
   }, [visibility, isAuthenticated, accessState]);
 

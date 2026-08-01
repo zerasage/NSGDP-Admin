@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react";
 import { useAuth } from "@/lib/auth";
-import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,7 +12,6 @@ import * as tokenStorage from "@/lib/utils/token-storage";
 
 export default function LoginPage() {
   const { login } = useAuth();
-  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -30,9 +28,10 @@ export default function LoginPage() {
     try {
       await login({ email, password });
       // Redirect is now handled in the auth context
-    } catch (error: any) {
-      if (error.message !== "MFA_REQUIRED") {
-        toast.error(error.message || "Invalid credentials or insufficient permissions");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Invalid credentials or insufficient permissions";
+      if (message !== "MFA_REQUIRED") {
+        toast.error(message);
       }
       setIsLoading(false);
     }
