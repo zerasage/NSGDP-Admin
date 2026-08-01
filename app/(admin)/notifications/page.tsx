@@ -95,7 +95,7 @@ export default function NotificationsPage() {
       </div>
 
       <div className="overflow-hidden rounded-2xl border bg-card">
-        <div className="scrollbar-slim overflow-x-auto px-4">
+        <div className="scrollbar-hide overflow-x-auto px-4">
           <div className="flex min-w-max gap-1" role="tablist" aria-label="Notification filter">
             {TABS.map((t) => (
               <button

@@ -172,7 +172,7 @@ export default function OrganisationDetailPage({ params }: { params: Promise<{ i
           <h2 className="text-sm font-semibold">Organisation workspace</h2>
           <p className="mt-0.5 text-xs text-muted-foreground">Choose a section to manage its records and actions.</p>
         </div>
-        <div className="scrollbar-slim overflow-x-auto rounded-xl bg-muted/70 p-1">
+        <div className="scrollbar-hide overflow-x-auto rounded-xl bg-muted/70 p-1">
           <TabsList className="h-auto min-w-max justify-start gap-1 bg-transparent p-0">
             <TabsTrigger value="members" className="min-h-11 flex-none gap-2 px-4 data-active:bg-primary data-active:text-primary-foreground data-active:shadow-none dark:data-active:bg-primary dark:data-active:text-primary-foreground"><Users className="size-4" aria-hidden="true" />Members <span className="rounded-full bg-background/90 px-1.5 py-0.5 text-[10px] tabular-nums text-foreground">{members.length}</span></TabsTrigger>
             <TabsTrigger value="invites" className="min-h-11 flex-none gap-2 px-4 data-active:bg-primary data-active:text-primary-foreground data-active:shadow-none dark:data-active:bg-primary dark:data-active:text-primary-foreground"><Mail className="size-4" aria-hidden="true" />Invitations <span className="rounded-full bg-background/90 px-1.5 py-0.5 text-[10px] tabular-nums text-foreground">{invites.length}</span></TabsTrigger>

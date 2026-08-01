@@ -51,7 +51,7 @@ function PermissionWorkspace() {
             </div>
             {activeTab === "groups" && <Button className="h-11 w-full sm:w-auto" onClick={() => setCreateOpen(true)}><Plus className="size-4" />New Group</Button>}
           </div>
-          <div className="mt-3 overflow-x-auto rounded-xl bg-muted/60 p-1">
+          <div className="mt-3 scrollbar-hide overflow-x-auto rounded-xl bg-muted/60 p-1">
             <TabsList className="h-11 min-w-max justify-start gap-1 bg-transparent p-0">
               <TabsTrigger value="groups" className="h-11 min-w-40 gap-2 px-4 data-active:bg-primary data-active:text-primary-foreground data-active:shadow-none"><Users className="size-4" />Groups</TabsTrigger>
               <TabsTrigger value="matrix" className="h-11 min-w-48 gap-2 px-4 data-active:bg-primary data-active:text-primary-foreground data-active:shadow-none"><Grid3X3 className="size-4" />Permission matrix</TabsTrigger>

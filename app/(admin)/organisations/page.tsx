@@ -120,7 +120,7 @@ export default function AdminOrganisationsPage() {
       </div>
 
       <div className="overflow-hidden rounded-2xl border bg-card">
-        <div className="scrollbar-slim overflow-x-auto border-b px-4">
+        <div className="scrollbar-hide overflow-x-auto border-b px-4">
           <div className="flex min-w-max gap-1" role="tablist" aria-label="Organisation status">
             {statusTabs.map((tab) => (
               <button
