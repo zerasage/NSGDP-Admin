@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   getStaffMembers,
   getStaffInvites,
@@ -7,21 +7,25 @@ import {
   resendStaffInvite,
   revokeStaffStatus,
   type CreateStaffInvitePayload,
+  type StaffInviteListParams,
+  type StaffMemberListParams,
 } from '../api/staff';
 
-export function useStaffMembers() {
+export function useStaffMembers(params?: StaffMemberListParams) {
   return useQuery({
-    queryKey: ['admin-staff'],
-    queryFn: getStaffMembers,
+    queryKey: ['admin-staff', params],
+    queryFn: () => getStaffMembers(params),
     staleTime: 60 * 1000,
+    placeholderData: keepPreviousData,
   });
 }
 
-export function useStaffInvites() {
+export function useStaffInvites(params?: StaffInviteListParams) {
   return useQuery({
-    queryKey: ['admin-staff-invites'],
-    queryFn: getStaffInvites,
+    queryKey: ['admin-staff-invites', params],
+    queryFn: () => getStaffInvites(params),
     staleTime: 60 * 1000,
+    placeholderData: keepPreviousData,
   });
 }
 
