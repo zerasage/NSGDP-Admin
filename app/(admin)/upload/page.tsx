@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { FileText, Upload, MapPin, Scale, Settings, X, Lock, Search } from "lucide-react";
 import { Stepper } from "@/components/forms/stepper";
 import { FileUploadArea, type UploadedFile } from "@/components/forms/file-upload-area";
+import { FieldLabelTooltip } from "@/components/forms/field-label-tooltip";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -31,6 +32,7 @@ import { useOrganisations } from "@/lib/hooks/useOrganisations";
 import { useCategories } from "@/lib/hooks/useCategories";
 import { uploadFile } from "@/lib/api/uploads";
 import { NIGER_STATE_LGAS } from "@/lib/constants/core";
+import { UPLOAD_FIELD_TOOLTIPS } from "@/lib/constants/upload-tooltips";
 import { useToast } from "@/lib/hooks/use-toast";
 import type { DatasetFormat, DatasetVisibility } from "@/lib/api/datasets";
 
@@ -41,8 +43,6 @@ const steps = [
   { id: 4, name: "Governance", icon: Scale },
   { id: 5, name: "Contact & Settings", icon: Settings },
 ];
-
-const AGENCY_ORG_SLUG = "nsphcda";
 
 const FORMAT_BY_EXTENSION: Record<string, DatasetFormat> = {
   csv: "csv",
@@ -160,7 +160,7 @@ export default function AdminUploadDatasetPage() {
   const organisations = useMemo(() => orgsData?.data ?? [], [orgsData?.data]);
   const categories = useMemo(() => categoriesData?.data ?? [], [categoriesData?.data]);
   const effectiveOrganisationId =
-    organisationId || (presetAgency ? organisations.find((o) => o.slug === AGENCY_ORG_SLUG)?.id ?? "" : "");
+    organisationId || (presetAgency ? organisations.find((o) => o.is_platform_owner)?.id ?? "" : "");
   const effectiveCategoryId = categoryId || (prefillTestData ? categories[0]?.id ?? "" : "");
 
   const addTag = () => {
@@ -358,105 +358,123 @@ export default function AdminUploadDatasetPage() {
         {/* Form content */}
         <Card className="p-5 sm:p-6">
         {currentStep === 1 && (
-          <div className="space-y-5">
+          <div className="space-y-6">
             <StepHeading
               title="Basic information"
               description="Identify the owning organisation and describe the dataset clearly."
             />
 
-            <div className="space-y-2">
-              <Label htmlFor="organisation">
-                Organisation <span className="text-muted-foreground">(required)</span>
-              </Label>
-              <OrganisationCombobox
-                id="organisation"
-                organisations={organisations}
-                value={effectiveOrganisationId}
-                onValueChange={setOrganisationId}
-              />
-              {stepErrors.organisationId && (
-                <p className="text-sm text-destructive">{stepErrors.organisationId}</p>
-              )}
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="title">
-                Dataset title <span className="text-muted-foreground">(required)</span>
-              </Label>
-              <Input
-                id="title"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                placeholder="e.g., Niger State Health Facilities 2024"
-                aria-required="true"
-              />
-              {stepErrors.title && <p className="text-sm text-destructive">{stepErrors.title}</p>}
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="description">
-                Description <span className="text-muted-foreground">(required)</span>
-              </Label>
-              <Textarea
-                id="description"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                rows={4}
-                placeholder="Describe what this dataset contains..."
-                aria-required="true"
-              />
-              {stepErrors.description && (
-                <p className="text-sm text-destructive">{stepErrors.description}</p>
-              )}
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="category">
-                Programme area or category <span className="text-muted-foreground">(required)</span>
-              </Label>
-              <CategoryCombobox
-                id="category"
-                categories={categories}
-                value={effectiveCategoryId}
-                onValueChange={setCategoryId}
-              />
-              {stepErrors.categoryId && (
-                <p className="text-sm text-destructive">{stepErrors.categoryId}</p>
-              )}
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="tags">Tags</Label>
-              <div className="flex gap-2">
-                <Input
-                  id="tags"
-                  value={tagInput}
-                  onChange={(e) => setTagInput(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addTag())}
-                  placeholder="Add tags (press Enter)"
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <FieldLabelTooltip
+                  htmlFor="organisation"
+                  label="Organisation"
+                  required
+                  tooltip={UPLOAD_FIELD_TOOLTIPS.organisation}
                 />
-                <Button type="button" onClick={addTag} variant="outline" className="shrink-0">
-                  Add
-                </Button>
+                <OrganisationCombobox
+                  id="organisation"
+                  organisations={organisations}
+                  value={effectiveOrganisationId}
+                  onValueChange={setOrganisationId}
+                />
+                {stepErrors.organisationId && (
+                  <p className="text-xs text-destructive">{stepErrors.organisationId}</p>
+                )}
               </div>
-              {tags.length > 0 && (
-                <div className="flex flex-wrap gap-2">
-                  {tags.map((tag) => (
-                    <span
-                      key={tag}
-                      className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-primary/10 text-primary text-sm"
-                    >
-                      {tag}
-                      <button type="button" onClick={() => removeTag(tag)} aria-label={`Remove ${tag}`}>
-                        <X className="size-3" />
-                      </button>
-                    </span>
-                  ))}
+
+              <div className="space-y-2">
+                <FieldLabelTooltip
+                  htmlFor="title"
+                  label="Dataset title"
+                  required
+                  tooltip={UPLOAD_FIELD_TOOLTIPS.title}
+                />
+                <Input
+                  id="title"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  placeholder="e.g., Niger State Health Facilities 2024"
+                  aria-required="true"
+                />
+                {stepErrors.title && <p className="text-xs text-destructive">{stepErrors.title}</p>}
+              </div>
+
+              <div className="space-y-2">
+                <FieldLabelTooltip
+                  htmlFor="description"
+                  label="Description"
+                  required
+                  tooltip={UPLOAD_FIELD_TOOLTIPS.description}
+                />
+                <Textarea
+                  id="description"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  rows={4}
+                  placeholder="Describe what this dataset contains..."
+                  aria-required="true"
+                />
+                {stepErrors.description && (
+                  <p className="text-xs text-destructive">{stepErrors.description}</p>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <FieldLabelTooltip
+                  htmlFor="category"
+                  label="Programme area or category"
+                  required
+                  tooltip={UPLOAD_FIELD_TOOLTIPS.category}
+                />
+                <CategoryCombobox
+                  id="category"
+                  categories={categories}
+                  value={effectiveCategoryId}
+                  onValueChange={setCategoryId}
+                />
+                {stepErrors.categoryId && (
+                  <p className="text-xs text-destructive">{stepErrors.categoryId}</p>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <FieldLabelTooltip
+                  htmlFor="tags"
+                  label="Tags"
+                  tooltip={UPLOAD_FIELD_TOOLTIPS.tags}
+                />
+                <div className="flex gap-2">
+                  <Input
+                    id="tags"
+                    value={tagInput}
+                    onChange={(e) => setTagInput(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addTag())}
+                    placeholder="Add tags (press Enter)"
+                  />
+                  <Button type="button" onClick={addTag} variant="outline" className="shrink-0">
+                    Add
+                  </Button>
                 </div>
-              )}
+                {tags.length > 0 && (
+                  <div className="flex flex-wrap gap-2 pt-1">
+                    {tags.map((tag) => (
+                      <span
+                        key={tag}
+                        className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-3 py-1 text-sm text-primary"
+                      >
+                        {tag}
+                        <button type="button" onClick={() => removeTag(tag)} aria-label={`Remove ${tag}`}>
+                          <X className="size-3" />
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
 
-            <div className="flex justify-end border-t pt-4 [&_button]:h-11 sm:[&_button]:h-9">
+            <div className="flex justify-end border-t pt-4">
               <Button onClick={() => validateStep1() && setCurrentStep(2)}>
                 Next: Coverage and indicators
               </Button>
@@ -465,137 +483,147 @@ export default function AdminUploadDatasetPage() {
         )}
 
         {currentStep === 2 && (
-          <div className="space-y-5">
+          <div className="space-y-6">
             <StepHeading
               title="Coverage and indicators"
               description="Define where and when the data applies, plus the indicators it contains."
             />
 
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <Label>
-                  LGA coverage <span className="text-muted-foreground">(required)</span>
-                </Label>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    if (selectedLGAs.length === NIGER_STATE_LGAS.length) {
-                      setSelectedLGAs([]);
-                    } else {
-                      setSelectedLGAs([...NIGER_STATE_LGAS]);
-                    }
-                  }}
-                  className="text-xs h-8 font-medium"
-                >
-                  {selectedLGAs.length === NIGER_STATE_LGAS.length ? "Clear All" : "Select All (25)"}
-                </Button>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <FieldLabelTooltip
+                    label="LGA coverage"
+                    required
+                    tooltip={UPLOAD_FIELD_TOOLTIPS.lgas}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      if (selectedLGAs.length === NIGER_STATE_LGAS.length) {
+                        setSelectedLGAs([]);
+                      } else {
+                        setSelectedLGAs([...NIGER_STATE_LGAS]);
+                      }
+                    }}
+                    className="h-8 text-xs font-medium"
+                  >
+                    {selectedLGAs.length === NIGER_STATE_LGAS.length ? "Clear All" : "Select All (25)"}
+                  </Button>
+                </div>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    value={lgaFilter}
+                    onChange={(e) => setLgaFilter(e.target.value)}
+                    placeholder="Filter LGAs…"
+                    className="pl-9"
+                  />
+                </div>
+                <div className="grid max-h-48 grid-cols-2 gap-2 overflow-y-auto rounded-lg border p-4 sm:grid-cols-3">
+                  {filteredLGAs.length === 0 ? (
+                    <p className="col-span-full py-4 text-center text-sm text-muted-foreground">
+                      No LGAs match &ldquo;{lgaFilter}&rdquo;
+                    </p>
+                  ) : (
+                    filteredLGAs.map((lga) => (
+                      <label key={lga} className="flex items-center gap-2 text-sm">
+                        <input
+                          type="checkbox"
+                          checked={selectedLGAs.includes(lga)}
+                          onChange={(e) => {
+                            if (e.target.checked) setSelectedLGAs([...selectedLGAs, lga]);
+                            else setSelectedLGAs(selectedLGAs.filter((l) => l !== lga));
+                          }}
+                          className="rounded"
+                        />
+                        {lga}
+                      </label>
+                    ))
+                  )}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {selectedLGAs.length} of {NIGER_STATE_LGAS.length} LGAs selected
+                </p>
+                {stepErrors.lgas && <p className="text-xs text-destructive">{stepErrors.lgas}</p>}
               </div>
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  value={lgaFilter}
-                  onChange={(e) => setLgaFilter(e.target.value)}
-                  placeholder="Filter LGAs…"
-                  className="pl-9 h-9"
+
+              <div className="space-y-2">
+                <FieldLabelTooltip
+                  label="Reporting period"
+                  required
+                  tooltip={UPLOAD_FIELD_TOOLTIPS.reportingPeriod}
                 />
-              </div>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-48 overflow-y-auto p-4 rounded-lg border">
-                {filteredLGAs.length === 0 ? (
-                  <p className="col-span-full text-sm text-muted-foreground text-center py-4">
-                    No LGAs match &ldquo;{lgaFilter}&rdquo;
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="temporalCoverageStart" className="text-xs font-normal text-muted-foreground">
+                      Start date
+                    </Label>
+                    <Input
+                      id="temporalCoverageStart"
+                      type="date"
+                      value={temporalCoverageStart}
+                      onChange={(e) => setTemporalCoverageStart(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="temporalCoverageEnd" className="text-xs font-normal text-muted-foreground">
+                      End date
+                    </Label>
+                    <Input
+                      id="temporalCoverageEnd"
+                      type="date"
+                      value={temporalCoverageEnd}
+                      onChange={(e) => setTemporalCoverageEnd(e.target.value)}
+                    />
+                  </div>
+                </div>
+                {(stepErrors.temporalCoverageStart || stepErrors.temporalCoverageEnd) && (
+                  <p className="text-xs text-destructive">
+                    {stepErrors.temporalCoverageStart || stepErrors.temporalCoverageEnd}
                   </p>
-                ) : (
-                  filteredLGAs.map((lga) => (
-                    <label key={lga} className="flex items-center gap-2 text-sm">
-                      <input
-                        type="checkbox"
-                        checked={selectedLGAs.includes(lga)}
-                        onChange={(e) => {
-                          if (e.target.checked) setSelectedLGAs([...selectedLGAs, lga]);
-                          else setSelectedLGAs(selectedLGAs.filter((l) => l !== lga));
-                        }}
-                        className="rounded"
-                      />
-                      {lga}
-                    </label>
-                  ))
                 )}
               </div>
-              <p className="text-xs text-muted-foreground">
-                {selectedLGAs.length} of {NIGER_STATE_LGAS.length} LGAs selected
-              </p>
-              {stepErrors.lgas && <p className="text-sm text-destructive">{stepErrors.lgas}</p>}
-            </div>
 
-            <div className="space-y-2">
-              <Label>
-                Reporting period <span className="text-muted-foreground">(required)</span>
-              </Label>
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-1">
-                  <Label htmlFor="temporalCoverageStart" className="text-xs font-normal text-muted-foreground">
-                    Start date
-                  </Label>
-                  <Input
-                    id="temporalCoverageStart"
-                    type="date"
-                    value={temporalCoverageStart}
-                    onChange={(e) => setTemporalCoverageStart(e.target.value)}
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="temporalCoverageEnd" className="text-xs font-normal text-muted-foreground">
-                    End date
-                  </Label>
-                  <Input
-                    id="temporalCoverageEnd"
-                    type="date"
-                    value={temporalCoverageEnd}
-                    onChange={(e) => setTemporalCoverageEnd(e.target.value)}
-                  />
-                </div>
-              </div>
-              {(stepErrors.temporalCoverageStart || stepErrors.temporalCoverageEnd) && (
-                <p className="text-sm text-destructive">
-                  {stepErrors.temporalCoverageStart || stepErrors.temporalCoverageEnd}
-                </p>
-              )}
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="diseaseIndicators">Disease or health indicators</Label>
-              <div className="flex gap-2">
-                <Input
-                  id="diseaseIndicators"
-                  value={indicatorInput}
-                  onChange={(e) => setIndicatorInput(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addIndicator())}
-                  placeholder="e.g., Confirmed cases (press Enter)"
+              <div className="space-y-2">
+                <FieldLabelTooltip
+                  htmlFor="diseaseIndicators"
+                  label="Disease or health indicators"
+                  tooltip={UPLOAD_FIELD_TOOLTIPS.diseaseIndicators}
                 />
-                <Button type="button" onClick={addIndicator} variant="outline" className="shrink-0">
-                  Add
-                </Button>
-              </div>
-              {diseaseIndicators.length > 0 && (
-                <div className="flex flex-wrap gap-2">
-                  {diseaseIndicators.map((indicator) => (
-                    <span
-                      key={indicator}
-                      className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-primary/10 text-primary text-sm"
-                    >
-                      {indicator}
-                      <button type="button" onClick={() => removeIndicator(indicator)} aria-label={`Remove ${indicator}`}>
-                        <X className="size-3" />
-                      </button>
-                    </span>
-                  ))}
+                <div className="flex gap-2">
+                  <Input
+                    id="diseaseIndicators"
+                    value={indicatorInput}
+                    onChange={(e) => setIndicatorInput(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addIndicator())}
+                    placeholder="e.g., Confirmed cases (press Enter)"
+                  />
+                  <Button type="button" onClick={addIndicator} variant="outline" className="shrink-0">
+                    Add
+                  </Button>
                 </div>
-              )}
+                {diseaseIndicators.length > 0 && (
+                  <div className="flex flex-wrap gap-2 pt-1">
+                    {diseaseIndicators.map((indicator) => (
+                      <span
+                        key={indicator}
+                        className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-3 py-1 text-sm text-primary"
+                      >
+                        {indicator}
+                        <button type="button" onClick={() => removeIndicator(indicator)} aria-label={`Remove ${indicator}`}>
+                          <X className="size-3" />
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
 
-            <div className="flex justify-between border-t pt-4 [&_button]:h-11 sm:[&_button]:h-9">
+            <div className="flex justify-between border-t pt-4">
               <Button variant="outline" onClick={() => setCurrentStep(1)}>
                 Back
               </Button>
@@ -605,7 +633,7 @@ export default function AdminUploadDatasetPage() {
         )}
 
         {currentStep === 3 && (
-          <div className="space-y-5">
+          <div className="space-y-6">
             <StepHeading
               title="Upload files"
               description="Optional — add one or more files now, or attach and replace files later."
@@ -613,7 +641,7 @@ export default function AdminUploadDatasetPage() {
 
             <FileUploadArea files={uploadedFiles} onFilesChange={setUploadedFiles} />
 
-            <div className="flex justify-between border-t pt-4 [&_button]:h-11 sm:[&_button]:h-9">
+            <div className="flex justify-between border-t pt-4">
               <Button variant="outline" onClick={() => setCurrentStep(2)}>
                 Back
               </Button>
@@ -623,49 +651,62 @@ export default function AdminUploadDatasetPage() {
         )}
 
         {currentStep === 4 && (
-          <div className="space-y-5">
+          <div className="space-y-6">
             <StepHeading
               title="Governance"
               description="Document licensing, collection methodology, and known data limitations."
             />
 
-            <div className="space-y-2">
-              <Label htmlFor="license">
-                Data license <span className="text-muted-foreground">(required)</span>
-              </Label>
-              <Autocomplete
-                id="license"
-                items={LICENSE_OPTIONS}
-                value={license}
-                onValueChange={setLicense}
-                placeholder="Select a license or type your own…"
-              />
-              {stepErrors.license && <p className="text-sm text-destructive">{stepErrors.license}</p>}
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <FieldLabelTooltip
+                  htmlFor="license"
+                  label="Data license"
+                  required
+                  tooltip={UPLOAD_FIELD_TOOLTIPS.dataLicense}
+                />
+                <Autocomplete
+                  id="license"
+                  items={LICENSE_OPTIONS}
+                  value={license}
+                  onValueChange={setLicense}
+                  placeholder="Select a license or type your own…"
+                />
+                {stepErrors.license && <p className="text-xs text-destructive">{stepErrors.license}</p>}
+              </div>
+
+              <div className="space-y-2">
+                <FieldLabelTooltip
+                  htmlFor="methodology"
+                  label="Methodology"
+                  tooltip={UPLOAD_FIELD_TOOLTIPS.methodology}
+                />
+                <Textarea
+                  id="methodology"
+                  value={methodology}
+                  onChange={(e) => setMethodology(e.target.value)}
+                  rows={3}
+                  placeholder="e.g., Facility-based routine reporting via DHIS2"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <FieldLabelTooltip
+                  htmlFor="limitations"
+                  label="Known limitations"
+                  tooltip={UPLOAD_FIELD_TOOLTIPS.limitations}
+                />
+                <Textarea
+                  id="limitations"
+                  value={limitations}
+                  onChange={(e) => setLimitations(e.target.value)}
+                  rows={3}
+                  placeholder="e.g., Reporting delays from rural facilities"
+                />
+              </div>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="methodology">Methodology</Label>
-              <Textarea
-                id="methodology"
-                value={methodology}
-                onChange={(e) => setMethodology(e.target.value)}
-                rows={2}
-                placeholder="e.g., Facility-based routine reporting via DHIS2"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="limitations">Known limitations</Label>
-              <Textarea
-                id="limitations"
-                value={limitations}
-                onChange={(e) => setLimitations(e.target.value)}
-                rows={2}
-                placeholder="e.g., Reporting delays from rural facilities"
-              />
-            </div>
-
-            <div className="flex justify-between border-t pt-4 [&_button]:h-11 sm:[&_button]:h-9">
+            <div className="flex justify-between border-t pt-4">
               <Button variant="outline" onClick={() => setCurrentStep(3)}>
                 Back
               </Button>
@@ -675,19 +716,19 @@ export default function AdminUploadDatasetPage() {
         )}
 
         {currentStep === 5 && (
-          <div className="space-y-5">
+          <div className="space-y-6">
             <StepHeading
               title="Contact and settings"
               description="Add stewardship contacts, update frequency, and access visibility."
             />
 
             <div className="space-y-4">
-              <p className="text-sm font-medium text-muted-foreground">
-                Additional information <span className="font-normal">(optional)</span>
-              </p>
-
               <div className="space-y-2">
-                <Label htmlFor="responsibleDept">Responsible department</Label>
+                <FieldLabelTooltip
+                  htmlFor="responsibleDept"
+                  label="Responsible department"
+                  tooltip={UPLOAD_FIELD_TOOLTIPS.responsibleDept}
+                />
                 <Input
                   id="responsibleDept"
                   value={responsibleDept}
@@ -698,7 +739,11 @@ export default function AdminUploadDatasetPage() {
 
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
-                  <Label htmlFor="contactPerson">Contact person</Label>
+                  <FieldLabelTooltip
+                    htmlFor="contactPerson"
+                    label="Contact person"
+                    tooltip={UPLOAD_FIELD_TOOLTIPS.contactPerson}
+                  />
                   <Input
                     id="contactPerson"
                     value={contactPerson}
@@ -707,7 +752,9 @@ export default function AdminUploadDatasetPage() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="contactEmail">Contact email</Label>
+                  <Label htmlFor="contactEmail">
+                    Contact email
+                  </Label>
                   <Input
                     id="contactEmail"
                     type="email"
@@ -719,10 +766,14 @@ export default function AdminUploadDatasetPage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="updateFrequency">Update frequency</Label>
+                <FieldLabelTooltip
+                  htmlFor="updateFrequency"
+                  label="Update frequency"
+                  tooltip={UPLOAD_FIELD_TOOLTIPS.updateFrequency}
+                />
                 <Select value={updateFrequency} onValueChange={(v) => setUpdateFrequency(v || "")}>
-                  <SelectTrigger id="updateFrequency">
-                    <SelectValue placeholder="Select frequency (optional)" />
+                  <SelectTrigger id="updateFrequency" className="w-full">
+                    <SelectValue placeholder="Select frequency" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="Daily">Daily</SelectItem>
@@ -734,23 +785,28 @@ export default function AdminUploadDatasetPage() {
                   </SelectContent>
                 </Select>
               </div>
+
+              <div className="space-y-2">
+                <FieldLabelTooltip
+                  htmlFor="visibility"
+                  label="Visibility"
+                  required
+                  tooltip={UPLOAD_FIELD_TOOLTIPS.visibility}
+                />
+                <Select value={visibility} onValueChange={(v) => v && setVisibility(v as DatasetVisibility)}>
+                  <SelectTrigger id="visibility" className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="public">Public — anyone can view and download</SelectItem>
+                    <SelectItem value="restricted">Restricted — users must request access</SelectItem>
+                    <SelectItem value="private">Private — only this organisation can access</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="visibility">Visibility</Label>
-              <Select value={visibility} onValueChange={(v) => v && setVisibility(v as DatasetVisibility)}>
-                <SelectTrigger id="visibility">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="public">Public — anyone can view and download</SelectItem>
-                  <SelectItem value="restricted">Restricted — users must request access</SelectItem>
-                  <SelectItem value="private">Private — only this organisation can access</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="flex flex-col-reverse gap-3 border-t pt-4 sm:flex-row sm:items-center sm:justify-between [&_button]:h-11 sm:[&_button]:h-9">
+            <div className="flex flex-col-reverse gap-3 border-t pt-4 sm:flex-row sm:items-center sm:justify-between">
               <Button variant="outline" onClick={() => setCurrentStep(4)}>
                 Back
               </Button>
