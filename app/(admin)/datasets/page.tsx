@@ -324,7 +324,7 @@ export default function DatasetsReviewPage() {
               <tbody>{[...Array(6)].map((_, i) => <TableRowSkeleton key={i} cols={7} />)}</tbody>
             </table>
           </div>
-          <div className="grid gap-3 xl:hidden">
+          <div className="grid grid-cols-1 gap-3 xl:hidden">
             {[...Array(4)].map((_, i) => (
               <Skeleton key={i} className="h-52 rounded-xl" />
             ))}
@@ -405,7 +405,7 @@ export default function DatasetsReviewPage() {
             </table>
           </div>
 
-          <div className="grid gap-3 xl:hidden">
+          <div className="grid grid-cols-1 gap-3 xl:hidden">
             {datasets.map((dataset) => {
               const org = organisationsData?.data?.find((o) => o.id === dataset.organisation_id);
               return (
@@ -432,21 +432,21 @@ export default function DatasetsReviewPage() {
                   )}
 
                   <div className="mt-4 grid grid-cols-3 gap-2 border-y py-3">
-                    <div>
+                    <div className="min-w-0">
                       <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Format</p>
-                      <p className="mt-1 text-xs font-medium">{dataset.format?.toUpperCase() || '?'}</p>
+                      <p className="mt-1 truncate text-xs font-medium">{dataset.format?.toUpperCase() || '?'}</p>
                     </div>
-                    <div>
+                    <div className="min-w-0">
                       <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Visibility</p>
-                      <div className="mt-1"><VisibilityBadge visibility={dataset.visibility} /></div>
+                      <div className="mt-1 truncate"><VisibilityBadge visibility={dataset.visibility} /></div>
                     </div>
-                    <div>
+                    <div className="min-w-0">
                       <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Submitted</p>
-                      <div className="mt-1">
+                      <div className="mt-1 truncate">
                         {dataset.status === 'pending' || dataset.status === 'under_review' ? (
                           <AgeBadge submittedAt={dataset.submitted_at || dataset.created_at} />
                         ) : (
-                          <p className="text-xs font-medium">{formatDate(dataset.submitted_at || dataset.created_at)}</p>
+                          <p className="truncate text-xs font-medium">{formatDate(dataset.submitted_at || dataset.created_at)}</p>
                         )}
                       </div>
                     </div>
