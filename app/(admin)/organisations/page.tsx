@@ -176,7 +176,7 @@ export default function AdminOrganisationsPage() {
               }}
             >
               <SelectTrigger className="h-11 w-full sm:h-10 sm:w-64" aria-label="Filter by organisation type">
-                <SelectValue placeholder="All organisation types" />
+                <SelectValue>{(v: string) => (v === "all" ? "All organisation types" : typeLabels.get(v as OrganisationType) ?? v)}</SelectValue>
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All organisation types</SelectItem>
