@@ -132,7 +132,7 @@ export function CreateOrganisationModal({ open, onClose }: CreateOrganisationMod
               render={({ field }) => (
                 <Select value={field.value} onValueChange={field.onChange}>
                   <SelectTrigger>
-                    <SelectValue placeholder="Select organisation type" />
+                    <SelectValue>{(v: string) => (v ? (ORG_TYPES.find((type) => type.value === v)?.label ?? v) : "Select organisation type")}</SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     {ORG_TYPES.map((type) => (

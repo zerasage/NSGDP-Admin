@@ -532,7 +532,7 @@ export function StaffWorkflow({ organisationId }: { organisationId: string }) {
             <div className="space-y-2">
               <Label htmlFor="staff-group">Permission group <span className="text-destructive">*</span></Label>
               <Select value={groupId} onValueChange={(value) => value && setGroupId(value)} disabled={groupsQuery.isLoading || groupsQuery.isError || activeGroups.length === 0}>
-                <SelectTrigger id="staff-group" className="w-full"><SelectValue placeholder={groupsQuery.isLoading ? "Loading groups..." : "Select a group"} /></SelectTrigger>
+                <SelectTrigger id="staff-group" className="w-full"><SelectValue>{(v: string) => v ? (activeGroups.find((group) => group.id === v)?.name ?? v) : (groupsQuery.isLoading ? "Loading groups..." : "Select a group")}</SelectValue></SelectTrigger>
                 <SelectContent>{activeGroups.map((group) => <SelectItem key={group.id} value={group.id}>{group.name}</SelectItem>)}</SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground">
