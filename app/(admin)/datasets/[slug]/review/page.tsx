@@ -267,7 +267,7 @@ export default function DatasetReviewScreenPage({
 
       <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,2fr)_minmax(320px,1fr)]">
         <div className="min-w-0 space-y-6">
-          <DatasetPreviewCard slug={slug} />
+          <DatasetPreviewCard slug={slug} showDownload />
 
           <Card>
             <CardHeader className="border-b">
