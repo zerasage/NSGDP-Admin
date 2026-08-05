@@ -1,8 +1,9 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { AlertTriangle, Eye, FileWarning, Map } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { AlertTriangle, Download, Eye, FileWarning, Loader2, Map } from "lucide-react";
+import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -12,8 +13,50 @@ import {
 } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getAdminDatasetPreview, type DatasetPreviewResult } from "@/lib/api/dataset-preview";
+import { useDownloadDataset } from "@/lib/hooks/useDatasets";
+import { useToast } from "@/lib/hooks/use-toast";
 
-export function DatasetPreviewCard({ slug }: { slug: string }) {
+function DownloadFileButton({ slug, className }: { slug: string; className?: string }) {
+  const { toast } = useToast();
+  const downloadMutation = useDownloadDataset();
+
+  const handleDownload = () => {
+    downloadMutation.mutate(
+      { slug, mode: "download" },
+      {
+        onSuccess: (data) => {
+          window.open(data.downloadUrl, "_blank", "noopener,noreferrer");
+          toast({ title: "Success", description: `Downloading ${data.fileName}` });
+        },
+        onError: (error: unknown) =>
+          toast({
+            title: "Error",
+            description: error instanceof Error ? error.message : "Failed to generate download link",
+            variant: "destructive",
+          }),
+      }
+    );
+  };
+
+  return (
+    <Button
+      variant="outline"
+      size="sm"
+      className={className}
+      onClick={handleDownload}
+      disabled={downloadMutation.isPending}
+    >
+      {downloadMutation.isPending ? (
+        <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />
+      ) : (
+        <Download className="size-3.5" aria-hidden="true" />
+      )}
+      Download file
+    </Button>
+  );
+}
+
+export function DatasetPreviewCard({ slug, showDownload = false }: { slug: string; showDownload?: boolean }) {
   const { data, isLoading, error } = useQuery({
     queryKey: ["dataset-preview", "admin", slug],
     queryFn: () => getAdminDatasetPreview(slug),
@@ -27,6 +70,11 @@ export function DatasetPreviewCard({ slug }: { slug: string }) {
           <Eye className="size-4" />
           Data Preview
         </CardTitle>
+        {showDownload && (
+          <CardAction>
+            <DownloadFileButton slug={slug} />
+          </CardAction>
+        )}
       </CardHeader>
       <CardContent>
         {isLoading ? (
@@ -49,11 +97,13 @@ export function DatasetPreviewDialog({
   title,
   open,
   onOpenChange,
+  showDownload = false,
 }: {
   slug: string;
   title: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  showDownload?: boolean;
 }) {
   const { data, isLoading, error } = useQuery({
     queryKey: ["dataset-preview", "admin", slug],
@@ -66,10 +116,13 @@ export function DatasetPreviewDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="h-[calc(100dvh-2rem)] w-[calc(100vw-2rem)] max-w-none grid-rows-[auto_minmax(0,1fr)] gap-0 overflow-hidden rounded-2xl p-0 sm:max-w-none">
         <DialogHeader className="border-b px-5 py-4 pr-14">
-          <DialogTitle className="flex items-center gap-2 text-lg">
-            <Eye className="size-5 text-muted-foreground" aria-hidden="true" />
-            {title}
-          </DialogTitle>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <DialogTitle className="flex items-center gap-2 text-lg">
+              <Eye className="size-5 text-muted-foreground" aria-hidden="true" />
+              {title}
+            </DialogTitle>
+            {showDownload && <DownloadFileButton slug={slug} />}
+          </div>
           <DialogDescription>Browser preview of the uploaded dataset file</DialogDescription>
         </DialogHeader>
         <div className="min-h-0 overflow-auto p-4 sm:p-5">
