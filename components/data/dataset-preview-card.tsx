@@ -13,8 +13,43 @@ import {
 } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getAdminDatasetPreview, type DatasetPreviewResult } from "@/lib/api/dataset-preview";
+import { downloadDataset } from "@/lib/api/datasets";
 import { useDownloadDataset } from "@/lib/hooks/useDatasets";
 import { useToast } from "@/lib/hooks/use-toast";
+import { cn } from "@/lib/utils";
+
+function PdfPreviewFrame({ slug, expanded = false }: { slug: string; expanded?: boolean }) {
+  const { data, isLoading, error } = useQuery({
+    queryKey: ["dataset-preview", "pdf-view-url", slug],
+    queryFn: () => downloadDataset(slug, "view"),
+    // The presigned URL is valid for 1 hour server-side — no need to refetch
+    // it on every remount within that window.
+    staleTime: 30 * 60 * 1000,
+  });
+
+  const heightClass = expanded ? "h-full min-h-[70vh]" : "h-80";
+
+  if (isLoading) {
+    return <Skeleton className={cn(heightClass, "w-full rounded-xl")} />;
+  }
+
+  if (error || !data) {
+    return (
+      <p className="flex items-center gap-2 text-sm text-muted-foreground">
+        <FileWarning className="size-4" />
+        Couldn&apos;t load the PDF preview. Try downloading the file instead.
+      </p>
+    );
+  }
+
+  return (
+    <iframe
+      src={data.downloadUrl}
+      title="PDF preview"
+      className={cn(heightClass, "w-full rounded-xl border")}
+    />
+  );
+}
 
 function DownloadFileButton({ slug, className }: { slug: string; className?: string }) {
   const { toast } = useToast();
@@ -85,7 +120,7 @@ export function DatasetPreviewCard({ slug, showDownload = false }: { slug: strin
             Preview unavailable for this dataset.
           </p>
         ) : (
-          <PreviewBody preview={data.preview} />
+          <PreviewBody preview={data.preview} slug={slug} />
         )}
       </CardContent>
     </Card>
@@ -134,7 +169,7 @@ export function DatasetPreviewDialog({
               Preview unavailable for this dataset.
             </div>
           ) : (
-            <PreviewBody preview={data.preview} expanded />
+            <PreviewBody preview={data.preview} slug={slug} expanded />
           )}
         </div>
       </DialogContent>
@@ -144,11 +179,17 @@ export function DatasetPreviewDialog({
 
 function PreviewBody({
   preview,
+  slug,
   expanded = false,
 }: {
   preview: DatasetPreviewResult['preview'];
+  slug: string;
   expanded?: boolean;
 }) {
+  if (preview.type === "document") {
+    return <PdfPreviewFrame slug={slug} expanded={expanded} />;
+  }
+
   if (preview.type === "tabular") {
     if (!preview.rows || preview.rows.length === 0) {
       return <p className="text-sm text-muted-foreground">{preview.message || "No rows to preview."}</p>;
