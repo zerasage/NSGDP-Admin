@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Download } from "lucide-react";
-import { getAdminAnalytics } from "@/lib/mock";
 import { useDashboardStats } from "@/lib/hooks/useDashboard";
+import { useAdminAnalytics, downloadAnalyticsCsv } from "@/lib/hooks/useAnalytics";
 import {
   UploadsOverTimeChart,
   DownloadsByDatasetChart,
@@ -22,21 +22,31 @@ import { PageHeaderSkeleton } from "@/components/feedback/skeletons";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 
+const RANGE_TO_MONTHS: Record<string, number> = {
+  "1m": 1,
+  "3m": 3,
+  "6m": 6,
+  "1y": 12,
+};
+
 export default function AdminAnalyticsPage() {
-  const [loading, setLoading] = useState(true);
-  const [data, setData] = useState<Awaited<ReturnType<typeof getAdminAnalytics>> | null>(null);
   const [range, setRange] = useState("6m");
+  const [exporting, setExporting] = useState(false);
+  const months = RANGE_TO_MONTHS[range] ?? 6;
+  const { data, isLoading: loading } = useAdminAnalytics(months);
   const { data: stats, isLoading: statsLoading } = useDashboardStats();
 
-  useEffect(() => {
-    // Uploads Over Time / New Users Over Time still have no real backend
-    // aggregation (would need monthly-bucketed queries) — left on mock for
-    // now. KPIs and Top Downloads below use real data via useDashboardStats.
-    getAdminAnalytics().then((d) => {
-      setData(d);
-      setLoading(false);
-    });
-  }, []);
+  const handleExport = async () => {
+    setExporting(true);
+    try {
+      await downloadAnalyticsCsv(months);
+      toast.success("Analytics exported successfully");
+    } catch {
+      toast.error("Failed to export analytics");
+    } finally {
+      setExporting(false);
+    }
+  };
 
   if (loading || statsLoading) {
     return (
@@ -66,9 +76,9 @@ export default function AdminAnalyticsPage() {
               <SelectItem value="1y">Last year</SelectItem>
             </SelectContent>
           </Select>
-          <Button variant="outline" onClick={() => toast.success("CSV export started (mock)")}>
+          <Button variant="outline" onClick={handleExport} disabled={exporting}>
             <Download className="size-4" />
-            Export
+            {exporting ? "Exporting..." : "Export"}
           </Button>
         </div>
       </div>

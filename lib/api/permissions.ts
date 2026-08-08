@@ -30,7 +30,9 @@ export type PermissionActionKey =
   | 'deactivate:organisations'
   | 'delete:organisations'
   | 'manage:organisation-agreements'
-  | 'create:datasets';
+  | 'create:datasets'
+  | 'manage:documents'
+  | 'manage:groups';
 
 export interface PermissionGroup {
   id: string;

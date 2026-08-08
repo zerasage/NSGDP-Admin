@@ -25,7 +25,9 @@ export type PermissionAction =
   | "deactivate:organisations" // Enable/disable any organisation
   | "delete:organisations"   // Soft-delete an organisation and everything it owns
   | "manage:organisation-agreements" // Upload/replace/download data-sharing agreements
-  | "create:datasets";       // Upload a dataset on behalf of an organisation
+  | "create:datasets"        // Upload a dataset on behalf of an organisation
+  | "manage:documents"       // Create/edit/archive documents (SOPs, policies, reports)
+  | "manage:groups";         // Create/edit/delete curated dataset/document groups
 
 export const PROGRAM_PERMISSION_ACTIONS: PermissionAction[] = [
   "create:programs",
@@ -65,6 +67,8 @@ export const PERMISSION_ACTION_LABELS: Record<PermissionAction, string> = {
   "delete:organisations": "Delete Organisations",
   "manage:organisation-agreements": "Manage Org Agreements",
   "create:datasets": "Upload Dataset for Org",
+  "manage:documents": "Manage Documents",
+  "manage:groups": "Manage Groups",
 };
 
 export const PERMISSION_ACTION_DESCRIPTIONS: Record<PermissionAction, string> = {
@@ -110,6 +114,10 @@ export const PERMISSION_ACTION_DESCRIPTIONS: Record<PermissionAction, string> = 
     "Can upload, replace, and download the signed data-sharing agreement for any organisation.",
   "create:datasets":
     "Can upload a dataset on behalf of an organisation they aren't a member of.",
+  "manage:documents":
+    "Can create, edit, and archive documents (SOPs, policies, guidelines, reports, research) in the document repository.",
+  "manage:groups":
+    "Can create, edit, and delete curated topic collections of datasets and documents, and control which datasets/documents belong to them.",
 };
 
 /**
@@ -146,6 +154,14 @@ export const PERMISSION_ACTION_GROUPS: Array<{ label: string; actions: Permissio
   {
     label: "Programmes",
     actions: ["create:programs", "edit:programs", "delete:programs", "upload:programs"],
+  },
+  {
+    label: "Documents",
+    actions: ["manage:documents"],
+  },
+  {
+    label: "Groups",
+    actions: ["manage:groups"],
   },
   {
     label: "Access Requests",

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Mail, UserPlus, Info } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { createInvite, InviteRole } from "@/lib/api/admin";
+import { createInvite, InviteRole } from "@/lib/api/invites";
 import { ApiError } from "@/lib/api/client";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";

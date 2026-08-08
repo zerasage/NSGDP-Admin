@@ -13,9 +13,12 @@ import { toast } from "sonner";
 import { useOrganisationBySlug } from "@/lib/hooks/useOrganisationBySlug";
 import { useDeleteOrganisation, useToggleOrganisationStatus } from "@/lib/hooks/useOrganisations";
 import {
-  archiveDataset, deleteDataset, deleteInvite, demoteFromOrgAdmin, getOrganisationInvites,
-  getUsers, promoteToOrgAdmin, removeOrgMember, resendInvite, revokeInvite, updateUserStatus,
+  archiveDataset, deleteDataset, demoteFromOrgAdmin,
+  getUsers, promoteToOrgAdmin, removeOrgMember, updateUserStatus,
 } from "@/lib/api/admin";
+import {
+  deleteInvite, getOrganisationInvites, resendInvite, revokeInvite,
+} from "@/lib/api/invites";
 import { useAuth } from "@/lib/auth";
 import { usePermissions } from "@/lib/hooks/usePermissions";
 import { InviteMemberModal } from "@/components/admin/invite-member-modal";
