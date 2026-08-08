@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Archive, ArrowLeft, Building2, CheckCircle2, Edit, ExternalLink, FileText,
-  Globe, Mail, MapPin, MoreVertical, Phone, Power, RefreshCw, RotateCcw,
+  Globe, KeyRound, Mail, MapPin, MoreVertical, Phone, Power, RefreshCw, RotateCcw,
   Search, ShieldCheck, Trash2, Upload, UserCog, UserPlus, Users, XCircle,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -24,6 +24,7 @@ import { usePermissions } from "@/lib/hooks/usePermissions";
 import { InviteMemberModal } from "@/components/admin/invite-member-modal";
 import { OrganisationAgreementCard } from "@/components/admin/organisation-agreement-card";
 import { EditOrganisationModal } from "@/components/admin/edit-organisation-modal";
+import { OrganisationApiKeysPanel } from "@/components/admin/organisation-api-keys-panel";
 import { EmptyState } from "@/components/feedback/empty-state";
 import { StatusBadge } from "@/components/data/status-badge";
 import { Badge } from "@/components/ui/badge";
@@ -67,6 +68,7 @@ export default function OrganisationDetailPage({ params }: { params: Promise<{ i
   const canUpload = allowed("create:datasets");
   const canArchive = allowed("archive:datasets");
   const canDeleteDataset = allowed("archive:datasets");
+  const canManageApiKeys = allowed("manage:partner-api-keys");
 
   const [inviteOpen, setInviteOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
@@ -180,12 +182,14 @@ export default function OrganisationDetailPage({ params }: { params: Promise<{ i
             <TabsTrigger value="members" className="min-h-11 flex-none gap-2 px-4 data-active:bg-primary data-active:text-primary-foreground data-active:shadow-none dark:data-active:bg-primary dark:data-active:text-primary-foreground"><Users className="size-4" aria-hidden="true" />Members <span className="rounded-full bg-background/90 px-1.5 py-0.5 text-[10px] tabular-nums text-foreground">{members.length}</span></TabsTrigger>
             <TabsTrigger value="invites" className="min-h-11 flex-none gap-2 px-4 data-active:bg-primary data-active:text-primary-foreground data-active:shadow-none dark:data-active:bg-primary dark:data-active:text-primary-foreground"><Mail className="size-4" aria-hidden="true" />Invitations <span className="rounded-full bg-background/90 px-1.5 py-0.5 text-[10px] tabular-nums text-foreground">{invites.length}</span></TabsTrigger>
             <TabsTrigger value="datasets" className="min-h-11 flex-none gap-2 px-4 data-active:bg-primary data-active:text-primary-foreground data-active:shadow-none dark:data-active:bg-primary dark:data-active:text-primary-foreground"><FileText className="size-4" aria-hidden="true" />Datasets <span className="rounded-full bg-background/90 px-1.5 py-0.5 text-[10px] tabular-nums text-foreground">{datasets.length}</span></TabsTrigger>
+            {canManageApiKeys && <TabsTrigger value="api-keys" className="min-h-11 flex-none gap-2 px-4 data-active:bg-primary data-active:text-primary-foreground data-active:shadow-none dark:data-active:bg-primary dark:data-active:text-primary-foreground"><KeyRound className="size-4" aria-hidden="true" />API Keys</TabsTrigger>}
           </TabsList>
         </div>
       </div>
       <TabsContent value="members"><Directory title="Members" description="Manage organisation access and roles." action={canInvite ? <Button className="h-11 sm:h-9" onClick={() => setInviteOpen(true)}><UserPlus className="size-4" />Invite member</Button> : null} search={memberSearch} setSearch={setMemberSearch} status={memberStatus} setStatus={setMemberStatus} statuses={["active", "pending", "suspended", "archived"]} reset={resetMembers}><MemberList records={filteredMembers} loading={membersQuery.isLoading} failed={membersQuery.isError} filtered={!!memberSearch || memberStatus !== "all"} retry={() => membersQuery.refetch()} actions={{ canPromote, canDemote, canRemove, promote, demote, suspend, reactivate, remove: setRemoveTarget }} /></Directory></TabsContent>
       <TabsContent value="invites"><Directory title="Invitations" description="Track invitations and their delivery status." action={canInvite ? <Button className="h-11 sm:h-9" onClick={() => setInviteOpen(true)}><UserPlus className="size-4" />Send invite</Button> : null} search={inviteSearch} setSearch={setInviteSearch} status={inviteStatus} setStatus={setInviteStatus} statuses={["pending", "accepted", "revoked", "expired"]} reset={resetInvites}><InviteList records={filteredInvites} loading={invitesQuery.isLoading} failed={invitesQuery.isError} filtered={!!inviteSearch || inviteStatus !== "all"} retry={() => invitesQuery.refetch()} canInvite={canInvite} revoke={revoke} resend={resend} remove={removeInvite} /></Directory></TabsContent>
       <TabsContent value="datasets"><Directory title="Datasets" description="Review datasets owned by this organisation." action={canUpload ? <Link href={`/upload?orgId=${orgId}`} className={cn(buttonVariants(), "h-11 sm:h-9")}><Upload className="size-4" />Upload dataset</Link> : null} search={datasetSearch} setSearch={setDatasetSearch} status={datasetStatus} setStatus={setDatasetStatus} statuses={[...DATASET_STATUSES]} reset={resetDatasets}><DatasetList records={filteredDatasets} filtered={!!datasetSearch || datasetStatus !== "all"} canArchive={canArchive} canDelete={canDeleteDataset} archive={setArchiveTarget} remove={setDeleteTarget} /></Directory></TabsContent>
+      {canManageApiKeys && <TabsContent value="api-keys"><OrganisationApiKeysPanel organisationId={orgId ?? ""} canManage={canManageApiKeys} /></TabsContent>}
     </Tabs>
   </div>;
 }

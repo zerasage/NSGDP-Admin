@@ -32,7 +32,10 @@ export type PermissionActionKey =
   | 'manage:organisation-agreements'
   | 'create:datasets'
   | 'manage:documents'
-  | 'manage:groups';
+  | 'manage:groups'
+  | 'manage:analytics'
+  | 'manage:gis-reference-data'
+  | 'manage:partner-api-keys';
 
 export interface PermissionGroup {
   id: string;
