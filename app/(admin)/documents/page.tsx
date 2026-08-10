@@ -1,11 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import {
   AlertCircle,
+  Eye,
   FileText,
   Loader2,
-  Pencil,
   Plus,
   RotateCcw,
   Search,
@@ -15,7 +16,7 @@ import {
 import { useDocuments, useArchiveDocument } from "@/lib/hooks/useDocuments";
 import { useAuth } from "@/lib/auth";
 import { usePermissions } from "@/lib/hooks/usePermissions";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import {
@@ -87,7 +88,6 @@ export default function AdminDocumentsPage() {
   const [status, setStatus] = useState<StatusFilter>("all");
   const [type, setType] = useState<DocumentType | "all">("all");
   const [formModalOpen, setFormModalOpen] = useState(false);
-  const [editingDocument, setEditingDocument] = useState<AdminDocument | undefined>(undefined);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -121,12 +121,6 @@ export default function AdminDocumentsPage() {
   };
 
   const openCreate = () => {
-    setEditingDocument(undefined);
-    setFormModalOpen(true);
-  };
-
-  const openEdit = (doc: AdminDocument) => {
-    setEditingDocument(doc);
     setFormModalOpen(true);
   };
 
@@ -346,17 +340,16 @@ export default function AdminDocumentsPage() {
                         {formatDate(doc.created_at)}
                       </TableCell>
                       <TableCell className="px-4 py-3.5 text-right">
-                        {canManage && (
-                          <div className="flex justify-end gap-1">
-                            <Button
-                              variant="ghost"
-                              size="icon-sm"
-                              aria-label={`Edit ${doc.title}`}
-                              title="Edit document"
-                              onClick={() => openEdit(doc)}
-                            >
-                              <Pencil className="size-4" aria-hidden="true" />
-                            </Button>
+                        <div className="flex justify-end gap-1">
+                          <Link
+                            href={`/documents/${doc.slug}`}
+                            className={cn(buttonVariants({ variant: "ghost", size: "icon-sm" }))}
+                            aria-label={`View ${doc.title}`}
+                            title="View details"
+                          >
+                            <Eye className="size-4" aria-hidden="true" />
+                          </Link>
+                          {canManage && (
                             <Button
                               variant="ghost"
                               size="icon-sm"
@@ -368,8 +361,8 @@ export default function AdminDocumentsPage() {
                             >
                               <Trash2 className="size-4" aria-hidden="true" />
                             </Button>
-                          </div>
-                        )}
+                          )}
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -404,12 +397,15 @@ export default function AdminDocumentsPage() {
                     </div>
                   </dl>
 
-                  {canManage && (
-                    <div className="mt-4 flex gap-2">
-                      <Button variant="outline" className="h-11 flex-1" onClick={() => openEdit(doc)}>
-                        <Pencil className="size-3.5 mr-1.5" />
-                        Edit
-                      </Button>
+                  <div className="mt-4 flex gap-2">
+                    <Link
+                      href={`/documents/${doc.slug}`}
+                      className={cn(buttonVariants({ variant: "outline" }), "h-11 flex-1")}
+                    >
+                      <Eye className="size-3.5 mr-1.5" />
+                      View Details
+                    </Link>
+                    {canManage && (
                       <Button
                         variant="outline"
                         className="h-11 flex-1 text-destructive"
@@ -419,8 +415,8 @@ export default function AdminDocumentsPage() {
                         <Trash2 className="size-3.5 mr-1.5" />
                         Archive
                       </Button>
-                    </div>
-                  )}
+                    )}
+                  </div>
                 </article>
               ))}
             </div>
@@ -444,7 +440,6 @@ export default function AdminDocumentsPage() {
       <DocumentFormModal
         open={formModalOpen}
         onClose={() => setFormModalOpen(false)}
-        document={editingDocument}
       />
     </div>
   );

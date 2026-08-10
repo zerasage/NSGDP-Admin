@@ -25,7 +25,6 @@ import {
   getGisBurdenBubbles as getGisBurdenBubblesSync,
 } from "./analytics";
 import { mockFacilities, getFacilities, getWardsForLGA } from "./facilities";
-import { mockPrograms, mockCampaigns } from "./programs";
 
 // ============================================================================
 // DATASETS
@@ -494,5 +493,5 @@ export async function getOverdueDatasets() {
     );
 }
 
-export { mockFacilities, getFacilities, getWardsForLGA, mockPrograms, mockCampaigns };
+export { mockFacilities, getFacilities, getWardsForLGA };
 export { getGisBurdenBubbles as getGisBurdenBubblesSync } from "./analytics";

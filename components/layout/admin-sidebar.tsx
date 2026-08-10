@@ -17,6 +17,7 @@ import {
   Upload,
   BarChart3,
   Map,
+  Target,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { AdminPortalLinks, AdminSidebarBrand } from "@/components/layout/admin-header";
@@ -48,6 +49,7 @@ export const adminNavItems: Array<{
   // admin portal can browse; create/edit/archive are gated within the page.
   { href: "/documents", label: "Documents", icon: FileText },
   { href: "/groups", label: "Groups", icon: FolderKanban },
+  { href: "/programs", label: "Programmes", icon: Target, anyPermission: ["create:programs", "edit:programs", "upload:programs", "delete:programs"] },
   { href: "/users", label: "All Users", icon: Users, anyPermission: ["invite:users", "promote:org-admin", "demote:org-admin", "remove:org-members"] },
   { href: "/agency", label: "Agency", icon: UserCog, superAdminOnly: true },
   { href: "/permission-groups", label: "Permission Groups", icon: ShieldCheck, superAdminOnly: true },

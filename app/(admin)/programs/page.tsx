@@ -1,0 +1,478 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import {
+  AlertCircle,
+  Target,
+  Loader2,
+  Plus,
+  RotateCcw,
+  Search,
+  Trash2,
+  X,
+  Edit,
+} from "lucide-react";
+import { usePrograms, useArchiveProgram } from "@/lib/hooks/usePrograms";
+import { useAuth } from "@/lib/auth";
+import { usePermissions } from "@/lib/hooks/usePermissions";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Pagination } from "@/components/data/pagination";
+import { EmptyState } from "@/components/feedback/empty-state";
+import { TableRowSkeleton } from "@/components/feedback/skeletons";
+import { Skeleton } from "@/components/ui/skeleton";
+import { cn } from "@/lib/utils";
+import { formatDate } from "@/lib/utils/date";
+import { ProgramFormModal } from "@/components/admin/program-form-modal";
+import Link from "next/link";
+import type { AdminProgramme, ProgrammeType, ProgrammeStatus } from "@/lib/api/programs";
+import { toast } from "sonner";
+
+const typeLabels: Record<ProgrammeType, string> = {
+  campaign: "Campaign",
+  surveillance: "Surveillance",
+  screening: "Screening",
+  training: "Training",
+  infrastructure: "Infrastructure",
+  research: "Research",
+  other: "Other",
+};
+
+const statusTabs = [
+  { value: "all", label: "All" },
+  { value: "active", label: "Active" },
+  { value: "completed", label: "Completed" },
+  { value: "suspended", label: "Suspended" },
+  { value: "archived", label: "Archived" },
+] as const;
+
+type StatusFilter = (typeof statusTabs)[number]["value"];
+
+function statusBadgeVariant(status: ProgrammeStatus) {
+  if (status === "active") return "default" as const;
+  if (status === "completed") return "secondary" as const;
+  if (status === "suspended") return "outline" as const;
+  return "secondary" as const;
+}
+
+function progressPercent(reach: number | null, target: number | null): number | null {
+  if (!reach || !target || target === 0) return null;
+  return Math.min(100, Math.round((reach / target) * 100));
+}
+
+export default function AdminProgramsPage() {
+  const { user } = useAuth();
+  const { hasPermission, hasAnyPermission } = usePermissions();
+  const canManage = user?.role === "super_admin" || hasAnyPermission("create:programs", "edit:programs");
+  const canDelete = user?.role === "super_admin" || hasPermission("delete:programs");
+
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
+  const [query, setQuery] = useState("");
+  const [debouncedQuery, setDebouncedQuery] = useState("");
+  const [status, setStatus] = useState<StatusFilter>("all");
+  const [type, setType] = useState<ProgrammeType | "all">("all");
+  const [formModalOpen, setFormModalOpen] = useState(false);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedQuery(query.trim());
+      setPage(1);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [query]);
+
+  const { data, isLoading, isFetching, isError, refetch } = usePrograms({
+    page,
+    limit: pageSize,
+    q: debouncedQuery || undefined,
+    status: status === "all" ? undefined : status,
+    type: type === "all" ? undefined : type,
+  });
+  const archiveMutation = useArchiveProgram();
+
+  const programmes = data?.data ?? [];
+  const total = data?.total ?? 0;
+  const totalPages = data?.totalPages ?? 1;
+  const isSearchPending = query.trim() !== debouncedQuery;
+  const hasFilters = !!query || !!debouncedQuery || status !== "all" || type !== "all";
+
+  const clearFilters = () => {
+    setQuery("");
+    setDebouncedQuery("");
+    setStatus("all");
+    setType("all");
+    setPage(1);
+  };
+
+  const openCreate = () => {
+    setFormModalOpen(true);
+  };
+
+  const handleArchive = (prog: AdminProgramme) => {
+    if (!window.confirm(`Archive "${prog.name}"? It will be removed from the public catalogue.`)) return;
+    archiveMutation.mutate(prog.slug, {
+      onSuccess: () => toast.success("Programme archived"),
+      onError: (error) => {
+        const err = error as { message?: string };
+        toast.error(err?.message || "Failed to archive programme");
+      },
+    });
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold">Programmes</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Health campaigns, surveillance, training, and other initiatives — track progress and manage reports
+          </p>
+        </div>
+        {canManage && (
+          <Button className="h-11 w-full sm:h-8 sm:w-auto" onClick={openCreate}>
+            <Plus className="size-4" aria-hidden="true" />
+            Create programme
+          </Button>
+        )}
+      </div>
+
+      <div className="overflow-hidden rounded-2xl border bg-card">
+        <div className="scrollbar-hide overflow-x-auto border-b px-4">
+          <div className="flex min-w-max gap-1" role="tablist" aria-label="Programme status">
+            {statusTabs.map((tab) => (
+              <button
+                key={tab.value}
+                type="button"
+                role="tab"
+                aria-selected={status === tab.value}
+                onClick={() => {
+                  setStatus(tab.value);
+                  setPage(1);
+                }}
+                className={cn(
+                  "relative min-h-11 px-3 text-sm font-medium transition-colors",
+                  status === tab.value
+                    ? "text-foreground after:absolute after:inset-x-3 after:bottom-0 after:h-0.5 after:rounded-full after:bg-primary"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-3 p-4 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex flex-1 flex-col gap-3 sm:flex-row">
+            <div className="relative w-full sm:max-w-sm">
+              <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+              <Input
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="Search programme name"
+                className="h-11 pl-9 pr-10 sm:h-10"
+                aria-label="Search programmes"
+              />
+              {query && (
+                <button
+                  type="button"
+                  onClick={() => setQuery("")}
+                  className="absolute right-0 top-1/2 flex size-11 -translate-y-1/2 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground sm:size-10"
+                  aria-label="Clear programme search"
+                >
+                  <X className="size-4" aria-hidden="true" />
+                </button>
+              )}
+            </div>
+
+            <Select
+              value={type}
+              onValueChange={(value) => {
+                setType(value as ProgrammeType | "all");
+                setPage(1);
+              }}
+            >
+              <SelectTrigger className="h-11 w-full sm:h-10 sm:w-56" aria-label="Filter by programme type">
+                <SelectValue>{(v: string) => (v === "all" ? "All types" : typeLabels[v as ProgrammeType] ?? v)}</SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All types</SelectItem>
+                {(Object.keys(typeLabels) as ProgrammeType[]).map((t) => (
+                  <SelectItem key={t} value={t}>
+                    {typeLabels[t]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            {hasFilters && (
+              <Button variant="ghost" className="h-11 sm:h-10" onClick={clearFilters}>
+                <X className="size-4" aria-hidden="true" />
+                Clear filters
+              </Button>
+            )}
+          </div>
+
+          <div className="flex min-h-5 items-center gap-2 text-xs text-muted-foreground" aria-live="polite">
+            {(isSearchPending || (isFetching && !isLoading)) && (
+              <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />
+            )}
+            <span>
+              {isSearchPending ? "Searching" : isFetching && !isLoading ? "Updating" : "Found"}{" "}
+              <span className="font-semibold tabular-nums text-foreground">{total}</span>{" "}
+              {total === 1 ? "programme" : "programmes"}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <div aria-busy={isLoading || isFetching || isSearchPending} className="space-y-4">
+        {isError ? (
+          <div className="rounded-2xl border bg-card px-4 py-12 text-center">
+            <div className="mx-auto flex size-14 items-center justify-center rounded-full bg-destructive/10 text-destructive">
+              <AlertCircle className="size-7" aria-hidden="true" />
+            </div>
+            <h2 className="mt-4 text-base font-semibold">Could not load programmes</h2>
+            <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
+              Check your connection and try loading the programme list again.
+            </p>
+            <Button variant="outline" className="mt-5 h-11 sm:h-8" onClick={() => refetch()}>
+              <RotateCcw className="size-4" aria-hidden="true" />
+              Try again
+            </Button>
+          </div>
+        ) : isLoading ? (
+          <>
+            <div className="hidden overflow-hidden rounded-2xl border bg-card xl:block">
+              <Table>
+                <TableBody>
+                  {Array.from({ length: 6 }).map((_, index) => (
+                    <TableRowSkeleton key={index} cols={6} />
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+            <div className="grid grid-cols-1 gap-3 xl:hidden">
+              {Array.from({ length: 4 }).map((_, index) => (
+                <Skeleton key={index} className="h-48 rounded-xl" />
+              ))}
+            </div>
+          </>
+        ) : programmes.length === 0 ? (
+          <div className="rounded-2xl border bg-card">
+            <EmptyState
+              icon={Target}
+              title={hasFilters ? "No matching programmes" : "No programmes yet"}
+              description={
+                hasFilters
+                  ? "Try a different search term, status, or programme type."
+                  : "Health campaigns, surveillance, and training programmes will appear here once created."
+              }
+              action={
+                hasFilters
+                  ? { label: "Clear filters", onClick: clearFilters }
+                  : canManage
+                    ? { label: "Create programme", onClick: openCreate }
+                    : undefined
+              }
+            />
+          </div>
+        ) : (
+          <>
+            <div className="hidden overflow-hidden rounded-2xl border bg-card xl:block">
+              <Table>
+                <TableHeader>
+                  <TableRow className="h-11 bg-muted/40 text-[11px] uppercase tracking-wide hover:bg-muted/40">
+                    <TableHead className="h-11 px-4">Programme</TableHead>
+                    <TableHead className="h-11 px-4">Type</TableHead>
+                    <TableHead className="h-11 px-4">Status</TableHead>
+                    <TableHead className="h-11 px-4">Progress</TableHead>
+                    <TableHead className="h-11 px-4">LGAs</TableHead>
+                    <TableHead className="h-11 px-4">Created</TableHead>
+                    <TableHead className="h-11 px-4 text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {programmes.map((prog) => {
+                    const progress = progressPercent(prog.reach_count, prog.target_count);
+                    return (
+                      <TableRow key={prog.id} className="hover:bg-muted/30">
+                        <TableCell className="max-w-sm px-4 py-3.5">
+                          <div className="flex items-center gap-3">
+                            <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                              <Target className="size-4" aria-hidden="true" />
+                            </div>
+                            <div className="min-w-0">
+                              <p className="line-clamp-1 font-semibold">{prog.name}</p>
+                              <p className="mt-0.5 line-clamp-1 text-xs text-muted-foreground">
+                                {prog.code ? `${prog.code} · ` : ""}
+                                {prog.target_lgas?.length ?? 0} target LGAs
+                              </p>
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell className="max-w-40 px-4 py-3.5">
+                          <Badge variant="secondary" className="max-w-full text-[11px]">
+                            <span className="truncate">{prog.type ? typeLabels[prog.type] : "—"}</span>
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="px-4 py-3.5">
+                          <Badge variant={statusBadgeVariant(prog.status)} className="text-[11px] capitalize">
+                            {prog.status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="px-4 py-3.5">
+                          {progress !== null ? (
+                            <div className="flex items-center gap-2">
+                              <div className="h-2 flex-1 max-w-24 rounded-full bg-muted overflow-hidden">
+                                <div
+                                  className="h-full bg-primary transition-all"
+                                  style={{ width: `${progress}%` }}
+                                />
+                              </div>
+                              <span className="text-xs font-medium tabular-nums">{progress}%</span>
+                            </div>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">—</span>
+                          )}
+                        </TableCell>
+                        <TableCell className="px-4 py-3.5 text-center font-medium tabular-nums">
+                          {prog.lgas_covered_count ?? "—"}
+                        </TableCell>
+                        <TableCell className="px-4 py-3.5 text-xs text-muted-foreground">
+                          {formatDate(prog.created_at)}
+                        </TableCell>
+                        <TableCell className="px-4 py-3.5 text-right">
+                          {canManage && (
+                            <div className="flex justify-end gap-1">
+                              <Link
+                                href={`/programs/${prog.slug}`}
+                                className={cn(buttonVariants({ variant: "ghost", size: "icon-sm" }))}
+                                aria-label={`View ${prog.name}`}
+                                title="View details"
+                              >
+                                <Edit className="size-4" aria-hidden="true" />
+                              </Link>
+                              {canDelete && (
+                                <Button
+                                  variant="ghost"
+                                  size="icon-sm"
+                                  aria-label={`Archive ${prog.name}`}
+                                  title="Archive programme"
+                                  className="text-destructive hover:text-destructive"
+                                  onClick={() => handleArchive(prog)}
+                                  disabled={prog.status === "archived"}
+                                >
+                                  <Trash2 className="size-4" aria-hidden="true" />
+                                </Button>
+                              )}
+                            </div>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+
+            <div className="grid grid-cols-1 gap-3 xl:hidden">
+              {programmes.map((prog) => {
+                const progress = progressPercent(prog.reach_count, prog.target_count);
+                return (
+                  <article key={prog.id} className="rounded-xl border bg-card p-4">
+                    <div className="flex items-start gap-3">
+                      <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                        <Target className="size-5" aria-hidden="true" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="line-clamp-2 text-sm font-semibold leading-5">{prog.name}</p>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          {prog.type ? typeLabels[prog.type] : "—"}
+                        </p>
+                      </div>
+                      <Badge variant={statusBadgeVariant(prog.status)} className="text-[11px] capitalize shrink-0">
+                        {prog.status}
+                      </Badge>
+                    </div>
+
+                    <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3 border-y py-3 min-w-0">
+                      <div className="min-w-0">
+                        <dt className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Progress</dt>
+                        <dd className="mt-1 text-sm font-semibold">
+                          {progress !== null ? `${progress}%` : "—"}
+                        </dd>
+                      </div>
+                      <div className="min-w-0">
+                        <dt className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">LGAs Covered</dt>
+                        <dd className="mt-1 text-sm font-semibold tabular-nums">{prog.lgas_covered_count ?? "—"}</dd>
+                      </div>
+                    </dl>
+
+                    {canManage && (
+                      <div className="mt-4 flex gap-2">
+                        <Link
+                          href={`/programs/${prog.slug}`}
+                          className={cn(buttonVariants({ variant: "outline" }), "h-11 flex-1")}
+                        >
+                          <Edit className="size-3.5 mr-1.5" />
+                          View Details
+                        </Link>
+                        {canDelete && (
+                          <Button
+                            variant="outline"
+                            className="h-11 flex-1 text-destructive"
+                            onClick={() => handleArchive(prog)}
+                            disabled={prog.status === "archived"}
+                          >
+                            <Trash2 className="size-3.5 mr-1.5" />
+                            Archive
+                          </Button>
+                        )}
+                      </div>
+                    )}
+                  </article>
+                );
+              })}
+            </div>
+
+            <Pagination
+              page={page}
+              totalPages={Math.max(1, totalPages)}
+              pageSize={pageSize}
+              total={total}
+              onPageChange={setPage}
+              onPageSizeChange={(size) => {
+                setPageSize(size);
+                setPage(1);
+              }}
+              className="rounded-xl border bg-card px-4 py-3"
+            />
+          </>
+        )}
+      </div>
+
+      <ProgramFormModal
+        open={formModalOpen}
+        onClose={() => setFormModalOpen(false)}
+      />
+    </div>
+  );
+}
