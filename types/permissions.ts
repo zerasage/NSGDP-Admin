@@ -20,6 +20,8 @@ export type PermissionAction =
   | "upload:programs"        // Upload reports/documents to programme records
   | "approve:access-requests" // Approve/deny restricted-dataset access requests
   | "view:access-requests"   // Read-only: see the access-request list without adjudicating
+  | "view:partner-interest"  // Read-only: see partner interest submissions
+  | "review:partner-interest" // Approve/decline partner interest submissions
   | "create:organisations"   // Register new organisations on the platform
   | "edit:organisations"     // Update any organisation's profile
   | "deactivate:organisations" // Enable/disable any organisation
@@ -64,6 +66,8 @@ export const PERMISSION_ACTION_LABELS: Record<PermissionAction, string> = {
   "upload:programs": "Upload Programme Reports",
   "approve:access-requests": "Approve Access Requests",
   "view:access-requests": "View Access Requests",
+  "view:partner-interest": "View Partner Interest",
+  "review:partner-interest": "Review Partner Interest",
   "create:organisations": "Create Organisations",
   "edit:organisations": "Edit Organisations",
   "deactivate:organisations": "Deactivate Organisations",
@@ -108,6 +112,10 @@ export const PERMISSION_ACTION_DESCRIPTIONS: Record<PermissionAction, string> = 
     "Can approve or deny a user's request for access to a restricted-visibility dataset. Includes viewing the request list.",
   "view:access-requests":
     "Can see the list of access requests (requester, dataset, reason, status) without being able to approve or deny them.",
+  "view:partner-interest":
+    "Can see the list of partner interest submissions (organisation, contact, message, status) without being able to approve or decline them.",
+  "review:partner-interest":
+    "Can approve or decline partner interest submissions. Does not automatically create organisations or send invites — review stays a manual staff intent check.",
   "create:organisations":
     "Can register new organisations on the platform.",
   "edit:organisations":
@@ -178,6 +186,10 @@ export const PERMISSION_ACTION_GROUPS: Array<{ label: string; actions: Permissio
   {
     label: "Access Requests",
     actions: ["view:access-requests", "approve:access-requests"],
+  },
+  {
+    label: "Partner Interest",
+    actions: ["view:partner-interest", "review:partner-interest"],
   },
   {
     label: "Analytics",

@@ -25,6 +25,8 @@ export type PermissionActionKey =
   | 'upload:programs'
   | 'approve:access-requests'
   | 'view:access-requests'
+  | 'view:partner-interest'
+  | 'review:partner-interest'
   | 'create:organisations'
   | 'edit:organisations'
   | 'deactivate:organisations'

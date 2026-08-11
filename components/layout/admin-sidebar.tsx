@@ -18,6 +18,7 @@ import {
   BarChart3,
   Map,
   Target,
+  Handshake,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { AdminPortalLinks, AdminSidebarBrand } from "@/components/layout/admin-header";
@@ -54,6 +55,7 @@ export const adminNavItems: Array<{
   { href: "/agency", label: "Agency", icon: UserCog, superAdminOnly: true },
   { href: "/permission-groups", label: "Permission Groups", icon: ShieldCheck, superAdminOnly: true },
   { href: "/access-requests", label: "Access Requests", icon: KeyRound, anyPermission: ["view:access-requests", "approve:access-requests"] },
+  { href: "/partner-interest", label: "Partner Interest", icon: Handshake, anyPermission: ["view:partner-interest", "review:partner-interest"] },
   { href: "/analytics", label: "Platform Analytics", icon: BarChart3 },
   { href: "/gis-reference", label: "GIS Reference Layers", icon: Map, anyPermission: ["manage:gis-reference-data"] },
   { href: "/audit-logs", label: "Audit Log", icon: ScrollText },
