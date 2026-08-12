@@ -19,6 +19,7 @@ import {
   Map,
   Target,
   Handshake,
+  Network,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { AdminPortalLinks, AdminSidebarBrand } from "@/components/layout/admin-header";
@@ -54,6 +55,7 @@ export const adminNavItems: Array<{
   { href: "/users", label: "All Users", icon: Users, anyPermission: ["invite:users", "promote:org-admin", "demote:org-admin", "remove:org-members"] },
   { href: "/agency", label: "Agency", icon: UserCog, superAdminOnly: true },
   { href: "/permission-groups", label: "Permission Groups", icon: ShieldCheck, superAdminOnly: true },
+  { href: "/organisation-groups", label: "Organisation Groups", icon: Network, superAdminOnly: true },
   { href: "/access-requests", label: "Access Requests", icon: KeyRound, anyPermission: ["view:access-requests", "approve:access-requests"] },
   { href: "/partner-interest", label: "Partner Interest", icon: Handshake, anyPermission: ["view:partner-interest", "review:partner-interest"] },
   { href: "/analytics", label: "Platform Analytics", icon: BarChart3 },
