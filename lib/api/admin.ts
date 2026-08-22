@@ -361,6 +361,22 @@ export async function unpublishDataset(datasetSlug: string): Promise<Dataset> {
   return response.data.data;
 }
 
+export interface RetractDatasetPayload {
+  reason: string;
+  mfaCode: string;
+  forgetAliases?: boolean;
+  purgeStaging?: boolean;
+}
+
+/**
+ * Retract a published dataset's ingestion batch (MFA-gated, super_admin or
+ * publish:datasets). Note: unlike every other dataset action in this file,
+ * the backend route takes the dataset UUID, not the slug.
+ */
+export async function retractDataset(datasetId: string, payload: RetractDatasetPayload): Promise<void> {
+  await apiClient.post(`/admin/datasets/${datasetId}/retract`, payload);
+}
+
 /**
  * Get audit logs
  */

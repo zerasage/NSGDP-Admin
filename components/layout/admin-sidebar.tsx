@@ -20,6 +20,8 @@ import {
   Target,
   Handshake,
   Network,
+  Stethoscope,
+  Activity,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { AdminPortalLinks, AdminSidebarBrand } from "@/components/layout/admin-header";
@@ -60,6 +62,8 @@ export const adminNavItems: Array<{
   { href: "/partner-interest", label: "Partner Interest", icon: Handshake, anyPermission: ["view:partner-interest", "review:partner-interest"] },
   { href: "/analytics", label: "Platform Analytics", icon: BarChart3 },
   { href: "/gis-reference", label: "GIS Reference Layers", icon: Map, anyPermission: ["manage:gis-reference-data"] },
+  { href: "/indicators", label: "Indicators", icon: Stethoscope, anyPermission: ["manage:indicators"] },
+  { href: "/ingestion-ops", label: "Ingestion Ops", icon: Activity, superAdminOnly: true },
   { href: "/audit-logs", label: "Audit Log", icon: ScrollText },
 ];
 

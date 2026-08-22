@@ -15,10 +15,12 @@ import {
   FolderOpen,
   Globe,
   History,
+  Loader2,
   Lock,
   MapPin,
   MessageSquareWarning,
   Tag,
+  Undo2,
   User,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -32,7 +34,8 @@ import { EmptyState } from "@/components/feedback/empty-state";
 import { StatusBadge } from "@/components/data/status-badge";
 import { VisibilityBadge } from "@/components/data/visibility-badge";
 import { apiClient } from "@/lib/api/client";
-import { adminApi, archiveDataset, getUserById, publishDataset, unarchiveDataset, unpublishDataset } from "@/lib/api/admin";
+import { adminApi, archiveDataset, getUserById, publishDataset, unarchiveDataset, unpublishDataset, retractDataset, type RetractDatasetPayload } from "@/lib/api/admin";
+import { RetractDatasetDialog } from "@/components/admin/retract-dataset-dialog";
 import { getCategories } from "@/lib/api/categories";
 import { useDatasetVersions, useDownloadDataset, useDatasetFiles } from "@/lib/hooks/useDatasets";
 import type { DatasetFile, DatasetStatus } from "@/lib/api/datasets";
@@ -42,6 +45,10 @@ import { useAuth } from "@/lib/auth";
 import { usePermissions } from "@/lib/hooks/usePermissions";
 import { DatasetPreviewCard, DatasetPreviewDialog } from "@/components/data/dataset-preview-card";
 import { formatDate } from "@/lib/utils/date";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { IngestionReportTab } from "@/components/admin/ingestion-report-tab";
+import { DataReviewQueueTab } from "@/components/admin/data-review-queue-tab";
+import { RelatedDatasetsTab } from "@/components/admin/related-datasets-tab";
 
 function formatFileSize(bytes: number | string | null): string {
   // file_size is a Postgres bigint column — pg/TypeORM return bigint values
@@ -90,6 +97,7 @@ interface Dataset {
   archived_reason: string | null;
   created_at: string;
   updated_at: string;
+  ingestion_status: "not_ingested" | "uploaded" | "processing" | "processed_pending_approval" | "published" | "retracting" | "retracted" | "failed";
 }
 
 interface Organisation {
@@ -136,6 +144,14 @@ export default function DatasetDetailPage({
     queryFn: async () => {
       const response = await apiClient.get<{ data: Dataset }>(`/admin/datasets/${slug}`);
       return response.data.data;
+    },
+    // Publish/retract run async on the worker — keep this on a short poll
+    // while either is in flight so the status/tabs update without a manual
+    // refresh, same reasoning as the ingestion progress stream on the
+    // upload side.
+    refetchInterval: (query) => {
+      const status = query.state.data?.ingestion_status;
+      return status === "processing" || status === "retracting" ? 3000 : false;
     },
   });
 
@@ -231,6 +247,22 @@ export default function DatasetDetailPage({
       toast({
         title: "Error",
         description: error instanceof Error ? error.message : "Failed to unpublish dataset",
+        variant: "destructive",
+      }),
+  });
+
+  const [retractOpen, setRetractOpen] = useState(false);
+  const retractMutation = useMutation({
+    mutationFn: (payload: RetractDatasetPayload) => retractDataset(dataset!.id, payload),
+    onSuccess: () => {
+      toast({ title: "Retraction started", description: "Reversing this dataset's published effects — this dataset will update automatically as it completes." });
+      setRetractOpen(false);
+      queryClient.invalidateQueries({ queryKey: ["dataset", slug] });
+    },
+    onError: (error: unknown) =>
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to retract dataset",
         variant: "destructive",
       }),
   });
@@ -394,6 +426,22 @@ export default function DatasetDetailPage({
               Unpublish
             </Button>
           )}
+          {canPublish && dataset.ingestion_status === 'published' && (
+            <Button
+              size="sm"
+              variant="destructive"
+              onClick={() => setRetractOpen(true)}
+            >
+              <Undo2 className="size-4" aria-hidden="true" />
+              Retract
+            </Button>
+          )}
+          {dataset.ingestion_status === 'retracting' && (
+            <Badge variant="outline" className="gap-1.5">
+              <Loader2 className="size-3 animate-spin" />
+              Retracting…
+            </Badge>
+          )}
           {(!files || files.length <= 1) && (
             <>
               <Button
@@ -496,6 +544,29 @@ export default function DatasetDetailPage({
                     </li>
                   ))}
                 </ul>
+              </CardContent>
+            </Card>
+          )}
+
+          {dataset.ingestion_status !== "not_ingested" && (
+            <Card>
+              <CardContent className="pt-5">
+                <Tabs defaultValue="report">
+                  <TabsList>
+                    <TabsTrigger value="report">Ingestion Report</TabsTrigger>
+                    <TabsTrigger value="review">Data Review Queue</TabsTrigger>
+                    <TabsTrigger value="related">Related Datasets</TabsTrigger>
+                  </TabsList>
+                  <TabsContent value="report" className="mt-4">
+                    <IngestionReportTab datasetId={dataset.id} />
+                  </TabsContent>
+                  <TabsContent value="review" className="mt-4">
+                    <DataReviewQueueTab datasetId={dataset.id} />
+                  </TabsContent>
+                  <TabsContent value="related" className="mt-4">
+                    <RelatedDatasetsTab datasetId={dataset.id} />
+                  </TabsContent>
+                </Tabs>
               </CardContent>
             </Card>
           )}
@@ -689,6 +760,12 @@ export default function DatasetDetailPage({
         title={dataset.title}
         open={previewOpen}
         onOpenChange={setPreviewOpen}
+      />
+      <RetractDatasetDialog
+        open={retractOpen}
+        onOpenChange={setRetractOpen}
+        onConfirm={(payload) => retractMutation.mutate(payload)}
+        isSaving={retractMutation.isPending}
       />
     </div>
   );

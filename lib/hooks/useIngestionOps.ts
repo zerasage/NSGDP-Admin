@@ -1,0 +1,134 @@
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import * as api from '../api/ingestion-ops';
+
+const OBSERVABILITY_KEY = 'ingestion-observability';
+const QUEUE_HEALTH_KEY = 'queue-health';
+const DEAD_LETTER_KEY = 'dead-letter';
+const SUCCESSION_KEY = 'succession-candidates';
+const CHANGEPOINTS_KEY = 'changepoints';
+
+export function useObservability() {
+  return useQuery({
+    queryKey: [OBSERVABILITY_KEY],
+    queryFn: api.getObservability,
+  });
+}
+
+export function useQueueHealth(options?: { enabled?: boolean }) {
+  return useQuery({
+    queryKey: [QUEUE_HEALTH_KEY],
+    queryFn: api.getQueueHealth,
+    enabled: options?.enabled !== false,
+    refetchInterval: 10_000,
+  });
+}
+
+export function useDeadLetterJobs(options?: { enabled?: boolean }) {
+  return useQuery({
+    queryKey: [DEAD_LETTER_KEY],
+    queryFn: () => api.getDeadLetterJobs(),
+    enabled: options?.enabled !== false,
+    refetchInterval: 10_000,
+  });
+}
+
+export function useRetryDeadLetterJob() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.retryDeadLetterJob(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [DEAD_LETTER_KEY] });
+      queryClient.invalidateQueries({ queryKey: [QUEUE_HEALTH_KEY] });
+    },
+  });
+}
+
+export function useDiscardDeadLetterJob() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.discardDeadLetterJob(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [DEAD_LETTER_KEY] });
+      queryClient.invalidateQueries({ queryKey: [QUEUE_HEALTH_KEY] });
+    },
+  });
+}
+
+export function useAiSpend(days = 7) {
+  return useQuery({
+    queryKey: ['ai-spend', days],
+    queryFn: () => api.getAiSpend(days),
+  });
+}
+
+export function useRunCalibration() {
+  return useMutation({
+    mutationFn: api.runCalibration,
+  });
+}
+
+export function useRunShiftDetection() {
+  return useMutation({ mutationFn: api.runShiftDetection });
+}
+
+export function useRunChangepointScan() {
+  return useMutation({ mutationFn: api.runChangepointScan });
+}
+
+export function useRunRelationMatch() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: api.runRelationMatch,
+    onSuccess: () => {
+      // A fresh confirmed relation could now exist for any dataset —
+      // broad invalidation is correct here since matching runs globally.
+      queryClient.invalidateQueries({ queryKey: ['ingestion-related-datasets'] });
+    },
+  });
+}
+
+export function useSuccessionCandidates(status?: 'pending' | 'confirmed' | 'rejected') {
+  return useQuery({
+    queryKey: [SUCCESSION_KEY, status],
+    queryFn: () => api.listSuccessionCandidates(status),
+  });
+}
+
+export function useConfirmSuccession() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.confirmSuccession(id),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: [SUCCESSION_KEY] }),
+  });
+}
+
+export function useRejectSuccession() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.rejectSuccession(id),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: [SUCCESSION_KEY] }),
+  });
+}
+
+export function useChangepoints(status?: 'pending' | 'confirmed' | 'rejected') {
+  return useQuery({
+    queryKey: [CHANGEPOINTS_KEY, status],
+    queryFn: () => api.listChangepoints(status),
+  });
+}
+
+export function useConfirmChangepoint() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.confirmChangepoint(id),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: [CHANGEPOINTS_KEY] }),
+  });
+}
+
+export function useRejectChangepoint() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.rejectChangepoint(id),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: [CHANGEPOINTS_KEY] }),
+  });
+}

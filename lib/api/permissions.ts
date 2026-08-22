@@ -37,7 +37,8 @@ export type PermissionActionKey =
   | 'manage:groups'
   | 'manage:analytics'
   | 'manage:gis-reference-data'
-  | 'manage:partner-api-keys';
+  | 'manage:partner-api-keys'
+  | 'manage:indicators';
 
 export interface PermissionGroup {
   id: string;

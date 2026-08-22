@@ -32,7 +32,8 @@ export type PermissionAction =
   | "manage:groups"          // Create/edit/delete curated dataset/document groups
   | "manage:analytics"       // Force-refresh the platform analytics dashboard cache
   | "manage:gis-reference-data" // Choose active GIS layer datasets, reconcile ward names
-  | "manage:partner-api-keys"; // Generate/revoke a partner organisation's programmatic API key
+  | "manage:partner-api-keys" // Generate/revoke a partner organisation's programmatic API key
+  | "manage:indicators"; // Manage the canonical indicator registry, alias review queue, and AI-assisted resolution admin
 
 export const PROGRAM_PERMISSION_ACTIONS: PermissionAction[] = [
   "create:programs",
@@ -79,6 +80,7 @@ export const PERMISSION_ACTION_LABELS: Record<PermissionAction, string> = {
   "manage:analytics": "Manage Analytics",
   "manage:gis-reference-data": "Manage GIS Reference Layers",
   "manage:partner-api-keys": "Manage Partner API Keys",
+  "manage:indicators": "Manage Indicators",
 };
 
 export const PERMISSION_ACTION_DESCRIPTIONS: Record<PermissionAction, string> = {
@@ -138,6 +140,8 @@ export const PERMISSION_ACTION_DESCRIPTIONS: Record<PermissionAction, string> = 
     "Can choose which dataset backs each GIS map layer, rebuild the canonical ward table, and reconcile raw LGA/ward spellings.",
   "manage:partner-api-keys":
     "Can generate and revoke a partner organisation's programmatic API key for pulling data outside the browser.",
+  "manage:indicators":
+    "Can manage the canonical indicator registry (create/edit/activate), resolve pending indicator and org-unit aliases in the ingestion review queue, and run Stage 8 / calibration / AI admin tools.",
 };
 
 /**
@@ -202,6 +206,10 @@ export const PERMISSION_ACTION_GROUPS: Array<{ label: string; actions: Permissio
   {
     label: "Partner API",
     actions: ["manage:partner-api-keys"],
+  },
+  {
+    label: "Indicators",
+    actions: ["manage:indicators"],
   },
 ];
 
