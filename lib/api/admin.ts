@@ -569,6 +569,68 @@ export async function getDashboardActivity(): Promise<{
 export interface AnalyticsTimeSeries {
   uploadsOverTime: Array<{ month: string; uploads: number }>;
   newUsersOverTime: Array<{ month: string; users: number }>;
+  headline: {
+    totalUsers: number;
+    totalDatasets: number;
+    totalDownloads: number;
+    downloadsThisMonth: number;
+    pendingReview: number;
+  };
+  popularDatasets: Array<{
+    datasetId: string;
+    title: string;
+    downloads: number;
+  }>;
+}
+
+export interface DatasetPipelineStats {
+  total: number;
+  pending: number;
+  approved: number;
+  rejected: number;
+  byStatus: Record<string, number>;
+  byCategory: Array<{
+    categoryId: string | null;
+    categoryName: string;
+    count: number;
+  }>;
+  byOrganisation: Array<{ orgId: string; orgName: string; count: number }>;
+  staleness: {
+    publishedTotal: number;
+    overdue: number;
+    dueSoon: number;
+    noSchedule: number;
+  };
+}
+
+export interface GovernanceAnalytics {
+  aliasResolution: {
+    pendingIndicatorAliases: number;
+    pendingOrgunitAliases: number;
+    confirmedIndicatorAliases: number;
+    autoResolutionRate: number;
+  };
+  burdenQuality: Array<{
+    indicatorSlug: string;
+    indicatorName: string;
+    missingPct: number;
+    totalRows: number;
+  }>;
+  openConflicts: number;
+  stagingTotal: number;
+  indicatorPendingStaging: number;
+}
+
+export interface DatasetCompareResult {
+  datasetA: string;
+  datasetB: string;
+  keysA: number;
+  keysB: number;
+  sharedKeys: number;
+  coverageOverlap: number;
+  conflicts: number;
+  completenessA: number | null;
+  completenessB: number | null;
 }
 
 /**
@@ -580,6 +642,31 @@ export async function getAdminAnalytics(
   const response = await apiClient.get<ApiResponse<AnalyticsTimeSeries>>(
     '/admin/analytics',
     { params: { months } }
+  );
+  return response.data.data;
+}
+
+export async function getDatasetPipelineStats(): Promise<DatasetPipelineStats> {
+  const response = await apiClient.get<ApiResponse<DatasetPipelineStats>>(
+    '/admin/datasets/stats'
+  );
+  return response.data.data;
+}
+
+export async function getGovernanceAnalytics(): Promise<GovernanceAnalytics> {
+  const response = await apiClient.get<ApiResponse<GovernanceAnalytics>>(
+    '/admin/analytics/governance'
+  );
+  return response.data.data;
+}
+
+export async function compareDatasets(
+  datasetA: string,
+  datasetB: string
+): Promise<DatasetCompareResult> {
+  const response = await apiClient.get<ApiResponse<DatasetCompareResult>>(
+    '/analytics/compare',
+    { params: { dataset_a: datasetA, dataset_b: datasetB } }
   );
   return response.data.data;
 }

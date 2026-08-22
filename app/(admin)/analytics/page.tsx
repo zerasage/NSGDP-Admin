@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { Download } from "lucide-react";
-import { useDashboardStats } from "@/lib/hooks/useDashboard";
 import { useAdminAnalytics, downloadAnalyticsCsv } from "@/lib/hooks/useAnalytics";
 import {
   UploadsOverTimeChart,
@@ -34,7 +33,6 @@ export default function AdminAnalyticsPage() {
   const [exporting, setExporting] = useState(false);
   const months = RANGE_TO_MONTHS[range] ?? 6;
   const { data, isLoading: loading } = useAdminAnalytics(months);
-  const { data: stats, isLoading: statsLoading } = useDashboardStats();
 
   const handleExport = async () => {
     setExporting(true);
@@ -48,7 +46,7 @@ export default function AdminAnalyticsPage() {
     }
   };
 
-  if (loading || statsLoading) {
+  if (loading) {
     return (
       <div className="space-y-6">
         <PageHeaderSkeleton />
@@ -85,10 +83,13 @@ export default function AdminAnalyticsPage() {
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {[
-          { label: "Total Users", value: stats?.totalUsers },
-          { label: "Total Datasets", value: stats?.totalDatasets },
-          { label: "Downloads (Month)", value: stats?.downloadStats.thisMonth?.toLocaleString() },
-          { label: "Pending Review", value: stats?.pendingDatasets },
+          { label: "Total Users", value: data?.headline.totalUsers },
+          { label: "Total Datasets", value: data?.headline.totalDatasets },
+          {
+            label: "Downloads (Month)",
+            value: data?.headline.downloadsThisMonth?.toLocaleString(),
+          },
+          { label: "Pending Review", value: data?.headline.pendingReview },
         ].map(({ label, value }) => (
           <Card key={label}>
             <CardContent className="pt-6">
@@ -118,8 +119,8 @@ export default function AdminAnalyticsPage() {
         <CardHeader><CardTitle className="text-base">Top 10 Downloads by Dataset</CardTitle></CardHeader>
         <CardContent>
           <DownloadsByDatasetChart
-            data={(stats?.downloadStats.topDatasets ?? []).map((d) => ({
-              name: d.datasetTitle,
+            data={(data?.popularDatasets ?? []).map((d) => ({
+              name: d.title,
               downloads: d.downloads,
             }))}
           />
