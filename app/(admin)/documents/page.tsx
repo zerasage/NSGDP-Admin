@@ -13,7 +13,9 @@ import {
   Trash2,
   X,
 } from "lucide-react";
+import { useQueries } from "@tanstack/react-query";
 import { useDocuments, useArchiveDocument } from "@/lib/hooks/useDocuments";
+import { getDocuments } from "@/lib/api/documents";
 import { useAuth } from "@/lib/auth";
 import { usePermissions } from "@/lib/hooks/usePermissions";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -34,10 +36,19 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Pagination } from "@/components/data/pagination";
 import { EmptyState } from "@/components/feedback/empty-state";
 import { TableRowSkeleton } from "@/components/feedback/skeletons";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  DataTableShell,
+  METRIC_TONE,
+  MetricCard,
+  Panel,
+  tabToneClass,
+  type MetricTone,
+} from "@/components/admin/admin-analytics-ui";
 import { cn } from "@/lib/utils";
 import { formatDate } from "@/lib/utils/date";
 import { DocumentFormModal } from "@/components/admin/document-form-modal";
@@ -55,20 +66,18 @@ const typeLabels: Record<DocumentType, string> = {
   other: "Other",
 };
 
-const statusTabs = [
-  { value: "all", label: "All" },
-  { value: "draft", label: "Draft" },
-  { value: "published", label: "Published" },
-  { value: "archived", label: "Archived" },
-] as const;
+const STATUS_CONFIG: Record<DocumentStatus, { label: string; tone: MetricTone }> = {
+  draft: { label: "Draft", tone: "warning" },
+  published: { label: "Published", tone: "success" },
+  archived: { label: "Archived", tone: "muted" },
+};
 
-type StatusFilter = (typeof statusTabs)[number]["value"];
-
-function statusBadgeVariant(status: DocumentStatus) {
-  if (status === "published") return "default" as const;
-  if (status === "archived") return "secondary" as const;
-  return "outline" as const;
-}
+const TABS: Array<{ key: DocumentStatus | "all"; label: string; tone: MetricTone }> = [
+  { key: "all", label: "All documents", tone: "muted" },
+  { key: "draft", label: "Draft", tone: "warning" },
+  { key: "published", label: "Published", tone: "success" },
+  { key: "archived", label: "Archived", tone: "muted" },
+];
 
 function fileSizeLabel(bytes: number | null) {
   if (!bytes) return "—";
@@ -85,9 +94,10 @@ export default function AdminDocumentsPage() {
   const [pageSize, setPageSize] = useState(20);
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
-  const [status, setStatus] = useState<StatusFilter>("all");
+  const [status, setStatus] = useState<DocumentStatus | "all">("all");
   const [type, setType] = useState<DocumentType | "all">("all");
   const [formModalOpen, setFormModalOpen] = useState(false);
+  const [archiveTarget, setArchiveTarget] = useState<AdminDocument | null>(null);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -105,6 +115,37 @@ export default function AdminDocumentsPage() {
     type: type === "all" ? undefined : type,
   });
   const archiveMutation = useArchiveDocument();
+
+  const [totalSummary, publishedSummary, draftSummary, archivedSummary] = useQueries({
+    queries: [
+      {
+        queryKey: ["documents", "summary", "total"],
+        queryFn: () => getDocuments({ page: 1, limit: 1 }),
+        select: (result: Awaited<ReturnType<typeof getDocuments>>) => result.total,
+      },
+      {
+        queryKey: ["documents", "summary", "published"],
+        queryFn: () => getDocuments({ page: 1, limit: 1, status: "published" }),
+        select: (result: Awaited<ReturnType<typeof getDocuments>>) => result.total,
+      },
+      {
+        queryKey: ["documents", "summary", "draft"],
+        queryFn: () => getDocuments({ page: 1, limit: 1, status: "draft" }),
+        select: (result: Awaited<ReturnType<typeof getDocuments>>) => result.total,
+      },
+      {
+        queryKey: ["documents", "summary", "archived"],
+        queryFn: () => getDocuments({ page: 1, limit: 1, status: "archived" }),
+        select: (result: Awaited<ReturnType<typeof getDocuments>>) => result.total,
+      },
+    ],
+  });
+
+  const statsLoading =
+    totalSummary.isLoading ||
+    publishedSummary.isLoading ||
+    draftSummary.isLoading ||
+    archivedSummary.isLoading;
 
   const documents = data?.data ?? [];
   const total = data?.total ?? 0;
@@ -124,10 +165,13 @@ export default function AdminDocumentsPage() {
     setFormModalOpen(true);
   };
 
-  const handleArchive = (doc: AdminDocument) => {
-    if (!window.confirm(`Archive "${doc.title}"? It will be removed from the public catalogue.`)) return;
-    archiveMutation.mutate(doc.slug, {
-      onSuccess: () => toast.success("Document archived"),
+  const confirmArchive = () => {
+    if (!archiveTarget) return;
+    archiveMutation.mutate(archiveTarget.slug, {
+      onSuccess: () => {
+        toast.success("Document archived");
+        setArchiveTarget(null);
+      },
       onError: (error) => {
         const err = error as { message?: string };
         toast.error(err?.message || "Failed to archive document");
@@ -137,110 +181,175 @@ export default function AdminDocumentsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+      <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold">Documents</h1>
+          <h1 className="text-2xl font-bold tracking-tight">Documents</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             SOPs, policies, guidelines, reports, and research — the platform&apos;s document repository
           </p>
         </div>
-        {canManage && (
-          <Button className="h-11 w-full sm:h-8 sm:w-auto" onClick={openCreate}>
-            <Plus className="size-4" aria-hidden="true" />
-            Create document
-          </Button>
+        {!isLoading && (
+          <Badge variant="outline" className="rounded-full px-3 py-1 text-xs font-medium tabular-nums">
+            {total} {total === 1 ? "document" : "documents"}
+          </Badge>
         )}
       </div>
 
-      <div className="overflow-hidden rounded-2xl border bg-card">
-        <div className="scrollbar-hide overflow-x-auto border-b px-4">
-          <div className="flex min-w-max gap-1" role="tablist" aria-label="Document status">
-            {statusTabs.map((tab) => (
-              <button
-                key={tab.value}
-                type="button"
-                role="tab"
-                aria-selected={status === tab.value}
-                onClick={() => {
-                  setStatus(tab.value);
+      <div className="rounded-xl border border-info/25 bg-info/[0.06] px-4 py-3 text-sm text-muted-foreground">
+        Documents are standalone files in the repository — SOPs, policies, guidelines, and reports.
+        Publish when ready for the public catalogue; attach files from each document&apos;s detail page.
+      </div>
+
+      {statsLoading ? (
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          {[...Array(4)].map((_, i) => (
+            <Skeleton key={i} className="h-28 rounded-2xl" />
+          ))}
+        </div>
+      ) : (
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <MetricCard
+            label="Total documents"
+            value={totalSummary.data ?? 0}
+            hint="All statuses"
+            icon={FileText}
+            tone="primary"
+          />
+          <MetricCard
+            label="Published"
+            value={publishedSummary.data ?? 0}
+            hint="On the public catalogue"
+            icon={FileText}
+            tone="success"
+          />
+          <MetricCard
+            label="Drafts"
+            value={draftSummary.data ?? 0}
+            hint="Not yet published"
+            icon={FileText}
+            tone="warning"
+          />
+          <MetricCard
+            label="Archived"
+            value={archivedSummary.data ?? 0}
+            hint="Removed from catalogue"
+            icon={FileText}
+            tone="muted"
+          />
+        </div>
+      )}
+
+      <Panel
+        title="Document directory"
+        description="Filter by status or type, or search by title or description."
+        icon={FileText}
+        tone="info"
+        action={
+          canManage ? (
+            <Button className="h-9 w-full sm:w-auto" onClick={openCreate}>
+              <Plus className="size-4" aria-hidden="true" />
+              Create document
+            </Button>
+          ) : undefined
+        }
+      >
+        <div className="space-y-4">
+          <div className="rounded-xl border bg-muted/30 p-1">
+            <div className="flex flex-wrap gap-1" role="tablist" aria-label="Document status">
+              {TABS.map((tab) => (
+                <button
+                  key={tab.key}
+                  type="button"
+                  role="tab"
+                  aria-selected={status === tab.key}
+                  onClick={() => {
+                    setStatus(tab.key);
+                    setPage(1);
+                  }}
+                  className={cn(
+                    "min-h-9 rounded-lg px-3 py-2 text-xs font-medium transition-colors sm:text-sm",
+                    status === tab.key
+                      ? cn("shadow-sm", tabToneClass(tab.tone))
+                      : "text-muted-foreground hover:bg-background/80 hover:text-foreground",
+                  )}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex flex-1 flex-col gap-3 sm:flex-row">
+              <div className="relative w-full sm:max-w-sm">
+                <Search
+                  className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+                  aria-hidden="true"
+                />
+                <Input
+                  value={query}
+                  onChange={(event) => setQuery(event.target.value)}
+                  placeholder="Search title or description"
+                  className="h-10 pl-9 pr-10"
+                  aria-label="Search documents"
+                />
+                {query && (
+                  <button
+                    type="button"
+                    onClick={() => setQuery("")}
+                    className="absolute right-0 top-1/2 flex size-10 -translate-y-1/2 items-center justify-center text-muted-foreground hover:text-foreground"
+                    aria-label="Clear document search"
+                  >
+                    <X className="size-4" aria-hidden="true" />
+                  </button>
+                )}
+              </div>
+
+              <Select
+                value={type}
+                onValueChange={(value) => {
+                  setType(value as DocumentType | "all");
                   setPage(1);
                 }}
-                className={cn(
-                  "relative min-h-11 px-3 text-sm font-medium transition-colors",
-                  status === tab.value
-                    ? "text-foreground after:absolute after:inset-x-3 after:bottom-0 after:h-0.5 after:rounded-full after:bg-primary"
-                    : "text-muted-foreground hover:text-foreground"
-                )}
               >
-                {tab.label}
-              </button>
-            ))}
-          </div>
-        </div>
+                <SelectTrigger className="h-10 w-full sm:w-56" aria-label="Filter by document type">
+                  <SelectValue>
+                    {(v: string) =>
+                      v === "all" ? "All types" : (typeLabels[v as DocumentType] ?? v)
+                    }
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All types</SelectItem>
+                  {(Object.keys(typeLabels) as DocumentType[]).map((t) => (
+                    <SelectItem key={t} value={t}>
+                      {typeLabels[t]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
 
-        <div className="flex flex-col gap-3 p-4 lg:flex-row lg:items-center lg:justify-between">
-          <div className="flex flex-1 flex-col gap-3 sm:flex-row">
-            <div className="relative w-full sm:max-w-sm">
-              <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
-              <Input
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                placeholder="Search title or description"
-                className="h-11 pl-9 pr-10 sm:h-10"
-                aria-label="Search documents"
-              />
-              {query && (
-                <button
-                  type="button"
-                  onClick={() => setQuery("")}
-                  className="absolute right-0 top-1/2 flex size-11 -translate-y-1/2 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground sm:size-10"
-                  aria-label="Clear document search"
-                >
+              {hasFilters && (
+                <Button variant="ghost" className="h-10" onClick={clearFilters}>
                   <X className="size-4" aria-hidden="true" />
-                </button>
+                  Clear filters
+                </Button>
               )}
             </div>
 
-            <Select
-              value={type}
-              onValueChange={(value) => {
-                setType(value as DocumentType | "all");
-                setPage(1);
-              }}
-            >
-              <SelectTrigger className="h-11 w-full sm:h-10 sm:w-56" aria-label="Filter by document type">
-                <SelectValue>{(v: string) => (v === "all" ? "All types" : typeLabels[v as DocumentType] ?? v)}</SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All types</SelectItem>
-                {(Object.keys(typeLabels) as DocumentType[]).map((t) => (
-                  <SelectItem key={t} value={t}>
-                    {typeLabels[t]}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            {hasFilters && (
-              <Button variant="ghost" className="h-11 sm:h-10" onClick={clearFilters}>
-                <X className="size-4" aria-hidden="true" />
-                Clear filters
-              </Button>
-            )}
-          </div>
-
-          <div className="flex min-h-5 items-center gap-2 text-xs text-muted-foreground" aria-live="polite">
-            {(isSearchPending || (isFetching && !isLoading)) && (
-              <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />
-            )}
-            <span>
-              {isSearchPending ? "Searching" : isFetching && !isLoading ? "Updating" : "Found"}{" "}
-              <span className="font-semibold tabular-nums text-foreground">{total}</span>{" "}
-              {total === 1 ? "document" : "documents"}
-            </span>
+            <div className="flex min-h-5 items-center gap-2 text-xs text-muted-foreground" aria-live="polite">
+              {(isSearchPending || (isFetching && !isLoading)) && (
+                <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />
+              )}
+              <span>
+                {isSearchPending ? "Searching" : isFetching && !isLoading ? "Updating" : "Found"}{" "}
+                <span className="font-semibold tabular-nums text-foreground">{total}</span>{" "}
+                {total === 1 ? "document" : "documents"}
+              </span>
+            </div>
           </div>
         </div>
-      </div>
+      </Panel>
 
       <div aria-busy={isLoading || isFetching || isSearchPending} className="space-y-4">
         {isError ? (
@@ -295,80 +404,83 @@ export default function AdminDocumentsPage() {
           </div>
         ) : (
           <>
-            <div className="hidden overflow-hidden rounded-2xl border bg-card xl:block">
-              <Table>
-                <TableHeader>
-                  <TableRow className="h-11 bg-muted/40 text-[11px] uppercase tracking-wide hover:bg-muted/40">
-                    <TableHead className="h-11 px-4">Document</TableHead>
-                    <TableHead className="h-11 px-4">Type</TableHead>
-                    <TableHead className="h-11 px-4">Status</TableHead>
-                    <TableHead className="h-11 px-4 text-right">Downloads</TableHead>
-                    <TableHead className="h-11 px-4">Uploaded</TableHead>
-                    <TableHead className="h-11 px-4 text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {documents.map((doc) => (
-                    <TableRow key={doc.id} className="hover:bg-muted/30">
-                      <TableCell className="max-w-sm px-4 py-3.5">
-                        <div className="flex items-center gap-3">
-                          <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                            <FileText className="size-4" aria-hidden="true" />
-                          </div>
-                          <div className="min-w-0">
-                            <p className="line-clamp-1 font-semibold">{doc.title}</p>
-                            <p className="mt-0.5 line-clamp-1 text-xs text-muted-foreground">
-                              {doc.file_name ?? "No file uploaded"} · {fileSizeLabel(doc.file_size)}
-                            </p>
-                          </div>
-                        </div>
-                      </TableCell>
-                      <TableCell className="max-w-40 px-4 py-3.5">
-                        <Badge variant="secondary" className="max-w-full text-[11px]">
-                          <span className="truncate">{typeLabels[doc.type]}</span>
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="px-4 py-3.5">
-                        <Badge variant={statusBadgeVariant(doc.status)} className="text-[11px] capitalize">
-                          {doc.status}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="px-4 py-3.5 text-right font-medium tabular-nums">
-                        {doc.download_count}
-                      </TableCell>
-                      <TableCell className="px-4 py-3.5 text-xs text-muted-foreground">
-                        {formatDate(doc.created_at)}
-                      </TableCell>
-                      <TableCell className="px-4 py-3.5 text-right">
-                        <div className="flex justify-end gap-1">
-                          <Link
-                            href={`/documents/${doc.slug}`}
-                            className={cn(buttonVariants({ variant: "ghost", size: "icon-sm" }))}
-                            aria-label={`View ${doc.title}`}
-                            title="View details"
-                          >
-                            <Eye className="size-4" aria-hidden="true" />
-                          </Link>
-                          {canManage && (
-                            <Button
-                              variant="ghost"
-                              size="icon-sm"
-                              aria-label={`Archive ${doc.title}`}
-                              title="Archive document"
-                              className="text-destructive hover:text-destructive"
-                              onClick={() => handleArchive(doc)}
-                              disabled={doc.status === "archived"}
-                            >
-                              <Trash2 className="size-4" aria-hidden="true" />
-                            </Button>
-                          )}
-                        </div>
-                      </TableCell>
+            <DataTableShell>
+              <div className="hidden xl:block">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="h-11 bg-muted/40 text-[11px] uppercase tracking-wide hover:bg-muted/40">
+                      <TableHead className="h-11 px-4">Document</TableHead>
+                      <TableHead className="h-11 px-4">Type</TableHead>
+                      <TableHead className="h-11 px-4">Status</TableHead>
+                      <TableHead className="h-11 px-4 text-right">Downloads</TableHead>
+                      <TableHead className="h-11 px-4">Uploaded</TableHead>
+                      <TableHead className="h-11 px-4 text-right">Actions</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
+                  </TableHeader>
+                  <TableBody>
+                    {documents.map((doc) => (
+                      <TableRow key={doc.id} className="hover:bg-muted/30">
+                        <TableCell className="max-w-sm px-4 py-3.5">
+                          <div className="flex items-center gap-3">
+                            <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                              <FileText className="size-4" aria-hidden="true" />
+                            </div>
+                            <div className="min-w-0">
+                              <Link
+                                href={`/documents/${doc.slug}`}
+                                className="line-clamp-1 font-semibold hover:underline"
+                              >
+                                {doc.title}
+                              </Link>
+                              <p className="mt-0.5 line-clamp-1 text-xs text-muted-foreground">
+                                {doc.file_name ?? "No file uploaded"} · {fileSizeLabel(doc.file_size)}
+                              </p>
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell className="max-w-40 px-4 py-3.5">
+                          <TypeBadge type={doc.type} />
+                        </TableCell>
+                        <TableCell className="px-4 py-3.5">
+                          <DocumentStatusBadge status={doc.status} />
+                        </TableCell>
+                        <TableCell className="px-4 py-3.5 text-right font-medium tabular-nums">
+                          {doc.download_count}
+                        </TableCell>
+                        <TableCell className="px-4 py-3.5 text-xs text-muted-foreground">
+                          {formatDate(doc.created_at)}
+                        </TableCell>
+                        <TableCell className="px-4 py-3.5 text-right">
+                          <div className="flex justify-end gap-1">
+                            <Link
+                              href={`/documents/${doc.slug}`}
+                              className={cn(buttonVariants({ variant: "ghost", size: "icon-sm" }))}
+                              aria-label={`View ${doc.title}`}
+                              title="View details"
+                            >
+                              <Eye className="size-4" aria-hidden="true" />
+                            </Link>
+                            {canManage && (
+                              <Button
+                                variant="ghost"
+                                size="icon-sm"
+                                aria-label={`Archive ${doc.title}`}
+                                title="Archive document"
+                                className="text-destructive hover:text-destructive"
+                                onClick={() => setArchiveTarget(doc)}
+                                disabled={doc.status === "archived"}
+                              >
+                                <Trash2 className="size-4" aria-hidden="true" />
+                              </Button>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </DataTableShell>
 
             <div className="grid grid-cols-1 gap-3 xl:hidden">
               {documents.map((doc) => (
@@ -378,21 +490,28 @@ export default function AdminDocumentsPage() {
                       <FileText className="size-5" aria-hidden="true" />
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className="line-clamp-2 text-sm font-semibold leading-5">{doc.title}</p>
+                      <Link
+                        href={`/documents/${doc.slug}`}
+                        className="line-clamp-2 text-sm font-semibold leading-5 hover:underline"
+                      >
+                        {doc.title}
+                      </Link>
                       <p className="mt-1 text-xs text-muted-foreground">{typeLabels[doc.type]}</p>
                     </div>
-                    <Badge variant={statusBadgeVariant(doc.status)} className="text-[11px] capitalize shrink-0">
-                      {doc.status}
-                    </Badge>
+                    <DocumentStatusBadge status={doc.status} />
                   </div>
 
-                  <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3 border-y py-3 min-w-0">
+                  <dl className="mt-4 grid min-w-0 grid-cols-2 gap-x-4 gap-y-3 border-y py-3">
                     <div className="min-w-0">
-                      <dt className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">File</dt>
+                      <dt className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                        File
+                      </dt>
                       <dd className="mt-1 truncate text-sm font-medium">{doc.file_name ?? "None"}</dd>
                     </div>
                     <div className="min-w-0">
-                      <dt className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Downloads</dt>
+                      <dt className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                        Downloads
+                      </dt>
                       <dd className="mt-1 text-sm font-semibold tabular-nums">{doc.download_count}</dd>
                     </div>
                   </dl>
@@ -402,17 +521,17 @@ export default function AdminDocumentsPage() {
                       href={`/documents/${doc.slug}`}
                       className={cn(buttonVariants({ variant: "outline" }), "h-11 flex-1")}
                     >
-                      <Eye className="size-3.5 mr-1.5" />
-                      View Details
+                      <Eye className="mr-1.5 size-3.5" />
+                      View details
                     </Link>
                     {canManage && (
                       <Button
                         variant="outline"
                         className="h-11 flex-1 text-destructive"
-                        onClick={() => handleArchive(doc)}
+                        onClick={() => setArchiveTarget(doc)}
                         disabled={doc.status === "archived"}
                       >
-                        <Trash2 className="size-3.5 mr-1.5" />
+                        <Trash2 className="mr-1.5 size-3.5" />
                         Archive
                       </Button>
                     )}
@@ -437,10 +556,37 @@ export default function AdminDocumentsPage() {
         )}
       </div>
 
-      <DocumentFormModal
-        open={formModalOpen}
-        onClose={() => setFormModalOpen(false)}
+      <DocumentFormModal open={formModalOpen} onClose={() => setFormModalOpen(false)} />
+
+      <ConfirmDialog
+        open={!!archiveTarget}
+        onOpenChange={(open) => !open && setArchiveTarget(null)}
+        title="Archive document?"
+        description={`"${archiveTarget?.title}" will be removed from the public catalogue but remains accessible to admins.`}
+        confirmLabel="Archive"
+        variant="destructive"
+        loading={archiveMutation.isPending}
+        onConfirm={confirmArchive}
       />
     </div>
+  );
+}
+
+function DocumentStatusBadge({ status }: { status: DocumentStatus }) {
+  const { label, tone } = STATUS_CONFIG[status];
+  const t = METRIC_TONE[tone];
+  return (
+    <Badge variant="outline" className={cn("border text-xs capitalize", t.well, t.icon)}>
+      {label}
+    </Badge>
+  );
+}
+
+function TypeBadge({ type }: { type: DocumentType }) {
+  const t = METRIC_TONE.info;
+  return (
+    <Badge variant="outline" className={cn("max-w-full border text-[11px]", t.well, t.icon)}>
+      <span className="truncate">{typeLabels[type]}</span>
+    </Badge>
   );
 }

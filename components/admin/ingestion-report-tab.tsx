@@ -1,7 +1,6 @@
 "use client";
 
-import { Sparkles } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Sparkles, CheckCircle2, AlertTriangle, FileSpreadsheet } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -14,6 +13,11 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { EmptyState } from "@/components/feedback/empty-state";
+import {
+  DataTableShell,
+  MetricCard,
+  Panel,
+} from "@/components/admin/admin-analytics-ui";
 import {
   useIngestionReport,
   useCoverageRegister,
@@ -51,6 +55,11 @@ export function IngestionReportTab({ datasetId }: { datasetId: string }) {
     return <EmptyState title="No ingestion report available" />;
   }
 
+  const autoRate =
+    report.stagingTotal > 0
+      ? `${Math.round((report.resolved / report.stagingTotal) * 100)}%`
+      : "—";
+
   const handleNarrate = () => {
     narrateMutation.mutate(datasetId, {
       onError: (error: unknown) =>
@@ -60,61 +69,45 @@ export function IngestionReportTab({ datasetId }: { datasetId: string }) {
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        {[
-          ["Staging rows", report.stagingTotal],
-          ["Resolved", report.resolved],
-          ["Flagged", report.flagged],
-          [
-            "Auto-resolution",
-            report.stagingTotal > 0
-              ? `${Math.round((report.resolved / report.stagingTotal) * 100)}%`
-              : "—",
-          ],
-        ].map(([label, value]) => (
-          <Card key={label as string}>
-            <CardContent className="pt-5">
-              <p className="text-2xl font-bold tabular-nums">{value}</p>
-              <p className="text-xs text-muted-foreground">{label}</p>
-            </CardContent>
-          </Card>
-        ))}
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <MetricCard label="Staging rows" value={report.stagingTotal} icon={FileSpreadsheet} tone="info" />
+        <MetricCard label="Resolved" value={report.resolved} icon={CheckCircle2} tone="success" />
+        <MetricCard label="Flagged" value={report.flagged} icon={AlertTriangle} tone="warning" />
+        <MetricCard label="Auto-resolution" value={autoRate} icon={Sparkles} tone="primary" />
       </div>
 
       {Object.keys(report.byHoldReason).length > 0 && (
-        <Card>
-          <CardHeader className="border-b">
-            <CardTitle className="text-base">Held for review, by reason</CardTitle>
-          </CardHeader>
-          <CardContent className="flex flex-wrap gap-2 pt-4">
+        <Panel title="Held for review, by reason" icon={AlertTriangle} tone="warning">
+          <div className="flex flex-wrap gap-2">
             {Object.entries(report.byHoldReason).map(([reason, count]) => (
-              <Badge key={reason} variant="outline">
+              <Badge key={reason} variant="outline" className="border-warning/30 bg-warning/10">
                 {reason}: {count}
               </Badge>
             ))}
-          </CardContent>
-        </Card>
+          </div>
+        </Panel>
       )}
 
-      <Card>
-        <CardHeader className="border-b">
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-base">Per-sheet coverage</CardTitle>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={handleNarrate}
-              disabled={narrateMutation.isPending}
-            >
-              <Sparkles className="size-4" />
-              Generate Summary
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent className="p-0">
-          {!coverage || coverage.length === 0 ? (
-            <EmptyState title="No sheets processed yet" />
-          ) : (
+      <Panel
+        title="Per-sheet coverage"
+        icon={FileSpreadsheet}
+        tone="info"
+        action={
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={handleNarrate}
+            disabled={narrateMutation.isPending}
+          >
+            <Sparkles className="size-4" />
+            Generate Summary
+          </Button>
+        }
+      >
+        {!coverage || coverage.length === 0 ? (
+          <EmptyState title="No sheets processed yet" />
+        ) : (
+          <DataTableShell>
             <Table>
               <TableHeader>
                 <TableRow>
@@ -148,22 +141,14 @@ export function IngestionReportTab({ datasetId }: { datasetId: string }) {
                 ))}
               </TableBody>
             </Table>
-          )}
-        </CardContent>
-      </Card>
+          </DataTableShell>
+        )}
+      </Panel>
 
       {narrateMutation.data && (
-        <Card className="border-primary/30 bg-primary/5">
-          <CardHeader className="border-b border-primary/20">
-            <CardTitle className="flex items-center gap-2 text-base">
-              <Sparkles className="size-4" />
-              AI Summary
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="pt-4">
-            <p className="text-sm leading-6">{narrateMutation.data.summary}</p>
-          </CardContent>
-        </Card>
+        <Panel title="AI Summary" icon={Sparkles} tone="primary" className="border-primary/30">
+          <p className="text-sm leading-6">{narrateMutation.data.summary}</p>
+        </Panel>
       )}
     </div>
   );

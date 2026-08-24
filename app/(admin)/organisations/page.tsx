@@ -14,7 +14,9 @@ import {
   Search,
   X,
 } from "lucide-react";
+import { useQueries } from "@tanstack/react-query";
 import { useOrganisations } from "@/lib/hooks/useOrganisations";
+import { getOrganisations } from "@/lib/api/organisations";
 import { useAuth } from "@/lib/auth";
 import { usePermissions } from "@/lib/hooks/usePermissions";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -39,6 +41,14 @@ import { Pagination } from "@/components/data/pagination";
 import { EmptyState } from "@/components/feedback/empty-state";
 import { TableRowSkeleton } from "@/components/feedback/skeletons";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  DataTableShell,
+  METRIC_TONE,
+  MetricCard,
+  Panel,
+  tabToneClass,
+  type MetricTone,
+} from "@/components/admin/admin-analytics-ui";
 import { cn } from "@/lib/utils";
 import { formatDate } from "@/lib/utils/date";
 import { ORG_TYPES } from "@/lib/constants/organisation-types";
@@ -46,13 +56,12 @@ import type { OrganisationType } from "@/lib/api/organisations";
 import { CreateOrganisationModal } from "@/components/admin/create-organisation-modal";
 
 const typeLabels = new Map(ORG_TYPES.map((type) => [type.value, type.label]));
-const statusTabs = [
-  { value: "all", label: "All" },
-  { value: "active", label: "Active" },
-  { value: "inactive", label: "Inactive" },
-] as const;
 
-type OrganisationStatusFilter = (typeof statusTabs)[number]["value"];
+const TABS: Array<{ key: "all" | "active" | "inactive"; label: string; tone: MetricTone }> = [
+  { key: "all", label: "All organisations", tone: "muted" },
+  { key: "active", label: "Active", tone: "success" },
+  { key: "inactive", label: "Inactive", tone: "muted" },
+];
 
 export default function AdminOrganisationsPage() {
   const { user } = useAuth();
@@ -64,7 +73,7 @@ export default function AdminOrganisationsPage() {
   const [pageSize, setPageSize] = useState(20);
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
-  const [status, setStatus] = useState<OrganisationStatusFilter>("all");
+  const [status, setStatus] = useState<"all" | "active" | "inactive">("all");
   const [type, setType] = useState<OrganisationType | "all">("all");
   const [createModalOpen, setCreateModalOpen] = useState(false);
 
@@ -85,8 +94,46 @@ export default function AdminOrganisationsPage() {
       search: debouncedQuery || undefined,
       status: status === "all" ? undefined : status,
       type: type === "all" ? undefined : type,
-    }
+    },
   );
+
+  const [totalSummary, activeSummary, inactiveSummary, agreementsSummary] = useQueries({
+    queries: [
+      {
+        queryKey: ["organisations", "summary", "total"],
+        queryFn: () => getOrganisations({ page: 1, limit: 1, scope: "partners" }),
+        select: (result: Awaited<ReturnType<typeof getOrganisations>>) => result.total,
+      },
+      {
+        queryKey: ["organisations", "summary", "active"],
+        queryFn: () =>
+          getOrganisations({ page: 1, limit: 1, scope: "partners", status: "active" }),
+        select: (result: Awaited<ReturnType<typeof getOrganisations>>) => result.total,
+      },
+      {
+        queryKey: ["organisations", "summary", "inactive"],
+        queryFn: () =>
+          getOrganisations({ page: 1, limit: 1, scope: "partners", status: "inactive" }),
+        select: (result: Awaited<ReturnType<typeof getOrganisations>>) => result.total,
+      },
+      {
+        queryKey: ["organisations", "summary", "agreements"],
+        queryFn: async () => {
+          const result = await getOrganisations({ page: 1, limit: 100, scope: "partners" });
+          return {
+            missing: result.data.filter((org) => !org.agreement_file_path).length,
+            complete: result.total <= 100,
+          };
+        },
+      },
+    ],
+  });
+
+  const statsLoading =
+    totalSummary.isLoading ||
+    activeSummary.isLoading ||
+    inactiveSummary.isLoading ||
+    agreementsSummary.isLoading;
 
   const orgs = data?.data ?? [];
   const total = data?.total ?? 0;
@@ -102,112 +149,184 @@ export default function AdminOrganisationsPage() {
     setPage(1);
   };
 
+  const agreementHint = agreementsSummary.data?.complete
+    ? "Partners without a signed agreement"
+    : "From first 100 partners";
+
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+      <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold">Organisations</h1>
+          <h1 className="text-2xl font-bold tracking-tight">Organisations</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             Manage partner organisations, agreements, and dataset ownership
           </p>
         </div>
-        {canCreate && (
-          <Button className="h-11 w-full sm:h-8 sm:w-auto" onClick={() => setCreateModalOpen(true)}>
-            <Plus className="size-4" aria-hidden="true" />
-            Add organisation
-          </Button>
+        {!isLoading && (
+          <Badge variant="outline" className="rounded-full px-3 py-1 text-xs font-medium tabular-nums">
+            {total} {total === 1 ? "organisation" : "organisations"}
+          </Badge>
         )}
       </div>
 
-      <div className="overflow-hidden rounded-2xl border bg-card">
-        <div className="scrollbar-hide overflow-x-auto border-b px-4">
-          <div className="flex min-w-max gap-1" role="tablist" aria-label="Organisation status">
-            {statusTabs.map((tab) => (
-              <button
-                key={tab.value}
-                type="button"
-                role="tab"
-                aria-selected={status === tab.value}
-                onClick={() => {
-                  setStatus(tab.value);
+      <div className="rounded-xl border border-info/25 bg-info/[0.06] px-4 py-3 text-sm text-muted-foreground">
+        Partner organisations contribute datasets to the portal. Each org needs a signed data-sharing
+        agreement on file — upload it from the organisation detail page. The platform-owning agency
+        (NSPHCDA) is managed separately under Agency.
+      </div>
+
+      {statsLoading ? (
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          {[...Array(4)].map((_, i) => (
+            <Skeleton key={i} className="h-28 rounded-2xl" />
+          ))}
+        </div>
+      ) : (
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <MetricCard
+            label="Total partners"
+            value={totalSummary.data ?? 0}
+            hint="Contributing organisations"
+            icon={Building2}
+            tone="primary"
+          />
+          <MetricCard
+            label="Active"
+            value={activeSummary.data ?? 0}
+            hint="Enabled on the platform"
+            icon={Building2}
+            tone="success"
+          />
+          <MetricCard
+            label="Inactive"
+            value={inactiveSummary.data ?? 0}
+            hint="Disabled or suspended"
+            icon={Building2}
+            tone="muted"
+          />
+          <MetricCard
+            label="Missing agreements"
+            value={agreementsSummary.data?.missing ?? 0}
+            hint={agreementHint}
+            icon={FileWarning}
+            tone="warning"
+          />
+        </div>
+      )}
+
+      <Panel
+        title="Organisation directory"
+        description="Filter by status or type, or search by name, acronym, or email."
+        icon={Building2}
+        tone="info"
+        action={
+          canCreate ? (
+            <Button className="h-9 w-full sm:w-auto" onClick={() => setCreateModalOpen(true)}>
+              <Plus className="size-4" aria-hidden="true" />
+              Add organisation
+            </Button>
+          ) : undefined
+        }
+      >
+        <div className="space-y-4">
+          <div className="rounded-xl border bg-muted/30 p-1">
+            <div className="flex flex-wrap gap-1" role="tablist" aria-label="Organisation status">
+              {TABS.map((tab) => (
+                <button
+                  key={tab.key}
+                  type="button"
+                  role="tab"
+                  aria-selected={status === tab.key}
+                  onClick={() => {
+                    setStatus(tab.key);
+                    setPage(1);
+                  }}
+                  className={cn(
+                    "min-h-9 rounded-lg px-3 py-2 text-xs font-medium transition-colors sm:text-sm",
+                    status === tab.key
+                      ? cn("shadow-sm", tabToneClass(tab.tone))
+                      : "text-muted-foreground hover:bg-background/80 hover:text-foreground",
+                  )}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex flex-1 flex-col gap-3 sm:flex-row">
+              <div className="relative w-full sm:max-w-sm">
+                <Search
+                  className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+                  aria-hidden="true"
+                />
+                <Input
+                  value={query}
+                  onChange={(event) => setQuery(event.target.value)}
+                  placeholder="Search name, acronym, or email"
+                  className="h-10 pl-9 pr-10"
+                  aria-label="Search organisations"
+                />
+                {query && (
+                  <button
+                    type="button"
+                    onClick={() => setQuery("")}
+                    className="absolute right-0 top-1/2 flex size-10 -translate-y-1/2 items-center justify-center text-muted-foreground hover:text-foreground"
+                    aria-label="Clear organisation search"
+                  >
+                    <X className="size-4" aria-hidden="true" />
+                  </button>
+                )}
+              </div>
+
+              <Select
+                value={type}
+                onValueChange={(value) => {
+                  setType(value as OrganisationType | "all");
                   setPage(1);
                 }}
-                className={cn(
-                  "relative min-h-11 px-3 text-sm font-medium transition-colors",
-                  status === tab.value
-                    ? "text-foreground after:absolute after:inset-x-3 after:bottom-0 after:h-0.5 after:rounded-full after:bg-primary"
-                    : "text-muted-foreground hover:text-foreground"
-                )}
               >
-                {tab.label}
-              </button>
-            ))}
-          </div>
-        </div>
+                <SelectTrigger className="h-10 w-full sm:w-64" aria-label="Filter by organisation type">
+                  <SelectValue>
+                    {(v: string) =>
+                      v === "all"
+                        ? "All organisation types"
+                        : (typeLabels.get(v as OrganisationType) ?? v)
+                    }
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All organisation types</SelectItem>
+                  {ORG_TYPES.map((organisationType) => (
+                    <SelectItem key={organisationType.value} value={organisationType.value}>
+                      {organisationType.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
 
-        <div className="flex flex-col gap-3 p-4 lg:flex-row lg:items-center lg:justify-between">
-          <div className="flex flex-1 flex-col gap-3 sm:flex-row">
-            <div className="relative w-full sm:max-w-sm">
-              <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
-              <Input
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                placeholder="Search name, acronym, or email"
-                className="h-11 pl-9 pr-10 sm:h-10"
-                aria-label="Search organisations"
-              />
-              {query && (
-                <button
-                  type="button"
-                  onClick={() => setQuery("")}
-                  className="absolute right-0 top-1/2 flex size-11 -translate-y-1/2 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground sm:size-10"
-                  aria-label="Clear organisation search"
-                >
+              {hasFilters && (
+                <Button variant="ghost" className="h-10" onClick={clearFilters}>
                   <X className="size-4" aria-hidden="true" />
-                </button>
+                  Clear filters
+                </Button>
               )}
             </div>
 
-            <Select
-              value={type}
-              onValueChange={(value) => {
-                setType(value as OrganisationType | "all");
-                setPage(1);
-              }}
-            >
-              <SelectTrigger className="h-11 w-full sm:h-10 sm:w-64" aria-label="Filter by organisation type">
-                <SelectValue>{(v: string) => (v === "all" ? "All organisation types" : typeLabels.get(v as OrganisationType) ?? v)}</SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All organisation types</SelectItem>
-                {ORG_TYPES.map((organisationType) => (
-                  <SelectItem key={organisationType.value} value={organisationType.value}>
-                    {organisationType.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            {hasFilters && (
-              <Button variant="ghost" className="h-11 sm:h-10" onClick={clearFilters}>
-                <X className="size-4" aria-hidden="true" />
-                Clear filters
-              </Button>
-            )}
-          </div>
-
-          <div className="flex min-h-5 items-center gap-2 text-xs text-muted-foreground" aria-live="polite">
-            {(isSearchPending || (isFetching && !isLoading)) && (
-              <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />
-            )}
-            <span>
-              {isSearchPending ? "Searching" : isFetching && !isLoading ? "Updating" : "Found"}{" "}
-              <span className="font-semibold tabular-nums text-foreground">{total}</span>{" "}
-              {total === 1 ? "organisation" : "organisations"}
-            </span>
+            <div className="flex min-h-5 items-center gap-2 text-xs text-muted-foreground" aria-live="polite">
+              {(isSearchPending || (isFetching && !isLoading)) && (
+                <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />
+              )}
+              <span>
+                {isSearchPending ? "Searching" : isFetching && !isLoading ? "Updating" : "Found"}{" "}
+                <span className="font-semibold tabular-nums text-foreground">{total}</span>{" "}
+                {total === 1 ? "organisation" : "organisations"}
+              </span>
+            </div>
           </div>
         </div>
-      </div>
+      </Panel>
 
       <div aria-busy={isLoading || isFetching || isSearchPending} className="space-y-4">
         {isError ? (
@@ -262,69 +381,74 @@ export default function AdminOrganisationsPage() {
           </div>
         ) : (
           <>
-            <div className="hidden overflow-hidden rounded-2xl border bg-card xl:block">
-              <Table>
-                <TableHeader>
-                  <TableRow className="h-11 bg-muted/40 text-[11px] uppercase tracking-wide hover:bg-muted/40">
-                    <TableHead className="h-11 px-4">Organisation</TableHead>
-                    <TableHead className="h-11 px-4">Type</TableHead>
-                    <TableHead className="h-11 px-4">Contact</TableHead>
-                    <TableHead className="h-11 px-4 text-right">Datasets</TableHead>
-                    <TableHead className="h-11 px-4">Agreement</TableHead>
-                    <TableHead className="h-11 px-4">Status</TableHead>
-                    <TableHead className="h-11 px-4 text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {orgs.map((organisation) => (
-                    <TableRow key={organisation.id} className="hover:bg-muted/30">
-                      <TableCell className="max-w-sm px-4 py-3.5">
-                        <div className="flex items-center gap-3">
-                          <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                            <Building2 className="size-4" aria-hidden="true" />
-                          </div>
-                          <div className="min-w-0">
-                            <Link href={`/organisations/${organisation.slug}`} className="line-clamp-1 font-semibold hover:underline">
-                              {organisation.name}
-                            </Link>
-                            <p className="mt-0.5 line-clamp-1 text-xs text-muted-foreground">
-                              {organisation.acronym || `Added ${formatDate(organisation.created_at)}`}
-                            </p>
-                          </div>
-                        </div>
-                      </TableCell>
-                      <TableCell className="max-w-48 px-4 py-3.5">
-                        <Badge variant="secondary" className="max-w-full text-[11px]">
-                          <span className="truncate">{typeLabels.get(organisation.type) ?? "Other"}</span>
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="max-w-56 px-4 py-3.5 text-xs text-muted-foreground">
-                        <span className="line-clamp-2 break-all">{organisation.email || "No email provided"}</span>
-                      </TableCell>
-                      <TableCell className="px-4 py-3.5 text-right font-medium tabular-nums">
-                        {organisation.dataset_count ?? 0}
-                      </TableCell>
-                      <TableCell className="px-4 py-3.5">
-                        <AgreementBadge hasAgreement={!!organisation.agreement_file_path} />
-                      </TableCell>
-                      <TableCell className="px-4 py-3.5">
-                        <OrganisationStatusBadge active={organisation.is_active} />
-                      </TableCell>
-                      <TableCell className="px-4 py-3.5 text-right">
-                        <Link
-                          href={`/organisations/${organisation.slug}`}
-                          className={cn(buttonVariants({ variant: "ghost", size: "icon-sm" }))}
-                          aria-label={`View ${organisation.name}`}
-                          title="View organisation"
-                        >
-                          <ChevronRight className="size-4" aria-hidden="true" />
-                        </Link>
-                      </TableCell>
+            <DataTableShell>
+              <div className="hidden xl:block">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="h-11 bg-muted/40 text-[11px] uppercase tracking-wide hover:bg-muted/40">
+                      <TableHead className="h-11 px-4">Organisation</TableHead>
+                      <TableHead className="h-11 px-4">Type</TableHead>
+                      <TableHead className="h-11 px-4">Contact</TableHead>
+                      <TableHead className="h-11 px-4 text-right">Datasets</TableHead>
+                      <TableHead className="h-11 px-4">Agreement</TableHead>
+                      <TableHead className="h-11 px-4">Status</TableHead>
+                      <TableHead className="h-11 px-4 text-right">Actions</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
+                  </TableHeader>
+                  <TableBody>
+                    {orgs.map((organisation) => (
+                      <TableRow key={organisation.id} className="hover:bg-muted/30">
+                        <TableCell className="max-w-sm px-4 py-3.5">
+                          <div className="flex items-center gap-3">
+                            <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                              <Building2 className="size-4" aria-hidden="true" />
+                            </div>
+                            <div className="min-w-0">
+                              <Link
+                                href={`/organisations/${organisation.slug}`}
+                                className="line-clamp-1 font-semibold hover:underline"
+                              >
+                                {organisation.name}
+                              </Link>
+                              <p className="mt-0.5 line-clamp-1 text-xs text-muted-foreground">
+                                {organisation.acronym || `Added ${formatDate(organisation.created_at)}`}
+                              </p>
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell className="max-w-48 px-4 py-3.5">
+                          <TypeBadge type={organisation.type} />
+                        </TableCell>
+                        <TableCell className="max-w-56 px-4 py-3.5 text-xs text-muted-foreground">
+                          <span className="line-clamp-2 break-all">
+                            {organisation.email || "No email provided"}
+                          </span>
+                        </TableCell>
+                        <TableCell className="px-4 py-3.5 text-right font-medium tabular-nums">
+                          {organisation.dataset_count ?? 0}
+                        </TableCell>
+                        <TableCell className="px-4 py-3.5">
+                          <AgreementBadge hasAgreement={!!organisation.agreement_file_path} />
+                        </TableCell>
+                        <TableCell className="px-4 py-3.5">
+                          <OrganisationStatusBadge active={organisation.is_active} />
+                        </TableCell>
+                        <TableCell className="px-4 py-3.5 text-right">
+                          <Link
+                            href={`/organisations/${organisation.slug}`}
+                            className={cn(buttonVariants({ variant: "ghost", size: "icon-sm" }))}
+                            aria-label={`View ${organisation.name}`}
+                            title="View organisation"
+                          >
+                            <ChevronRight className="size-4" aria-hidden="true" />
+                          </Link>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </DataTableShell>
 
             <div className="grid gap-3 xl:hidden">
               {orgs.map((organisation) => (
@@ -334,7 +458,10 @@ export default function AdminOrganisationsPage() {
                       <Building2 className="size-5" aria-hidden="true" />
                     </div>
                     <div className="min-w-0 flex-1">
-                      <Link href={`/organisations/${organisation.slug}`} className="line-clamp-2 text-sm font-semibold leading-5 hover:underline">
+                      <Link
+                        href={`/organisations/${organisation.slug}`}
+                        className="line-clamp-2 text-sm font-semibold leading-5 hover:underline"
+                      >
                         {organisation.name}
                       </Link>
                       <p className="mt-1 text-xs text-muted-foreground">
@@ -350,15 +477,25 @@ export default function AdminOrganisationsPage() {
 
                   <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3 border-y py-3">
                     <div>
-                      <dt className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Datasets</dt>
-                      <dd className="mt-1 text-sm font-semibold tabular-nums">{organisation.dataset_count ?? 0}</dd>
+                      <dt className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                        Datasets
+                      </dt>
+                      <dd className="mt-1 text-sm font-semibold tabular-nums">
+                        {organisation.dataset_count ?? 0}
+                      </dd>
                     </div>
                     <div>
-                      <dt className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Agreement</dt>
-                      <dd className="mt-1"><AgreementBadge hasAgreement={!!organisation.agreement_file_path} /></dd>
+                      <dt className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                        Agreement
+                      </dt>
+                      <dd className="mt-1">
+                        <AgreementBadge hasAgreement={!!organisation.agreement_file_path} />
+                      </dd>
                     </div>
                     <div className="col-span-2">
-                      <dt className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Added</dt>
+                      <dt className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                        Added
+                      </dt>
                       <dd className="mt-1 text-xs font-medium">{formatDate(organisation.created_at)}</dd>
                     </div>
                   </dl>
@@ -390,17 +527,16 @@ export default function AdminOrganisationsPage() {
         )}
       </div>
 
-      <CreateOrganisationModal
-        open={createModalOpen}
-        onClose={() => setCreateModalOpen(false)}
-      />
+      <CreateOrganisationModal open={createModalOpen} onClose={() => setCreateModalOpen(false)} />
     </div>
   );
 }
 
 function AgreementBadge({ hasAgreement }: { hasAgreement: boolean }) {
+  const tone: MetricTone = hasAgreement ? "success" : "warning";
+  const t = METRIC_TONE[tone];
   return (
-    <Badge variant="outline" className="gap-1 text-[11px]">
+    <Badge variant="outline" className={cn("gap-1 border text-[11px]", t.well, t.icon)}>
       {hasAgreement ? (
         <FileText className="size-3" aria-hidden="true" />
       ) : (
@@ -412,9 +548,20 @@ function AgreementBadge({ hasAgreement }: { hasAgreement: boolean }) {
 }
 
 function OrganisationStatusBadge({ active }: { active: boolean }) {
+  const tone: MetricTone = active ? "success" : "muted";
+  const t = METRIC_TONE[tone];
   return (
-    <Badge variant={active ? "default" : "secondary"} className="text-[11px]">
+    <Badge variant="outline" className={cn("border text-[11px]", t.well, t.icon)}>
       {active ? "Active" : "Inactive"}
+    </Badge>
+  );
+}
+
+function TypeBadge({ type }: { type: OrganisationType }) {
+  const t = METRIC_TONE.info;
+  return (
+    <Badge variant="outline" className={cn("max-w-full border text-[11px]", t.well, t.icon)}>
+      <span className="truncate">{typeLabels.get(type) ?? "Other"}</span>
     </Badge>
   );
 }

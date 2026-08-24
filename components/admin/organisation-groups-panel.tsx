@@ -1,12 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { Building2, X, Settings, ChevronLeft } from "lucide-react";
+import { Building2, ChevronLeft, Network, Settings, Shield, Users, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent, TabsTrigger } from "@/components/ui/tabs";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { EmptyState } from "@/components/feedback/empty-state";
 import { OrganisationGroupForm } from "./organisation-group-form";
 import { OrganisationGroupMemberManager } from "./organisation-group-member-manager";
 import { OrganisationGroupCapabilities } from "./organisation-group-capabilities";
@@ -17,12 +18,32 @@ import {
   useDeactivateOrganisationGroup,
   useDeleteOrganisationGroup,
 } from "@/lib/hooks/useOrganisationGroups";
+import {
+  METRIC_TONE,
+  tabToneClass,
+  type MetricTone,
+} from "@/components/admin/admin-analytics-ui";
+import {
+  AdminSectionTabsNav,
+  ADMIN_TAB_TRIGGER_BASE,
+} from "@/components/admin/admin-section-tabs-nav";
 import { useToast } from "@/lib/hooks/use-toast";
 import { formatDate } from "@/lib/utils/date";
+import { cn } from "@/lib/utils";
 
 interface OrganisationGroupsPanelProps {
   createOpen: boolean;
   onCreateOpenChange: (open: boolean) => void;
+}
+
+function GroupStatusBadge({ active }: { active: boolean }) {
+  const tone: MetricTone = active ? "success" : "muted";
+  const t = METRIC_TONE[tone];
+  return (
+    <Badge variant="outline" className={cn("border text-xs", t.well, t.icon)}>
+      {active ? "Active" : "Inactive"}
+    </Badge>
+  );
 }
 
 export function OrganisationGroupsPanel({ createOpen, onCreateOpenChange }: OrganisationGroupsPanelProps) {
@@ -67,7 +88,7 @@ export function OrganisationGroupsPanel({ createOpen, onCreateOpenChange }: Orga
             description: error instanceof Error ? error.message : undefined,
             variant: "destructive",
           }),
-      }
+      },
     );
   };
 
@@ -115,7 +136,13 @@ export function OrganisationGroupsPanel({ createOpen, onCreateOpenChange }: Orga
   const deletingGroup = groups?.find((g) => g.id === deletingId);
 
   if (isLoading) {
-    return <Skeleton className="h-40" />;
+    return (
+      <div className="space-y-3">
+        {[...Array(3)].map((_, i) => (
+          <Skeleton key={i} className="h-24 rounded-2xl" />
+        ))}
+      </div>
+    );
   }
 
   if (!groups || groups.length === 0) {
@@ -128,13 +155,12 @@ export function OrganisationGroupsPanel({ createOpen, onCreateOpenChange }: Orga
             isSaving={create.isPending}
           />
         ) : (
-          <div className="rounded-xl border border-dashed bg-muted/20 p-8 text-center">
-            <Building2 className="mx-auto size-12 text-muted-foreground" />
-            <p className="mt-3 font-semibold">No organisation groups yet</p>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Create groups to grant capabilities to multiple organisations at once.
-            </p>
-          </div>
+          <EmptyState
+            icon={Network}
+            title="No organisation groups yet"
+            description="Create groups to grant capabilities to multiple organisations at once."
+            action={{ label: "New group", onClick: () => onCreateOpenChange(true) }}
+          />
         )}
       </div>
     );
@@ -163,31 +189,52 @@ export function OrganisationGroupsPanel({ createOpen, onCreateOpenChange }: Orga
 
   if (!selectedId || !selectedGroup) {
     return (
-      <div className="space-y-2">
-        {groups.map((group) => (
-          <button
-            key={group.id}
-            onClick={() => setSelectedId(group.id)}
-            className="w-full rounded-xl border bg-card p-4 text-left transition-colors hover:bg-accent"
-          >
-            <div className="flex items-start justify-between">
-              <div>
-                <p className="font-semibold">{group.name}</p>
-                {group.description && (
-                  <p className="mt-1 text-sm text-muted-foreground">{group.description}</p>
-                )}
-                <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                  <span>{group.member_count} members</span>
-                  <span>•</span>
-                  <span>Created {formatDate(group.created_at)}</span>
+      <div className="space-y-3">
+        {groups.map((group) => {
+          const tone: MetricTone = group.is_active ? "success" : "muted";
+          const t = METRIC_TONE[tone];
+          return (
+            <button
+              key={group.id}
+              type="button"
+              onClick={() => setSelectedId(group.id)}
+              className={cn(
+                "w-full rounded-2xl border p-4 text-left transition-colors hover:brightness-[0.98]",
+                t.card,
+              )}
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex min-w-0 items-start gap-3">
+                  <div
+                    className={cn(
+                      "flex size-10 shrink-0 items-center justify-center rounded-lg border",
+                      t.well,
+                    )}
+                  >
+                    <Building2 className={cn("size-5", t.icon)} aria-hidden />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="font-semibold">{group.name}</p>
+                    {group.description && (
+                      <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">
+                        {group.description}
+                      </p>
+                    )}
+                    <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                      <span className="inline-flex items-center gap-1">
+                        <Users className="size-3" aria-hidden />
+                        {group.member_count} {group.member_count === 1 ? "member" : "members"}
+                      </span>
+                      <span aria-hidden>•</span>
+                      <span>Created {formatDate(group.created_at)}</span>
+                    </div>
+                  </div>
                 </div>
+                <GroupStatusBadge active={group.is_active} />
               </div>
-              <Badge variant={group.is_active ? "default" : "secondary"}>
-                {group.is_active ? "Active" : "Inactive"}
-              </Badge>
-            </div>
-          </button>
-        ))}
+            </button>
+          );
+        })}
       </div>
     );
   }
@@ -195,74 +242,87 @@ export function OrganisationGroupsPanel({ createOpen, onCreateOpenChange }: Orga
   return (
     <>
       <div className="space-y-4">
-        <div className="flex items-center gap-2">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setSelectedId(null)}
-            className="h-11 gap-1"
-          >
-            <ChevronLeft className="size-4" />
-            Back to list
-          </Button>
-        </div>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => setSelectedId(null)}
+          className="h-9 gap-1 px-2"
+        >
+          <ChevronLeft className="size-4" />
+          Back to list
+        </Button>
 
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <div className="flex items-center gap-2">
-              <h3 className="text-lg font-bold">{selectedGroup.name}</h3>
-              <Badge variant={selectedGroup.is_active ? "default" : "secondary"}>
-                {selectedGroup.is_active ? "Active" : "Inactive"}
-              </Badge>
+        <div className="rounded-2xl border bg-muted/20 p-4 sm:p-5">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <h3 className="text-lg font-bold">{selectedGroup.name}</h3>
+                <GroupStatusBadge active={selectedGroup.is_active} />
+              </div>
+              {selectedGroup.description && (
+                <p className="mt-1 text-sm text-muted-foreground">{selectedGroup.description}</p>
+              )}
+              <p className="mt-2 text-xs text-muted-foreground">
+                {selectedGroup.member_count} members · Created {formatDate(selectedGroup.created_at)}
+              </p>
             </div>
-            {selectedGroup.description && (
-              <p className="mt-1 text-sm text-muted-foreground">{selectedGroup.description}</p>
-            )}
-          </div>
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-11"
-              onClick={() => setEditingId(selectedGroup.id)}
-            >
-              <Settings className="size-4 mr-1" />
-              Edit
-            </Button>
-            {selectedGroup.is_active && (
+            <div className="flex flex-wrap gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-9"
+                onClick={() => setEditingId(selectedGroup.id)}
+              >
+                <Settings className="size-4" />
+                Edit
+              </Button>
+              {selectedGroup.is_active && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-9"
+                  onClick={() => setDeactivatingId(selectedGroup.id)}
+                >
+                  <X className="size-4" />
+                  Deactivate
+                </Button>
+              )}
               <Button
                 variant="ghost"
                 size="sm"
-                className="h-11"
-                onClick={() => setDeactivatingId(selectedGroup.id)}
+                className="h-9 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                onClick={() => setDeletingId(selectedGroup.id)}
               >
-                <X className="size-4 mr-1" />
-                Deactivate
+                Delete
               </Button>
-            )}
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-11 text-destructive hover:bg-destructive/10 hover:text-destructive"
-              onClick={() => setDeletingId(selectedGroup.id)}
-            >
-              Delete
-            </Button>
+            </div>
           </div>
         </div>
 
         <Tabs defaultValue="members" className="w-full">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="members">Members</TabsTrigger>
-            <TabsTrigger value="capabilities">Capabilities</TabsTrigger>
-          </TabsList>
-          <TabsContent value="members" className="space-y-4">
+          <AdminSectionTabsNav>
+            <TabsTrigger
+              value="members"
+              className={cn(ADMIN_TAB_TRIGGER_BASE, tabToneClass("info"))}
+            >
+              <Users className="size-3.5 shrink-0 sm:size-4" />
+              Members
+            </TabsTrigger>
+            <TabsTrigger
+              value="capabilities"
+              className={cn(ADMIN_TAB_TRIGGER_BASE, tabToneClass("success"))}
+            >
+              <Shield className="size-3.5 shrink-0 sm:size-4" />
+              Capabilities
+            </TabsTrigger>
+          </AdminSectionTabsNav>
+          <TabsContent value="members" className="mt-4 space-y-4">
             <OrganisationGroupMemberManager
               groupId={selectedGroup.id}
               disabled={!selectedGroup.is_active}
             />
           </TabsContent>
-          <TabsContent value="capabilities" className="space-y-4">
+          <TabsContent value="capabilities" className="mt-4 space-y-4">
             <OrganisationGroupCapabilities group={selectedGroup} />
           </TabsContent>
         </Tabs>

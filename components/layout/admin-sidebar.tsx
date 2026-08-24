@@ -20,9 +20,7 @@ import {
   Target,
   Handshake,
   Network,
-  Stethoscope,
   Activity,
-  GitCompare,
   ShieldAlert,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -64,10 +62,8 @@ export const adminNavItems: Array<{
   { href: "/partner-interest", label: "Partner Interest", icon: Handshake, anyPermission: ["view:partner-interest", "review:partner-interest"] },
   { href: "/analytics", label: "Platform Analytics", icon: BarChart3 },
   { href: "/governance", label: "Data Governance", icon: ShieldAlert, superAdminOnly: true },
-  { href: "/datasets/compare", label: "Dataset Compare", icon: GitCompare, superAdminOnly: true },
   { href: "/gis-reference", label: "GIS Reference Layers", icon: Map, anyPermission: ["manage:gis-reference-data"] },
-  { href: "/indicators", label: "Indicators", icon: Stethoscope, anyPermission: ["manage:indicators"] },
-  { href: "/ingestion-ops", label: "Ingestion Ops", icon: Activity, superAdminOnly: true },
+  { href: "/ingestion-ops", label: "Ingestion Ops", icon: Activity, anyPermission: ["manage:indicators"] },
   { href: "/audit-logs", label: "Audit Log", icon: ScrollText },
 ];
 

@@ -1,4 +1,4 @@
-import { apiClient } from './client';
+import { apiClient, ApiError } from './client';
 
 interface ApiResponse<T> {
   success: boolean;
@@ -26,6 +26,8 @@ export interface ReviewQueueItem {
   sheetName?: string;
   cellRef?: string;
   datasetId?: string;
+  datasetTitle?: string;
+  datasetSlug?: string;
   candidates: ReviewQueueCandidate[] | null;
   method: string;
   confidence: string | null;
@@ -121,6 +123,115 @@ export async function narrateIngestion(datasetId: string): Promise<{ summary: st
   const response = await apiClient.post<ApiResponse<{ summary: string }>>(
     `/admin/governance/ingestion/datasets/${datasetId}/narrate`,
     {}
+  );
+  return response.data.data;
+}
+
+export interface IngestionEnsureResult {
+  datasetId: string;
+  slug: string;
+  action: "enqueued" | "already_queued" | "skipped";
+  reason?: string;
+  ingestionJobId?: string;
+}
+
+export interface IngestionBackfillResult {
+  scanned: number;
+  enqueued: number;
+  alreadyQueued: number;
+  skipped: number;
+  results: IngestionEnsureResult[];
+}
+
+export type IngestionJobStatus =
+  | "pending"
+  | "validating"
+  | "processing"
+  | "completed"
+  | "failed"
+  | "cancelled";
+
+export type IngestionStepStatus =
+  | "pending"
+  | "running"
+  | "completed"
+  | "skipped"
+  | "failed";
+
+export interface IngestionStep {
+  key: string;
+  label: string;
+  status: IngestionStepStatus;
+  startedAt: string | null;
+  completedAt: string | null;
+  itemsTotal: number | null;
+  itemsDone: number;
+  message: string | null;
+}
+
+export interface IngestionProgress {
+  jobId: string;
+  datasetId: string | null;
+  status: IngestionJobStatus;
+  progress: number;
+  currentStage: string | null;
+  steps: IngestionStep[];
+  errorMessage: string | null;
+  result: Record<string, unknown> | null;
+  startedAt: string | null;
+  completedAt: string | null;
+  createdAt: string;
+}
+
+export interface InFlightIngestionJob extends IngestionProgress {
+  datasetTitle: string | null;
+  datasetSlug: string | null;
+}
+
+/** Catch-up / manual retry for a single dataset. */
+export async function runDatasetIngestion(
+  datasetId: string,
+  opts: { force?: boolean } = {}
+): Promise<IngestionEnsureResult> {
+  const qs = opts.force ? "?force=true" : "";
+  const response = await apiClient.post<ApiResponse<IngestionEnsureResult>>(
+    `/admin/governance/ingestion/datasets/${datasetId}/run${qs}`,
+    {}
+  );
+  return response.data.data;
+}
+
+/** One-shot catch-up across eligible review-path datasets. */
+export async function backfillIngestion(limit = 50): Promise<IngestionBackfillResult> {
+  const response = await apiClient.post<ApiResponse<IngestionBackfillResult>>(
+    `/admin/governance/ingestion/backfill?limit=${limit}`,
+    {}
+  );
+  return response.data.data;
+}
+
+/** Latest ingestion job progress for a dataset (404 → null). */
+export async function getIngestionProgress(
+  datasetId: string
+): Promise<IngestionProgress | null> {
+  try {
+    const response = await apiClient.get<ApiResponse<IngestionProgress>>(
+      `/datasets/${datasetId}/ingestion`
+    );
+    return response.data.data;
+  } catch (error: unknown) {
+    if (error instanceof ApiError && error.status === 404) return null;
+    throw error;
+  }
+}
+
+/** Queued + running jobs for the ops board. */
+export async function listInFlightIngestionJobs(
+  limit = 50
+): Promise<InFlightIngestionJob[]> {
+  const response = await apiClient.get<ApiResponse<InFlightIngestionJob[]>>(
+    "/admin/governance/ingestion/jobs/in-flight",
+    { params: { limit } }
   );
   return response.data.data;
 }

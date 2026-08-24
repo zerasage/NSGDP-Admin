@@ -53,24 +53,35 @@ import type {
 } from "@/lib/api/partner-interest";
 import { cn } from "@/lib/utils";
 import { formatDate } from "@/lib/utils/date";
+import {
+  DataTableShell,
+  METRIC_TONE,
+  Panel,
+  tabToneClass,
+  type MetricTone,
+} from "@/components/admin/admin-analytics-ui";
 
-const STATUS_CONFIG: Record<PartnerInterestStatus, { label: string; className: string }> = {
-  pending: { label: "Pending", className: "bg-yellow-500/10 text-yellow-700 dark:text-yellow-400" },
-  approved: { label: "Approved", className: "bg-green-500/10 text-green-700 dark:text-green-400" },
-  declined: { label: "Declined", className: "bg-red-500/10 text-red-700 dark:text-red-400" },
+const STATUS_CONFIG: Record<
+  PartnerInterestStatus,
+  { label: string; tone: MetricTone }
+> = {
+  pending: { label: "Pending", tone: "warning" },
+  approved: { label: "Approved", tone: "success" },
+  declined: { label: "Declined", tone: "destructive" },
 };
 
-const TABS: Array<{ key: PartnerInterestStatus | "all"; label: string }> = [
-  { key: "pending", label: "Pending" },
-  { key: "approved", label: "Approved" },
-  { key: "declined", label: "Declined" },
-  { key: "all", label: "All submissions" },
+const TABS: Array<{ key: PartnerInterestStatus | "all"; label: string; tone: MetricTone }> = [
+  { key: "pending", label: "Pending", tone: "warning" },
+  { key: "approved", label: "Approved", tone: "success" },
+  { key: "declined", label: "Declined", tone: "destructive" },
+  { key: "all", label: "All submissions", tone: "muted" },
 ];
 
 function StatusBadge({ status }: { status: PartnerInterestStatus }) {
-  const { label, className } = STATUS_CONFIG[status];
+  const { label, tone } = STATUS_CONFIG[status];
+  const t = METRIC_TONE[tone];
   return (
-    <Badge variant="secondary" className={cn("text-xs capitalize", className)}>
+    <Badge variant="outline" className={cn("border text-xs capitalize", t.well, t.icon)}>
       {label}
     </Badge>
   );
@@ -198,7 +209,7 @@ export default function PartnerInterestPage() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold">Partner Interest</h1>
+          <h1 className="text-2xl font-bold tracking-tight">Partner Interest</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             Review organisations interested in contributing data to the portal
           </p>
@@ -210,76 +221,88 @@ export default function PartnerInterestPage() {
         )}
       </div>
 
-      <div className="overflow-hidden rounded-2xl border bg-card">
-        <div className="scrollbar-hide overflow-x-auto border-b px-4">
-          <div className="flex min-w-max gap-1" role="tablist" aria-label="Submission status">
-            {TABS.map((tab) => (
-              <button
-                key={tab.key}
-                type="button"
-                role="tab"
-                aria-selected={status === tab.key}
-                onClick={() => {
-                  setStatus(tab.key);
-                  setPage(1);
-                }}
-                className={cn(
-                  "relative px-3 py-3 text-sm font-medium transition-colors",
-                  status === tab.key
-                    ? "text-foreground after:absolute after:inset-x-3 after:bottom-0 after:h-0.5 after:rounded-full after:bg-primary"
-                    : "text-muted-foreground hover:text-foreground"
-                )}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="relative w-full sm:max-w-sm">
-            <Search 
-              className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" 
-              aria-hidden="true" 
-            />
-            <Input
-              placeholder="Search organisation, contact, or message"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              className="h-10 pl-9 pr-10"
-              aria-label="Search partner interest submissions"
-            />
-            {query && (
-              <button
-                type="button"
-                onClick={() => setQuery("")}
-                className="absolute right-0 top-1/2 flex size-10 -translate-y-1/2 items-center justify-center text-muted-foreground hover:text-foreground"
-                aria-label="Clear search"
-              >
-                <X className="size-4" />
-              </button>
-            )}
-          </div>
-
-          {hasFilters && (
-            <Button variant="ghost" onClick={clearFilters} className="h-10">
-              <X className="size-4" />
-              Clear filters
-            </Button>
-          )}
-
-          <div className="flex min-h-5 items-center gap-2 text-xs text-muted-foreground" aria-live="polite">
-            {(isSearchPending || (isFetching && !isLoading)) && (
-              <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />
-            )}
-            <span>
-              {isSearchPending ? "Searching" : isFetching && !isLoading ? "Updating" : "Found"}{" "}
-              <span className="font-semibold tabular-nums text-foreground">{total}</span>{" "}
-              {total === 1 ? "submission" : "submissions"}
-            </span>
-          </div>
-        </div>
+      <div className="rounded-xl border border-info/25 bg-info/[0.06] px-4 py-3 text-sm text-muted-foreground">
+        Organisations submit interest via the public portal. Review pending entries here — approval
+        does not create an org automatically; follow up manually with an invite after vetting.
       </div>
+
+      <Panel
+        title="Submissions"
+        description="Filter by status or search organisation, contact, and message text."
+        icon={Handshake}
+        tone="info"
+      >
+        <div className="space-y-4">
+          <div className="rounded-xl border bg-muted/30 p-1">
+            <div className="flex flex-wrap gap-1" role="tablist" aria-label="Submission status">
+              {TABS.map((tab) => (
+                <button
+                  key={tab.key}
+                  type="button"
+                  role="tab"
+                  aria-selected={status === tab.key}
+                  onClick={() => {
+                    setStatus(tab.key);
+                    setPage(1);
+                  }}
+                  className={cn(
+                    "min-h-9 rounded-lg px-3 py-2 text-xs font-medium transition-colors sm:text-sm",
+                    status === tab.key
+                      ? cn("shadow-sm", tabToneClass(tab.tone))
+                      : "text-muted-foreground hover:bg-background/80 hover:text-foreground",
+                  )}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="relative w-full sm:max-w-sm">
+              <Search
+                className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+                aria-hidden="true"
+              />
+              <Input
+                placeholder="Search organisation, contact, or message"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                className="h-10 pl-9 pr-10"
+                aria-label="Search partner interest submissions"
+              />
+              {query && (
+                <button
+                  type="button"
+                  onClick={() => setQuery("")}
+                  className="absolute right-0 top-1/2 flex size-10 -translate-y-1/2 items-center justify-center text-muted-foreground hover:text-foreground"
+                  aria-label="Clear search"
+                >
+                  <X className="size-4" />
+                </button>
+              )}
+            </div>
+
+            {hasFilters && (
+              <Button variant="ghost" onClick={clearFilters} className="h-10">
+                <X className="size-4" />
+                Clear filters
+              </Button>
+            )}
+
+            <div className="flex min-h-5 items-center gap-2 text-xs text-muted-foreground" aria-live="polite">
+              {(isSearchPending || (isFetching && !isLoading)) && (
+                <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />
+              )}
+              <span>
+                {isSearchPending ? "Searching" : isFetching && !isLoading ? "Updating" : "Found"}{" "}
+                <span className="font-semibold tabular-nums text-foreground">{total}</span>{" "}
+                {total === 1 ? "submission" : "submissions"}
+              </span>
+            </div>
+          </div>
+        </div>
+      </Panel>
 
       <div aria-busy={isLoading || isFetching || isSearchPending} className="space-y-4">
         {isError ? (
@@ -333,8 +356,9 @@ export default function PartnerInterestPage() {
         ) : (
           <>
             {/* Desktop table view */}
-            <div className="hidden overflow-hidden rounded-2xl border bg-card xl:block">
-              <Table>
+            <DataTableShell>
+              <div className="hidden xl:block">
+                <Table>
                 <TableHeader>
                   <TableRow className="h-11 bg-muted/40 text-[11px] uppercase tracking-wide hover:bg-muted/40">
                     <TableHead className="h-11 px-4">Organisation</TableHead>
@@ -412,7 +436,8 @@ export default function PartnerInterestPage() {
                   ))}
                 </TableBody>
               </Table>
-            </div>
+              </div>
+            </DataTableShell>
 
             {/* Mobile card view */}
             <div className="grid grid-cols-1 gap-3 xl:hidden">

@@ -59,7 +59,7 @@ export default function IndicatorDetailPage({
   if (!indicator) {
     return (
       <div className="space-y-6">
-        <Button variant="ghost" size="sm" onClick={() => router.push("/indicators")}>
+        <Button variant="ghost" size="sm" onClick={() => router.push("/ingestion-ops?tab=indicators")}>
           <ArrowLeft className="size-4" />
           Back
         </Button>
@@ -75,7 +75,7 @@ export default function IndicatorDetailPage({
   return (
     <div className="space-y-6">
       <div>
-        <Button variant="ghost" size="sm" className="mb-3 -ml-3 gap-1.5" onClick={() => router.push("/indicators")}>
+        <Button variant="ghost" size="sm" className="mb-3 -ml-3 gap-1.5" onClick={() => router.push("/ingestion-ops?tab=indicators")}>
           <ArrowLeft className="size-4" />
           Indicators
         </Button>

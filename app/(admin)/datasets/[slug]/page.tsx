@@ -36,8 +36,10 @@ import { VisibilityBadge } from "@/components/data/visibility-badge";
 import { apiClient } from "@/lib/api/client";
 import { adminApi, archiveDataset, getUserById, publishDataset, unarchiveDataset, unpublishDataset, retractDataset, type RetractDatasetPayload } from "@/lib/api/admin";
 import { RetractDatasetDialog } from "@/components/admin/retract-dataset-dialog";
+import { IngestionSummaryCard } from "@/components/admin/ingestion-summary-card";
 import { getCategories } from "@/lib/api/categories";
 import { useDatasetVersions, useDownloadDataset, useDatasetFiles } from "@/lib/hooks/useDatasets";
+import { useReviewQueue } from "@/lib/hooks/useIngestionReview";
 import type { DatasetFile, DatasetStatus } from "@/lib/api/datasets";
 import type { Visibility } from "@/types";
 import { useToast } from "@/lib/hooks/use-toast";
@@ -45,10 +47,17 @@ import { useAuth } from "@/lib/auth";
 import { usePermissions } from "@/lib/hooks/usePermissions";
 import { DatasetPreviewCard, DatasetPreviewDialog } from "@/components/data/dataset-preview-card";
 import { formatDate } from "@/lib/utils/date";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { IngestionReportTab } from "@/components/admin/ingestion-report-tab";
-import { DataReviewQueueTab } from "@/components/admin/data-review-queue-tab";
-import { RelatedDatasetsTab } from "@/components/admin/related-datasets-tab";
+import {
+  INGESTION_STATUS_LABEL,
+  canManualRunIngestion,
+  hasIngestionActivity,
+  ingestionCtaHref,
+  ingestionCtaLabel,
+  isIngestionInFlight,
+  isReadyForWarehousePublish,
+  needsIngestionCatchUp,
+  type IngestionStatus,
+} from "@/lib/utils/ingestion-status";
 
 function formatFileSize(bytes: number | string | null): string {
   // file_size is a Postgres bigint column — pg/TypeORM return bigint values
@@ -97,7 +106,7 @@ interface Dataset {
   archived_reason: string | null;
   created_at: string;
   updated_at: string;
-  ingestion_status: "not_ingested" | "uploaded" | "processing" | "processed_pending_approval" | "published" | "retracting" | "retracted" | "failed";
+  ingestion_status: IngestionStatus;
 }
 
 interface Organisation {
@@ -135,6 +144,7 @@ export default function DatasetDetailPage({
   const canApprove = isSuperAdmin || hasPermission("approve:datasets");
   const canPublish = isSuperAdmin || hasPermission("publish:datasets");
   const canArchive = isSuperAdmin || hasPermission("archive:datasets");
+  const canManageIngestion = isSuperAdmin || hasPermission("manage:indicators");
   const [archiveOpen, setArchiveOpen] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
 
@@ -151,12 +161,18 @@ export default function DatasetDetailPage({
     // upload side.
     refetchInterval: (query) => {
       const status = query.state.data?.ingestion_status;
-      return status === "processing" || status === "retracting" ? 3000 : false;
+      return isIngestionInFlight(status) ? 3000 : false;
     },
   });
 
   const { data: versionHistory } = useDatasetVersions(slug);
   const { data: files } = useDatasetFiles(slug);
+  const { data: aliasQueue } = useReviewQueue(
+    canView && dataset && (hasIngestionActivity(dataset.ingestion_status) || needsIngestionCatchUp(dataset.ingestion_status))
+      ? dataset.id
+      : undefined
+  );
+  const pendingAliases = aliasQueue?.length ?? 0;
 
   const { data: organisationsData } = useQuery({
     queryKey: ["admin", "organisations"],
@@ -374,6 +390,20 @@ export default function DatasetDetailPage({
     );
   }
 
+  const isTabular = dataset.format === "csv" || dataset.format === "excel";
+  const showIngestion =
+    isTabular &&
+    (hasIngestionActivity(dataset.ingestion_status) ||
+      needsIngestionCatchUp(dataset.ingestion_status) ||
+      dataset.status === "pending" ||
+      dataset.status === "under_review" ||
+      dataset.status === "approved");
+  const warehousePublishReady = isReadyForWarehousePublish(
+    dataset.ingestion_status,
+    dataset.format
+  );
+  const ingestionInFlight = isIngestionInFlight(dataset.ingestion_status);
+
   return (
     <div className="space-y-6">
       <div>
@@ -394,22 +424,63 @@ export default function DatasetDetailPage({
             <Badge variant="outline" className="rounded-full text-[11px] font-semibold uppercase">
               {dataset.format}
             </Badge>
+            {showIngestion && (
+              <Badge
+                variant={
+                  dataset.ingestion_status === "failed"
+                    ? "destructive"
+                    : pendingAliases > 0
+                      ? "secondary"
+                      : "outline"
+                }
+                className="gap-1.5 rounded-full text-[11px] font-semibold uppercase"
+              >
+                {ingestionInFlight && (
+                  <Loader2 className="size-3 animate-spin" aria-hidden />
+                )}
+                {INGESTION_STATUS_LABEL[dataset.ingestion_status]}
+              </Badge>
+            )}
           </div>
         </div>
       </div>
 
       <div className="flex flex-wrap items-center gap-2 rounded-2xl border bg-card p-3 [&>button]:h-11 sm:p-4 sm:[&>button]:h-8">
+          {showIngestion && (
+            <Button
+              size="sm"
+              variant={
+                pendingAliases > 0 ||
+                ingestionInFlight ||
+                needsIngestionCatchUp(dataset.ingestion_status)
+                  ? "default"
+                  : "outline"
+              }
+              className="gap-1.5"
+              onClick={() => router.push(ingestionCtaHref(slug, pendingAliases))}
+            >
+              {ingestionInFlight && (
+                <Loader2 className="size-4 animate-spin" aria-hidden />
+              )}
+              {ingestionCtaLabel(dataset.ingestion_status, pendingAliases)}
+            </Button>
+          )}
           {canApprove && (dataset.status === 'pending' || dataset.status === 'under_review') && (
             <Button size="sm" className="gap-1.5" onClick={() => router.push(`/datasets/${slug}/review`)}>
               <Eye className="size-4" aria-hidden="true" />
-              Review dataset
+              {dataset.status === "under_review" ? "Continue review" : "Review dataset"}
             </Button>
           )}
           {canPublish && dataset.status === 'approved' && !dataset.published_at && (
             <Button
               size="sm"
               onClick={() => publishMutation.mutate()}
-              disabled={publishMutation.isPending}
+              disabled={publishMutation.isPending || !warehousePublishReady}
+              title={
+                !warehousePublishReady
+                  ? `Ingestion incomplete (${INGESTION_STATUS_LABEL[dataset.ingestion_status]})`
+                  : undefined
+              }
             >
               <Globe className="size-4" aria-hidden="true" />
               Publish dataset
@@ -474,6 +545,51 @@ export default function DatasetDetailPage({
             </Button>
           )}
       </div>
+
+      {showIngestion && (
+        <IngestionSummaryCard
+          datasetId={dataset.id}
+          slug={slug}
+          ingestionStatus={dataset.ingestion_status}
+          catalogueStatus={dataset.status}
+          canManageIngestion={canManageIngestion}
+        />
+      )}
+
+      {!warehousePublishReady &&
+        canPublish &&
+        dataset.status === "approved" &&
+        !dataset.published_at && (
+          <Alert>
+            <AlertDescription>
+              Publish is blocked until ingestion finishes (current status:{" "}
+              {INGESTION_STATUS_LABEL[dataset.ingestion_status]}).
+              {canManualRunIngestion(dataset.ingestion_status)
+                ? " Use Run ingestion on the card above if the pipeline never started."
+                : " Wait for the queued or running job to complete."}
+            </AlertDescription>
+          </Alert>
+        )}
+
+      {pendingAliases > 0 &&
+        canPublish &&
+        dataset.status === "approved" &&
+        !dataset.published_at && (
+          <Alert>
+            <AlertDescription>
+              {pendingAliases} unresolved alias
+              {pendingAliases === 1 ? "" : "es"} remain. Resolve them before publishing
+              for clean warehouse numbers.{" "}
+              <button
+                type="button"
+                className="font-medium underline underline-offset-4"
+                onClick={() => router.push(ingestionCtaHref(slug, pendingAliases))}
+              >
+                Open alias queue
+              </button>
+            </AlertDescription>
+          </Alert>
+        )}
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(280px,1fr)]">
         <div className="min-w-0 space-y-6">
@@ -548,30 +664,7 @@ export default function DatasetDetailPage({
             </Card>
           )}
 
-          {dataset.ingestion_status !== "not_ingested" && (
-            <Card>
-              <CardContent className="pt-5">
-                <Tabs defaultValue="report">
-                  <TabsList>
-                    <TabsTrigger value="report">Ingestion Report</TabsTrigger>
-                    <TabsTrigger value="review">Data Review Queue</TabsTrigger>
-                    <TabsTrigger value="related">Related Datasets</TabsTrigger>
-                  </TabsList>
-                  <TabsContent value="report" className="mt-4">
-                    <IngestionReportTab datasetId={dataset.id} />
-                  </TabsContent>
-                  <TabsContent value="review" className="mt-4">
-                    <DataReviewQueueTab datasetId={dataset.id} />
-                  </TabsContent>
-                  <TabsContent value="related" className="mt-4">
-                    <RelatedDatasetsTab datasetId={dataset.id} />
-                  </TabsContent>
-                </Tabs>
-              </CardContent>
-            </Card>
-          )}
-
-          {(dataset.status === 'rejected' || dataset.review_comment) && (
+          {(dataset.status === "rejected" || dataset.review_comment) && (
             <Card className="border-destructive/30 bg-destructive/5">
               <CardHeader className="border-b border-destructive/20">
                 <CardTitle className="flex items-center gap-2 text-base text-destructive">
@@ -580,7 +673,7 @@ export default function DatasetDetailPage({
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-2">
-                <p className="text-sm">{dataset.review_comment || 'No comment provided.'}</p>
+                <p className="text-sm">{dataset.review_comment || "No comment provided."}</p>
                 {reviewer && dataset.reviewed_at && (
                   <p className="text-xs text-muted-foreground">
                     {reviewer.first_name} {reviewer.last_name} · {formatDate(dataset.reviewed_at)}
