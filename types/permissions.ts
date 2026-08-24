@@ -22,6 +22,8 @@ export type PermissionAction =
   | "view:access-requests"   // Read-only: see the access-request list without adjudicating
   | "view:partner-interest"  // Read-only: see partner interest submissions
   | "review:partner-interest" // Approve/decline partner interest submissions
+  | "view:contact-messages"  // Read-only: see public contact-form inbox
+  | "review:contact-messages" // Update contact-form status and staff notes
   | "create:organisations"   // Register new organisations on the platform
   | "edit:organisations"     // Update any organisation's profile
   | "deactivate:organisations" // Enable/disable any organisation
@@ -69,6 +71,8 @@ export const PERMISSION_ACTION_LABELS: Record<PermissionAction, string> = {
   "view:access-requests": "View Access Requests",
   "view:partner-interest": "View Partner Interest",
   "review:partner-interest": "Review Partner Interest",
+  "view:contact-messages": "View Contact Messages",
+  "review:contact-messages": "Review Contact Messages",
   "create:organisations": "Create Organisations",
   "edit:organisations": "Edit Organisations",
   "deactivate:organisations": "Deactivate Organisations",
@@ -118,6 +122,10 @@ export const PERMISSION_ACTION_DESCRIPTIONS: Record<PermissionAction, string> = 
     "Can see the list of partner interest submissions (organisation, contact, message, status) without being able to approve or decline them.",
   "review:partner-interest":
     "Can approve or decline partner interest submissions. Does not automatically create organisations or send invites — review stays a manual staff intent check.",
+  "view:contact-messages":
+    "Can see messages submitted through the public contact form without changing their status.",
+  "review:contact-messages":
+    "Can mark contact messages as open or closed and add internal staff notes. Does not send a reply automatically.",
   "create:organisations":
     "Can register new organisations on the platform.",
   "edit:organisations":
@@ -194,6 +202,10 @@ export const PERMISSION_ACTION_GROUPS: Array<{ label: string; actions: Permissio
   {
     label: "Partner Interest",
     actions: ["view:partner-interest", "review:partner-interest"],
+  },
+  {
+    label: "Contact",
+    actions: ["view:contact-messages", "review:contact-messages"],
   },
   {
     label: "Analytics",

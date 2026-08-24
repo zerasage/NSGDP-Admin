@@ -27,6 +27,8 @@ export type PermissionActionKey =
   | 'view:access-requests'
   | 'view:partner-interest'
   | 'review:partner-interest'
+  | 'view:contact-messages'
+  | 'review:contact-messages'
   | 'create:organisations'
   | 'edit:organisations'
   | 'deactivate:organisations'
