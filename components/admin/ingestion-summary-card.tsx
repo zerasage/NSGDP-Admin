@@ -21,6 +21,11 @@ import {
   type IngestionStatus,
 } from "@/lib/utils/ingestion-status";
 import { cn } from "@/lib/utils";
+import {
+  FITNESS_VERDICT_LABEL,
+  fitnessTone,
+  needsFitnessAttention,
+} from "@/lib/utils/ingestion-fitness";
 import { toast } from "sonner";
 
 interface IngestionSummaryCardProps {
@@ -131,6 +136,19 @@ export function IngestionSummaryCard({
               {inFlight ? <Loader2 className="size-3 animate-spin" aria-hidden /> : null}
               {INGESTION_STATUS_LABEL[ingestionStatus]}
             </Badge>
+            {needsFitnessAttention(report?.fitness) && (
+              <Badge
+                variant="outline"
+                className={cn(
+                  "text-[11px] font-semibold uppercase",
+                  fitnessTone(report.fitness.verdict) === "destructive"
+                    ? "border-destructive/30 bg-destructive/10 text-destructive"
+                    : "border-warning/30 bg-warning/10 text-amber-700 dark:text-warning"
+                )}
+              >
+                {FITNESS_VERDICT_LABEL[report.fitness.verdict]}
+              </Badge>
+            )}
           </div>
           <p className="text-[13px] text-muted-foreground">{helperCopy}</p>
         </div>

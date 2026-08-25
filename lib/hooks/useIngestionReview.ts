@@ -26,10 +26,10 @@ export function useReviewQueue(
   });
 }
 
-export function useIngestionReport(datasetId: string) {
+export function useIngestionReport(datasetId: string | undefined) {
   return useQuery({
     queryKey: [REPORT_KEY, datasetId],
-    queryFn: () => api.getIngestionReport(datasetId),
+    queryFn: () => api.getIngestionReport(datasetId!),
     enabled: !!datasetId,
   });
 }

@@ -26,9 +26,11 @@ import { useAuth } from "@/lib/auth";
 import { usePermissions } from "@/lib/hooks/usePermissions";
 import {
   useIngestionProgress,
+  useIngestionReport,
   useReviewQueue,
   useRunDatasetIngestion,
 } from "@/lib/hooks/useIngestionReview";
+import { IngestionFitnessBanner } from "@/components/admin/ingestion-fitness-panel";
 import {
   INGESTION_STATUS_LABEL,
   canManualRunIngestion,
@@ -88,6 +90,9 @@ export default function DatasetIngestionPage({
     canView && dataset ? dataset.id : undefined
   );
   const { data: progress } = useIngestionProgress(
+    canView && dataset ? dataset.id : undefined
+  );
+  const { data: ingestionReport } = useIngestionReport(
     canView && dataset ? dataset.id : undefined
   );
   const pendingAliases = aliases?.length ?? 0;
@@ -281,6 +286,8 @@ export default function DatasetIngestionPage({
           </AlertDescription>
         </Alert>
       )}
+
+      <IngestionFitnessBanner fitness={ingestionReport?.fitness} />
 
       {progress &&
         (inFlight ||

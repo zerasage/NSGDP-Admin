@@ -57,7 +57,7 @@ export function isReadyForWarehousePublish(
   status: IngestionStatus | undefined | null,
   format?: string
 ): boolean {
-  const tabular = !format || format === "csv" || format === "excel";
+  const tabular = !format || format === "csv" || format === "excel" || format === "json";
   if (!tabular) return true;
   return (
     status === "processed_pending_approval" || status === "published"

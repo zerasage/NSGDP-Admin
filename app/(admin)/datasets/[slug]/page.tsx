@@ -39,7 +39,7 @@ import { RetractDatasetDialog } from "@/components/admin/retract-dataset-dialog"
 import { IngestionSummaryCard } from "@/components/admin/ingestion-summary-card";
 import { getCategories } from "@/lib/api/categories";
 import { useDatasetVersions, useDownloadDataset, useDatasetFiles } from "@/lib/hooks/useDatasets";
-import { useReviewQueue } from "@/lib/hooks/useIngestionReview";
+import { useReviewQueue, useIngestionReport } from "@/lib/hooks/useIngestionReview";
 import type { DatasetFile, DatasetStatus } from "@/lib/api/datasets";
 import type { Visibility } from "@/types";
 import { useToast } from "@/lib/hooks/use-toast";
@@ -58,6 +58,10 @@ import {
   needsIngestionCatchUp,
   type IngestionStatus,
 } from "@/lib/utils/ingestion-status";
+import {
+  blocksPublishByFitness,
+  publishBlockedByFitnessMessage,
+} from "@/lib/utils/ingestion-fitness";
 
 function formatFileSize(bytes: number | string | null): string {
   // file_size is a Postgres bigint column — pg/TypeORM return bigint values
@@ -173,6 +177,10 @@ export default function DatasetDetailPage({
       : undefined
   );
   const pendingAliases = aliasQueue?.length ?? 0;
+  const { data: ingestionReport } = useIngestionReport(
+    canView && dataset ? dataset.id : undefined
+  );
+  const fitnessBlocksPublish = blocksPublishByFitness(ingestionReport?.fitness);
 
   const { data: organisationsData } = useQuery({
     queryKey: ["admin", "organisations"],
@@ -402,6 +410,12 @@ export default function DatasetDetailPage({
     dataset.ingestion_status,
     dataset.format
   );
+  const publishAllowed = warehousePublishReady && !fitnessBlocksPublish;
+  const publishBlockReason = !warehousePublishReady
+    ? `Ingestion incomplete (${INGESTION_STATUS_LABEL[dataset.ingestion_status]})`
+    : fitnessBlocksPublish && ingestionReport?.fitness
+      ? publishBlockedByFitnessMessage(ingestionReport.fitness)
+      : undefined;
   const ingestionInFlight = isIngestionInFlight(dataset.ingestion_status);
 
   return (
@@ -475,12 +489,8 @@ export default function DatasetDetailPage({
             <Button
               size="sm"
               onClick={() => publishMutation.mutate()}
-              disabled={publishMutation.isPending || !warehousePublishReady}
-              title={
-                !warehousePublishReady
-                  ? `Ingestion incomplete (${INGESTION_STATUS_LABEL[dataset.ingestion_status]})`
-                  : undefined
-              }
+              disabled={publishMutation.isPending || !publishAllowed}
+              title={publishBlockReason}
             >
               <Globe className="size-4" aria-hidden="true" />
               Publish dataset
@@ -567,6 +577,25 @@ export default function DatasetDetailPage({
               {canManualRunIngestion(dataset.ingestion_status)
                 ? " Use Run ingestion on the card above if the pipeline never started."
                 : " Wait for the queued or running job to complete."}
+            </AlertDescription>
+          </Alert>
+        )}
+
+      {fitnessBlocksPublish &&
+        canPublish &&
+        dataset.status === "approved" &&
+        !dataset.published_at &&
+        ingestionReport?.fitness && (
+          <Alert variant="destructive">
+            <AlertDescription>
+              {publishBlockedByFitnessMessage(ingestionReport.fitness)}{" "}
+              <button
+                type="button"
+                className="font-medium underline underline-offset-4"
+                onClick={() => router.push(`/datasets/${slug}/ingestion`)}
+              >
+                Open ingestion report
+              </button>
             </AlertDescription>
           </Alert>
         )}

@@ -225,10 +225,13 @@ export function DocumentFormModal({ open, onClose, document }: DocumentFormModal
             <Input
               id="document-file"
               type="file"
-              accept=".pdf,.doc,.docx,.xls,.xlsx"
+              accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.csv,.txt,.rtf,.md,.png,.jpg,.jpeg,.gif,.webp,.svg,.tif,.tiff,.json,.geojson,.gpkg,.kml,.kmz,.zip"
               className="mt-1.5"
               onChange={(e) => setFile(e.target.files?.[0] ?? null)}
             />
+            <p className="mt-1 text-xs text-muted-foreground">
+              PDF, Office, images, GeoJSON/JSON, GeoPackage, KML/KMZ, or ZIP. Warehouse data files still go through Datasets.
+            </p>
             {isEditing && (
               <p className="text-xs text-muted-foreground mt-1">
                 {document?.file_name

@@ -23,6 +23,7 @@ import {
   useCoverageRegister,
   useNarrateIngestion,
 } from "@/lib/hooks/useIngestionReview";
+import { IngestionFitnessPanel } from "@/components/admin/ingestion-fitness-panel";
 import { toast } from "sonner";
 
 const SPECIES_LABELS: Record<string, string> = {
@@ -69,6 +70,8 @@ export function IngestionReportTab({ datasetId }: { datasetId: string }) {
 
   return (
     <div className="space-y-4">
+      <IngestionFitnessPanel fitness={report.fitness} />
+
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <MetricCard label="Staging rows" value={report.stagingTotal} icon={FileSpreadsheet} tone="info" />
         <MetricCard label="Resolved" value={report.resolved} icon={CheckCircle2} tone="success" />

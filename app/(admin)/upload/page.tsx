@@ -50,12 +50,7 @@ const FORMAT_BY_EXTENSION: Record<string, DatasetFormat> = {
   xlsx: "excel",
   xls: "excel",
   json: "json",
-  geojson: "geojson",
-  zip: "shapefile",
-  kml: "kml",
-  kmz: "kml",
   gpkg: "geopackage",
-  pdf: "pdf",
 };
 
 const LICENSE_OPTIONS = [
@@ -670,7 +665,7 @@ export default function AdminUploadDatasetPage() {
           <div className="space-y-6">
             <StepHeading
               title="Upload files"
-              description="Optional — add one or more files now, or attach and replace files later."
+              description="CSV, Excel, JSON, or GeoPackage only. For PDF and other document files, use Documents."
             />
 
             <FileUploadArea files={uploadedFiles} onFilesChange={setUploadedFiles} />

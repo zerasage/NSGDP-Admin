@@ -34,10 +34,13 @@ export interface ReviewQueueItem {
   indicatorId: string | null;
 }
 
+import type { IngestionFitness } from '@/lib/utils/ingestion-fitness';
+
 export interface IngestionReport {
   datasetId: string;
   ingestionStatus: string;
   report: Record<string, unknown> | null;
+  fitness: IngestionFitness | null;
   stagingTotal: number;
   resolved: number;
   byHoldReason: Record<string, number>;
