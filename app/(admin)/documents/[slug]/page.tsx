@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { useDocumentBySlug, useArchiveDocument } from "@/lib/hooks/useDocuments";
+import { publishDocument, unpublishDocument } from "@/lib/api/documents";
 import { useAuth } from "@/lib/auth";
 import { usePermissions } from "@/lib/hooks/usePermissions";
 import { DocumentFormModal } from "@/components/admin/document-form-modal";
@@ -21,10 +22,16 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { formatDate } from "@/lib/utils/date";
 import type { DocumentStatus, DocumentType } from "@/lib/api/documents";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { Globe } from "lucide-react";
 
 const statusColors: Record<DocumentStatus, string> = {
   published: "bg-green-500/10 text-green-700 dark:text-green-400",
   draft: "bg-yellow-500/10 text-yellow-700 dark:text-yellow-400",
+  pending: "bg-amber-500/10 text-amber-700 dark:text-amber-400",
+  under_review: "bg-blue-500/10 text-blue-700 dark:text-blue-400",
+  approved: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400",
+  rejected: "bg-red-500/10 text-red-700 dark:text-red-400",
   archived: "bg-gray-500/10 text-gray-700 dark:text-gray-400",
 };
 
@@ -57,6 +64,27 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ slug:
 
   const documentQuery = useDocumentBySlug(slug);
   const archiveMutation = useArchiveDocument();
+  const queryClient = useQueryClient();
+
+  const publishMutation = useMutation({
+    mutationFn: () => publishDocument(slug),
+    onSuccess: () => {
+      toast.success("Document published");
+      queryClient.invalidateQueries({ queryKey: ["document", slug] });
+      queryClient.invalidateQueries({ queryKey: ["documents"] });
+    },
+    onError: (error: Error) => toast.error(error.message || "Publish failed"),
+  });
+
+  const unpublishMutation = useMutation({
+    mutationFn: () => unpublishDocument(slug),
+    onSuccess: () => {
+      toast.success("Document unpublished");
+      queryClient.invalidateQueries({ queryKey: ["document", slug] });
+      queryClient.invalidateQueries({ queryKey: ["documents"] });
+    },
+    onError: (error: Error) => toast.error(error.message || "Unpublish failed"),
+  });
 
   const document = documentQuery.data;
   const isLoading = documentQuery.isLoading;
@@ -166,7 +194,38 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ slug:
           </div>
 
           {canManage && (
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
+              {(document.status === "pending" ||
+                document.status === "under_review" ||
+                document.status === "approved") && (
+                <Link
+                  href={`/documents/${slug}/review`}
+                  className={buttonVariants({ variant: "default", className: "h-11 sm:h-9" })}
+                >
+                  Review
+                </Link>
+              )}
+              {(document.status === "approved" ||
+                (document.status === "draft" && document.file_path)) && (
+                <Button
+                  className="h-11 flex-1 sm:h-9 sm:flex-none"
+                  onClick={() => publishMutation.mutate()}
+                  disabled={publishMutation.isPending}
+                >
+                  <Globe className="size-4" />
+                  Publish
+                </Button>
+              )}
+              {document.status === "published" && (
+                <Button
+                  variant="outline"
+                  className="h-11 flex-1 sm:h-9 sm:flex-none"
+                  onClick={() => unpublishMutation.mutate()}
+                  disabled={unpublishMutation.isPending}
+                >
+                  Unpublish
+                </Button>
+              )}
               <Button
                 variant="outline"
                 className="h-11 flex-1 sm:h-9 sm:flex-none"

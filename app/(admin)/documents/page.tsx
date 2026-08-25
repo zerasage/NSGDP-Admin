@@ -68,14 +68,22 @@ const typeLabels: Record<DocumentType, string> = {
 
 const STATUS_CONFIG: Record<DocumentStatus, { label: string; tone: MetricTone }> = {
   draft: { label: "Draft", tone: "warning" },
+  pending: { label: "Pending", tone: "warning" },
+  under_review: { label: "Under review", tone: "info" },
+  approved: { label: "Approved", tone: "success" },
+  rejected: { label: "Rejected", tone: "warning" },
   published: { label: "Published", tone: "success" },
   archived: { label: "Archived", tone: "muted" },
 };
 
 const TABS: Array<{ key: DocumentStatus | "all"; label: string; tone: MetricTone }> = [
+  { key: "pending", label: "Pending review", tone: "warning" },
+  { key: "under_review", label: "Under review", tone: "info" },
+  { key: "approved", label: "Approved", tone: "success" },
   { key: "all", label: "All documents", tone: "muted" },
   { key: "draft", label: "Draft", tone: "warning" },
   { key: "published", label: "Published", tone: "success" },
+  { key: "rejected", label: "Rejected", tone: "warning" },
   { key: "archived", label: "Archived", tone: "muted" },
 ];
 
@@ -94,7 +102,7 @@ export default function AdminDocumentsPage() {
   const [pageSize, setPageSize] = useState(20);
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
-  const [status, setStatus] = useState<DocumentStatus | "all">("all");
+  const [status, setStatus] = useState<DocumentStatus | "all">("pending");
   const [type, setType] = useState<DocumentType | "all">("all");
   const [formModalOpen, setFormModalOpen] = useState(false);
   const [archiveTarget, setArchiveTarget] = useState<AdminDocument | null>(null);
@@ -452,6 +460,19 @@ export default function AdminDocumentsPage() {
                         </TableCell>
                         <TableCell className="px-4 py-3.5 text-right">
                           <div className="flex justify-end gap-1">
+                            {(doc.status === "pending" ||
+                              doc.status === "under_review" ||
+                              doc.status === "approved") && (
+                              <Link
+                                href={`/documents/${doc.slug}/review`}
+                                className={cn(
+                                  buttonVariants({ variant: "outline", size: "sm" }),
+                                  "h-8"
+                                )}
+                              >
+                                Review
+                              </Link>
+                            )}
                             <Link
                               href={`/documents/${doc.slug}`}
                               className={cn(buttonVariants({ variant: "ghost", size: "icon-sm" }))}
@@ -516,7 +537,17 @@ export default function AdminDocumentsPage() {
                     </div>
                   </dl>
 
-                  <div className="mt-4 flex gap-2">
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    {(doc.status === "pending" ||
+                      doc.status === "under_review" ||
+                      doc.status === "approved") && (
+                      <Link
+                        href={`/documents/${doc.slug}/review`}
+                        className={cn(buttonVariants({ variant: "default" }), "h-11 flex-1")}
+                      >
+                        Review
+                      </Link>
+                    )}
                     <Link
                       href={`/documents/${doc.slug}`}
                       className={cn(buttonVariants({ variant: "outline" }), "h-11 flex-1")}

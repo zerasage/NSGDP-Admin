@@ -11,7 +11,14 @@ export type DocumentType =
   | 'evaluation'
   | 'other';
 
-export type DocumentStatus = 'draft' | 'published' | 'archived';
+export type DocumentStatus =
+  | 'draft'
+  | 'pending'
+  | 'under_review'
+  | 'approved'
+  | 'rejected'
+  | 'published'
+  | 'archived';
 
 export interface AdminDocument {
   id: string;
@@ -31,6 +38,10 @@ export interface AdminDocument {
   tags: string[] | null;
   download_count: number;
   published_at: string | null;
+  submitted_at: string | null;
+  reviewed_by: string | null;
+  reviewed_at: string | null;
+  review_comment: string | null;
   created_at: string;
   updated_at: string;
   uploaded_by: string;
@@ -51,6 +62,8 @@ export interface CreateDocumentPayload {
   version?: string;
   author?: string;
   tags?: string[];
+  organisationId?: string;
+  programmeId?: string;
 }
 
 export interface UpdateDocumentPayload extends Partial<CreateDocumentPayload> {
@@ -104,4 +117,94 @@ export async function updateDocument(
 
 export async function archiveDocument(slug: string): Promise<void> {
   await apiClient.delete(`/documents/${slug}`);
+}
+
+export async function getDocumentReviewQueue(params?: {
+  page?: number;
+  limit?: number;
+  status?: 'pending' | 'under_review' | 'approved';
+  search?: string;
+}): Promise<PaginatedResponse<AdminDocument>> {
+  const response = await apiClient.get<ApiResponse<DocumentListApiPayload>>(
+    '/admin/documents/review-queue',
+    {
+      params: {
+        page: params?.page ?? 1,
+        limit: params?.limit ?? 20,
+        status: params?.status ?? 'pending',
+        search: params?.search,
+      },
+    }
+  );
+  const result = response.data.data;
+  return {
+    data: result.data,
+    page: result.meta.page,
+    limit: result.meta.limit,
+    total: result.meta.total,
+    totalPages: result.meta.totalPages,
+  };
+}
+
+export async function markDocumentUnderReview(slug: string): Promise<AdminDocument> {
+  const response = await apiClient.post<ApiResponse<AdminDocument>>(
+    `/admin/documents/${slug}/mark-under-review`,
+    {}
+  );
+  return response.data.data;
+}
+
+export async function approveDocument(
+  slug: string,
+  comment?: string
+): Promise<AdminDocument> {
+  const response = await apiClient.post<ApiResponse<AdminDocument>>(
+    `/admin/documents/${slug}/approve`,
+    comment ? { comment } : {}
+  );
+  return response.data.data;
+}
+
+export async function rejectDocument(slug: string, reason: string): Promise<AdminDocument> {
+  const response = await apiClient.post<ApiResponse<AdminDocument>>(
+    `/admin/documents/${slug}/reject`,
+    { reason }
+  );
+  return response.data.data;
+}
+
+export async function requestDocumentRevision(
+  slug: string,
+  comment: string
+): Promise<AdminDocument> {
+  const response = await apiClient.post<ApiResponse<AdminDocument>>(
+    `/admin/documents/${slug}/request-revision`,
+    { comment }
+  );
+  return response.data.data;
+}
+
+export async function publishDocument(slug: string): Promise<AdminDocument> {
+  const response = await apiClient.post<ApiResponse<AdminDocument>>(
+    `/admin/documents/${slug}/publish`,
+    {}
+  );
+  return response.data.data;
+}
+
+export async function unpublishDocument(slug: string): Promise<AdminDocument> {
+  const response = await apiClient.post<ApiResponse<AdminDocument>>(
+    `/admin/documents/${slug}/unpublish`,
+    {}
+  );
+  return response.data.data;
+}
+
+export async function downloadDocument(
+  slug: string
+): Promise<{ downloadUrl: string; fileName: string }> {
+  const response = await apiClient.post<
+    ApiResponse<{ downloadUrl: string; fileName: string }>
+  >(`/documents/${slug}/download`);
+  return response.data.data;
 }
