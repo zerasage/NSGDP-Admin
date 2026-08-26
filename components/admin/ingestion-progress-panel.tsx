@@ -1,8 +1,40 @@
 "use client";
 
+import { useSyncExternalStore } from "react";
 import { Check, Circle, Loader2, X } from "lucide-react";
 import type { IngestionProgress, IngestionStep } from "@/lib/api/ingestion-review";
 import { cn } from "@/lib/utils";
+
+/** One shared second-ticker so live elapsed labels stay pure during render. */
+let clockMs = 0;
+const clockListeners = new Set<() => void>();
+let clockTimer: number | null = null;
+
+function ensureClock() {
+  if (typeof window === "undefined" || clockTimer != null) return;
+  clockMs = Date.now();
+  clockTimer = window.setInterval(() => {
+    clockMs = Date.now();
+    clockListeners.forEach((l) => l());
+  }, 1000);
+}
+
+function subscribeClock(onStoreChange: () => void) {
+  ensureClock();
+  clockListeners.add(onStoreChange);
+  return () => {
+    clockListeners.delete(onStoreChange);
+  };
+}
+
+function getClockSnapshot() {
+  ensureClock();
+  return clockMs;
+}
+
+function getClockServerSnapshot() {
+  return 0;
+}
 
 function stepIcon(status: IngestionStep["status"]) {
   if (status === "completed" || status === "skipped") {
@@ -15,6 +47,51 @@ function stepIcon(status: IngestionStep["status"]) {
     return <Loader2 className="size-3.5 animate-spin text-primary" aria-hidden />;
   }
   return <Circle className="size-3.5 text-muted-foreground/50" aria-hidden />;
+}
+
+/** Compact wall-clock label: 45s, 3m 12s, 1h 04m. */
+function formatDurationMs(ms: number): string {
+  if (!Number.isFinite(ms) || ms < 0) return "—";
+  const totalSec = Math.round(ms / 1000);
+  if (totalSec < 60) return `${totalSec}s`;
+  const hours = Math.floor(totalSec / 3600);
+  const minutes = Math.floor((totalSec % 3600) / 60);
+  const seconds = totalSec % 60;
+  if (hours > 0) {
+    return `${hours}h ${String(minutes).padStart(2, "0")}m`;
+  }
+  return `${minutes}m ${String(seconds).padStart(2, "0")}s`;
+}
+
+function stepDurationLabel(step: IngestionStep, nowMs: number): string | null {
+  if (!step.startedAt) return null;
+  const start = Date.parse(step.startedAt);
+  if (!Number.isFinite(start)) return null;
+  const end =
+    step.completedAt != null && Number.isFinite(Date.parse(step.completedAt))
+      ? Date.parse(step.completedAt)
+      : step.status === "running"
+        ? nowMs
+        : null;
+  if (end == null) return null;
+  return formatDurationMs(end - start);
+}
+
+function jobDurationLabel(progress: IngestionProgress, nowMs: number): string | null {
+  const startIso = progress.startedAt ?? progress.createdAt;
+  if (!startIso) return null;
+  const start = Date.parse(startIso);
+  if (!Number.isFinite(start)) return null;
+  const end =
+    progress.completedAt != null && Number.isFinite(Date.parse(progress.completedAt))
+      ? Date.parse(progress.completedAt)
+      : progress.status === "pending" ||
+          progress.status === "validating" ||
+          progress.status === "processing"
+        ? nowMs
+        : null;
+  if (end == null) return null;
+  return formatDurationMs(end - start);
 }
 
 /** True when every stage finished successfully even if job status was later overwritten. */
@@ -72,6 +149,12 @@ export function IngestionProgressPanel({
     (progress.status === "pending" ||
       progress.status === "validating" ||
       progress.status === "processing");
+  const nowMs = useSyncExternalStore(
+    subscribeClock,
+    getClockSnapshot,
+    getClockServerSnapshot
+  );
+  const totalElapsed = nowMs > 0 ? jobDurationLabel(progress, nowMs) : null;
 
   return (
     <section
@@ -86,6 +169,11 @@ export function IngestionProgressPanel({
             Pipeline progress
           </p>
           <p className="text-sm text-foreground">{stageCaption(progress)}</p>
+          {totalElapsed ? (
+            <p className="text-xs tabular-nums text-muted-foreground">
+              Elapsed {totalElapsed}
+            </p>
+          ) : null}
         </div>
         <p className="text-lg font-bold tabular-nums tracking-tight">{pct}%</p>
       </div>
@@ -113,31 +201,44 @@ export function IngestionProgressPanel({
 
       {!compact && (
         <ol className="mt-4 grid gap-1.5 sm:grid-cols-2">
-          {progress.steps.map((step) => (
-            <li
-              key={step.key}
-              className={cn(
-                "flex items-start gap-2 rounded-xl border px-3 py-2 text-[13px]",
-                step.status === "running" && "border-primary/40 bg-primary/5",
-                step.status === "failed" && "border-destructive/40 bg-destructive/5"
-              )}
-            >
-              <span className="mt-0.5 shrink-0">{stepIcon(step.status)}</span>
-              <span className="min-w-0">
-                <span className="font-medium leading-5">{step.label}</span>
-                {step.message ? (
-                  <span className="mt-0.5 block text-xs text-muted-foreground">
-                    {step.message}
+          {progress.steps.map((step) => {
+            const duration =
+              nowMs > 0 || step.completedAt
+                ? stepDurationLabel(step, nowMs)
+                : null;
+            return (
+              <li
+                key={step.key}
+                className={cn(
+                  "flex items-start gap-2 rounded-xl border px-3 py-2 text-[13px]",
+                  step.status === "running" && "border-primary/40 bg-primary/5",
+                  step.status === "failed" && "border-destructive/40 bg-destructive/5"
+                )}
+              >
+                <span className="mt-0.5 shrink-0">{stepIcon(step.status)}</span>
+                <span className="min-w-0 flex-1">
+                  <span className="flex items-start justify-between gap-2">
+                    <span className="font-medium leading-5">{step.label}</span>
+                    {duration ? (
+                      <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
+                        {duration}
+                      </span>
+                    ) : null}
                   </span>
-                ) : null}
-                {step.status === "running" && step.itemsTotal != null ? (
-                  <span className="mt-0.5 block text-xs tabular-nums text-muted-foreground">
-                    {step.itemsDone.toLocaleString()} / {step.itemsTotal.toLocaleString()}
-                  </span>
-                ) : null}
-              </span>
-            </li>
-          ))}
+                  {step.message ? (
+                    <span className="mt-0.5 block text-xs text-muted-foreground">
+                      {step.message}
+                    </span>
+                  ) : null}
+                  {step.status === "running" && step.itemsTotal != null ? (
+                    <span className="mt-0.5 block text-xs tabular-nums text-muted-foreground">
+                      {step.itemsDone.toLocaleString()} / {step.itemsTotal.toLocaleString()}
+                    </span>
+                  ) : null}
+                </span>
+              </li>
+            );
+          })}
         </ol>
       )}
     </section>
