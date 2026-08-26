@@ -2,7 +2,7 @@
 
 import type { ReactNode } from "react";
 import { useState } from "react";
-import { Ban, Ellipsis, KeyRound, Pencil, RotateCcw, Shield, Trash2, Users } from "lucide-react";
+import { Ban, Ellipsis, Pencil, RotateCcw, Shield, Trash2, Users } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";

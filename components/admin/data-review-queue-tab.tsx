@@ -36,7 +36,7 @@ export function DataReviewQueueTab({
     limit: limit ?? (global ? 200 : undefined),
   });
   const confirmMutation = useConfirmIndicatorAlias(datasetId);
-  const rejectMutation = useRejectIndicatorAlias(datasetId);
+  const rejectMutation = useRejectIndicatorAlias();
   const [deciding, setDeciding] = useState<ReviewQueueItem | null>(null);
   const [rejectTarget, setRejectTarget] = useState<ReviewQueueItem | null>(null);
 

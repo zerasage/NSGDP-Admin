@@ -93,7 +93,7 @@ export function useConfirmIndicatorAlias(datasetId?: string) {
   });
 }
 
-export function useRejectIndicatorAlias(datasetId?: string) {
+export function useRejectIndicatorAlias() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (aliasId: string) => api.rejectIndicatorAlias(aliasId),

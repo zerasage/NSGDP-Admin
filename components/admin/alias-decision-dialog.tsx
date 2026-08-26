@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Plus } from "lucide-react";
 import {
   Dialog,
@@ -38,11 +38,39 @@ export function AliasDecisionDialog({
   onConfirm,
   isSaving,
 }: AliasDecisionDialogProps) {
+  return (
+    <Dialog open={!!item} onOpenChange={onOpenChange}>
+      {item ? (
+        <AliasDecisionDialogContent
+          key={item.id}
+          item={item}
+          onOpenChange={onOpenChange}
+          onConfirm={onConfirm}
+          isSaving={isSaving}
+        />
+      ) : null}
+    </Dialog>
+  );
+}
+
+function AliasDecisionDialogContent({
+  item,
+  onOpenChange,
+  onConfirm,
+  isSaving,
+}: {
+  item: ReviewQueueItem;
+  onOpenChange: (open: boolean) => void;
+  onConfirm: (indicatorId: string) => void;
+  isSaving?: boolean;
+}) {
   const { data: indicators } = useIndicators();
   const createMutation = useCreateIndicator();
   const [search, setSearch] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [newName, setNewName] = useState("");
+  const [newName, setNewName] = useState(
+    () => item.rawText.replace(/\s+\d{4}\s*$/, "").trim() || item.rawText,
+  );
 
   const indicatorsById = useMemo(() => {
     const map = new Map<string, { name: string; is_active: boolean }>();
@@ -75,23 +103,12 @@ export function AliasDecisionDialog({
       .sort((a, b) => b.nameScore - a.nameScore || b.score - a.score);
   }, [item, indicatorsById]);
 
-  useEffect(() => {
-    if (!item) return;
-    // Do not auto-select a fuzzy guess, and leave search empty so the admin
-    // types intentionally (auto-filling the normalized label felt noisy).
-    setSearch("");
-    setSelectedId(null);
-    setNewName(item.rawText.replace(/\s+\d{4}\s*$/, "").trim() || item.rawText);
-  }, [item]);
-
   const filtered = useMemo(() => {
     if (!indicators) return [];
     const q = search.trim().toLowerCase();
     if (!q) return indicators.slice(0, 20);
     return indicators.filter((i) => i.name.toLowerCase().includes(q)).slice(0, 20);
   }, [indicators, search]);
-
-  if (!item) return null;
 
   const busy = isSaving || createMutation.isPending;
 
@@ -122,8 +139,7 @@ export function AliasDecisionDialog({
   };
 
   return (
-    <Dialog open={!!item} onOpenChange={onOpenChange}>
-      <DialogContent className="flex max-h-[min(92vh,44rem)] w-full flex-col gap-4 overflow-hidden p-5 sm:max-w-3xl">
+    <DialogContent className="flex max-h-[min(92vh,44rem)] w-full flex-col gap-4 overflow-hidden p-5 sm:max-w-3xl">
         <DialogHeader className="shrink-0 space-y-2 pr-8 text-left">
           <DialogTitle>Confirm indicator mapping</DialogTitle>
           <DialogDescription>
@@ -275,7 +291,6 @@ export function AliasDecisionDialog({
             Confirm mapping
           </Button>
         </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    </DialogContent>
   );
 }

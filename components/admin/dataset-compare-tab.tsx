@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { ArrowLeftRight, BarChart3, CheckCircle2, CircleSlash, GitCompare, Layers } from "lucide-react";
+import { ArrowLeftRight, BarChart3, GitCompare, Layers } from "lucide-react";
 import { useDatasets } from "@/lib/hooks/useDatasets";
 import { useDatasetCompare } from "@/lib/hooks/useGovernance";
 import { Button } from "@/components/ui/button";

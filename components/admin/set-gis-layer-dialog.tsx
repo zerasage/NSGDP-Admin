@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { Check, ExternalLink, Loader2, Upload } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
@@ -40,16 +40,34 @@ export function SetGisLayerDialog({
   open,
   onClose,
 }: SetGisLayerDialogProps) {
-  const [query, setQuery] = useState("");
-  const [selectedDatasetId, setSelectedDatasetId] = useState<string>("");
-  const mutation = useSetGisReferenceLayer();
+  return (
+    <Dialog open={open} onOpenChange={(next) => !next && onClose()}>
+      {open ? (
+        <SetGisLayerDialogContent
+          key={`${slot}-${currentLayer?.datasetId ?? "none"}`}
+          slot={slot}
+          currentLayer={currentLayer}
+          onClose={onClose}
+        />
+      ) : null}
+    </Dialog>
+  );
+}
 
-  useEffect(() => {
-    if (open) {
-      setSelectedDatasetId(currentLayer?.datasetId ?? "");
-      setQuery("");
-    }
-  }, [open, currentLayer?.datasetId]);
+function SetGisLayerDialogContent({
+  slot,
+  currentLayer,
+  onClose,
+}: {
+  slot: GisReferenceSlot;
+  currentLayer?: GisReferenceLayer;
+  onClose: () => void;
+}) {
+  const [query, setQuery] = useState("");
+  const [selectedDatasetId, setSelectedDatasetId] = useState<string>(
+    currentLayer?.datasetId ?? "",
+  );
+  const mutation = useSetGisReferenceLayer();
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ["gis-reference", "eligible-datasets"],
@@ -63,7 +81,7 @@ export function SetGisLayerDialog({
       );
       return response.data.data;
     },
-    enabled: open,
+    enabled: true,
     staleTime: 60 * 1000,
   });
 
@@ -109,8 +127,7 @@ export function SetGisLayerDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={(next) => !next && onClose()}>
-      <DialogContent className="flex max-h-[90vh] flex-col gap-0 overflow-hidden p-0 sm:max-w-lg">
+    <DialogContent className="flex max-h-[90vh] flex-col gap-0 overflow-hidden p-0 sm:max-w-lg">
         <div className="min-w-0 flex-1 space-y-4 overflow-y-auto p-4 pb-0">
           <DialogHeader>
             <DialogTitle className="pr-8 leading-snug">
@@ -244,7 +261,6 @@ export function SetGisLayerDialog({
             </Button>
           </div>
         </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    </DialogContent>
   );
 }
