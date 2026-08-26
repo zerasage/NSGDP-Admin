@@ -11,10 +11,10 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/feedback/empty-state";
+import { METRIC_TONE, Panel } from "@/components/admin/admin-analytics-ui";
 import { OrganisationCombobox } from "@/components/admin/organisation-combobox";
 import { CategoryCombobox } from "@/components/admin/category-combobox";
 import { Autocomplete } from "@/components/ui/autocomplete";
@@ -35,6 +35,7 @@ import { NIGER_STATE_LGAS } from "@/lib/constants/core";
 import { UPLOAD_FIELD_TOOLTIPS } from "@/lib/constants/upload-tooltips";
 import { useToast } from "@/lib/hooks/use-toast";
 import type { DatasetFormat, DatasetVisibility } from "@/lib/api/datasets";
+import { cn } from "@/lib/utils";
 
 const steps = [
   { id: 1, name: "Basic Info", icon: FileText },
@@ -49,12 +50,7 @@ const FORMAT_BY_EXTENSION: Record<string, DatasetFormat> = {
   xlsx: "excel",
   xls: "excel",
   json: "json",
-  geojson: "geojson",
-  zip: "shapefile",
-  kml: "kml",
-  kmz: "kml",
   gpkg: "geopackage",
-  pdf: "pdf",
 };
 
 const LICENSE_OPTIONS = [
@@ -68,9 +64,27 @@ const LICENSE_OPTIONS = [
 function StepHeading({ title, description }: { title: string; description: string }) {
   return (
     <div className="border-b pb-4">
-      <h2 className="text-base font-semibold">{title}</h2>
+      <h2 className="text-base font-semibold tracking-tight">{title}</h2>
       <p className="mt-1 text-sm text-muted-foreground">{description}</p>
     </div>
+  );
+}
+
+function TagChip({ label, onRemove }: { label: string; onRemove: () => void }) {
+  const t = METRIC_TONE.primary;
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-sm",
+        t.well,
+        t.icon,
+      )}
+    >
+      {label}
+      <button type="button" onClick={onRemove} aria-label={`Remove ${label}`}>
+        <X className="size-3" />
+      </button>
+    </span>
   );
 }
 
@@ -162,6 +176,8 @@ export default function AdminUploadDatasetPage() {
   const effectiveOrganisationId =
     organisationId || (presetAgency ? organisations.find((o) => o.is_platform_owner)?.id ?? "" : "");
   const effectiveCategoryId = categoryId || (prefillTestData ? categories[0]?.id ?? "" : "");
+  const agencyOrg = organisations.find((o) => o.is_platform_owner);
+  const currentStepMeta = steps.find((step) => step.id === currentStep);
 
   const addTag = () => {
     if (tagInput.trim() && !tags.includes(tagInput.trim())) {
@@ -286,11 +302,13 @@ export default function AdminUploadDatasetPage() {
 
   if (!permissionsLoading && !canUpload) {
     return (
-      <EmptyState
-        icon={Lock}
-        title="Access restricted"
-        description="Uploading a dataset requires create:datasets. Ask a super_admin to grant your group this permission."
-      />
+      <div className="flex min-h-[60vh] items-center justify-center">
+        <EmptyState
+          icon={Lock}
+          title="Access restricted"
+          description="Uploading a dataset requires create:datasets. Ask a super_admin to grant your group this permission."
+        />
+      </div>
     );
   }
 
@@ -309,54 +327,77 @@ export default function AdminUploadDatasetPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+      <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold">Upload dataset</h1>
+          <h1 className="text-2xl font-bold tracking-tight">
+            {presetAgency ? "Upload to agency" : "Upload dataset"}
+          </h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Create a new dataset on behalf of an organisation
+            {presetAgency
+              ? `Create a dataset owned by ${agencyOrg?.name ?? "the platform agency"}`
+              : "Create a new dataset on behalf of a partner organisation"}
           </p>
         </div>
-        <label className="flex h-10 shrink-0 cursor-pointer items-center gap-2 rounded-lg border bg-card px-3 text-xs text-muted-foreground">
-          <Checkbox
-            checked={prefillTestData}
-            onCheckedChange={(checked) => togglePrefill(!!checked)}
-          />
-          Prefill test data
-        </label>
+        <div className="flex flex-wrap items-center gap-2">
+          <Badge
+            variant="outline"
+            className={cn(
+              "rounded-full px-3 py-1 text-xs font-medium tabular-nums",
+              METRIC_TONE.info.well,
+              METRIC_TONE.info.icon,
+            )}
+          >
+            Step {currentStep} of {steps.length}
+          </Badge>
+          <label className="flex h-9 shrink-0 cursor-pointer items-center gap-2 rounded-lg border bg-card px-3 text-xs text-muted-foreground">
+            <Checkbox
+              checked={prefillTestData}
+              onCheckedChange={(checked) => togglePrefill(!!checked)}
+            />
+            Prefill test data
+          </label>
+        </div>
+      </div>
+
+      <div className="rounded-xl border border-info/25 bg-info/[0.06] px-4 py-3 text-sm text-muted-foreground">
+        Complete all five steps — basic info, coverage, files, governance, and contacts. Submitting
+        sends the dataset to the review queue; saving as draft keeps it editable until you are ready.
+        {presetAgency
+          ? " Agency uploads are owned by the platform organisation and appear in the agency workspace."
+          : " Partner uploads are attributed to the selected organisation."}
       </div>
 
       {/* Mobile stepper: horizontal at top */}
-      <div className="rounded-2xl border bg-card px-4 py-4 sm:px-6 lg:hidden">
-        <div className="mb-3 flex items-center justify-between">
-          <span className="text-xs font-medium text-muted-foreground">Upload progress</span>
-          <Badge variant="outline" className="tabular-nums">Step {currentStep} of {steps.length}</Badge>
-        </div>
+      <Panel
+        title="Upload progress"
+        description={currentStepMeta ? `Current step: ${currentStepMeta.name}` : undefined}
+        icon={Upload}
+        tone="info"
+        className="lg:hidden"
+      >
         <Stepper
           steps={steps}
           currentStep={currentStep}
           onStepClick={(step) => step < currentStep && setCurrentStep(step)}
         />
-      </div>
+      </Panel>
 
       {/* Desktop: vertical stepper + form side by side */}
-      <div className="grid gap-6 lg:grid-cols-[240px_1fr]">
+      <div className="grid gap-6 lg:grid-cols-[260px_1fr]">
         {/* Vertical stepper sidebar (desktop only) */}
         <aside className="hidden lg:block">
-          <Card className="sticky top-6 p-4">
-            <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              Upload steps
-            </h2>
+          <Panel title="Upload steps" icon={Upload} tone="primary" className="sticky top-6">
             <Stepper
               steps={steps}
               currentStep={currentStep}
               onStepClick={(step) => step < currentStep && setCurrentStep(step)}
               orientation="vertical"
             />
-          </Card>
+          </Panel>
         </aside>
 
         {/* Form content */}
-        <Card className="p-5 sm:p-6">
+        <section className="overflow-hidden rounded-2xl border bg-card p-5 sm:p-6">
         {currentStep === 1 && (
           <div className="space-y-6">
             <StepHeading
@@ -459,15 +500,7 @@ export default function AdminUploadDatasetPage() {
                 {tags.length > 0 && (
                   <div className="flex flex-wrap gap-2 pt-1">
                     {tags.map((tag) => (
-                      <span
-                        key={tag}
-                        className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-3 py-1 text-sm text-primary"
-                      >
-                        {tag}
-                        <button type="button" onClick={() => removeTag(tag)} aria-label={`Remove ${tag}`}>
-                          <X className="size-3" />
-                        </button>
-                      </span>
+                      <TagChip key={tag} label={tag} onRemove={() => removeTag(tag)} />
                     ))}
                   </div>
                 )}
@@ -608,15 +641,11 @@ export default function AdminUploadDatasetPage() {
                 {diseaseIndicators.length > 0 && (
                   <div className="flex flex-wrap gap-2 pt-1">
                     {diseaseIndicators.map((indicator) => (
-                      <span
+                      <TagChip
                         key={indicator}
-                        className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-3 py-1 text-sm text-primary"
-                      >
-                        {indicator}
-                        <button type="button" onClick={() => removeIndicator(indicator)} aria-label={`Remove ${indicator}`}>
-                          <X className="size-3" />
-                        </button>
-                      </span>
+                        label={indicator}
+                        onRemove={() => removeIndicator(indicator)}
+                      />
                     ))}
                   </div>
                 )}
@@ -636,7 +665,7 @@ export default function AdminUploadDatasetPage() {
           <div className="space-y-6">
             <StepHeading
               title="Upload files"
-              description="Optional — add one or more files now, or attach and replace files later."
+              description="CSV, Excel, JSON, or GeoPackage only. For PDF and other document files, use Documents."
             />
 
             <FileUploadArea files={uploadedFiles} onFilesChange={setUploadedFiles} />
@@ -821,7 +850,7 @@ export default function AdminUploadDatasetPage() {
             </div>
           </div>
         )}
-        </Card>
+        </section>
       </div>
     </div>
   );

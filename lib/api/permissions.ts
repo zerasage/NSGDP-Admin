@@ -25,12 +25,22 @@ export type PermissionActionKey =
   | 'upload:programs'
   | 'approve:access-requests'
   | 'view:access-requests'
+  | 'view:partner-interest'
+  | 'review:partner-interest'
+  | 'view:contact-messages'
+  | 'review:contact-messages'
   | 'create:organisations'
   | 'edit:organisations'
   | 'deactivate:organisations'
   | 'delete:organisations'
   | 'manage:organisation-agreements'
-  | 'create:datasets';
+  | 'create:datasets'
+  | 'manage:documents'
+  | 'manage:groups'
+  | 'manage:analytics'
+  | 'manage:gis-reference-data'
+  | 'manage:partner-api-keys'
+  | 'manage:indicators';
 
 export interface PermissionGroup {
   id: string;

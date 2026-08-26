@@ -5,6 +5,8 @@ import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
   FileCheck,
+  FileText,
+  FolderKanban,
   Users,
   Building2,
   KeyRound,
@@ -13,6 +15,14 @@ import {
   LogOut,
   UserCog,
   Upload,
+  BarChart3,
+  Map,
+  Target,
+  Handshake,
+  Mail,
+  Network,
+  Activity,
+  ShieldAlert,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { AdminPortalLinks, AdminSidebarBrand } from "@/components/layout/admin-header";
@@ -40,12 +50,22 @@ export const adminNavItems: Array<{
   { href: "/datasets", label: "Review Queue", icon: FileCheck, anyPermission: ["approve:datasets", "publish:datasets"] },
   { href: "/upload?agency=1", label: "Upload to Agency", icon: Upload, anyPermission: ["create:datasets"] },
   { href: "/organisations", label: "Organisations", icon: Building2 },
+  // Blanket-staff-readable, same as Organisations/Audit Log: everyone in the
+  // admin portal can browse; create/edit/archive are gated within the page.
+  { href: "/documents", label: "Documents", icon: FileText },
+  { href: "/groups", label: "Groups", icon: FolderKanban },
+  { href: "/programs", label: "Programmes", icon: Target, anyPermission: ["create:programs", "edit:programs", "upload:programs", "delete:programs"] },
   { href: "/users", label: "All Users", icon: Users, anyPermission: ["invite:users", "promote:org-admin", "demote:org-admin", "remove:org-members"] },
   { href: "/agency", label: "Agency", icon: UserCog, superAdminOnly: true },
   { href: "/permission-groups", label: "Permission Groups", icon: ShieldCheck, superAdminOnly: true },
+  { href: "/organisation-groups", label: "Organisation Groups", icon: Network, superAdminOnly: true },
   { href: "/access-requests", label: "Access Requests", icon: KeyRound, anyPermission: ["view:access-requests", "approve:access-requests"] },
-  // TODO: Enable when analytics backend is ready (post-MS2)
-  // { href: "/analytics", label: "Platform Analytics", icon: BarChart3 },
+  { href: "/partner-interest", label: "Partner Interest", icon: Handshake, anyPermission: ["view:partner-interest", "review:partner-interest"] },
+  { href: "/contact", label: "Contact Messages", icon: Mail, anyPermission: ["view:contact-messages", "review:contact-messages"] },
+  { href: "/analytics", label: "Platform Analytics", icon: BarChart3 },
+  { href: "/governance", label: "Data Governance", icon: ShieldAlert, superAdminOnly: true },
+  { href: "/gis-reference", label: "GIS Reference Layers", icon: Map, anyPermission: ["manage:gis-reference-data"] },
+  { href: "/ingestion-ops", label: "Ingestion Ops", icon: Activity, anyPermission: ["manage:indicators"] },
   { href: "/audit-logs", label: "Audit Log", icon: ScrollText },
 ];
 

@@ -361,6 +361,22 @@ export async function unpublishDataset(datasetSlug: string): Promise<Dataset> {
   return response.data.data;
 }
 
+export interface RetractDatasetPayload {
+  reason: string;
+  mfaCode: string;
+  forgetAliases?: boolean;
+  purgeStaging?: boolean;
+}
+
+/**
+ * Retract a published dataset's ingestion batch (MFA-gated, super_admin or
+ * publish:datasets). Note: unlike every other dataset action in this file,
+ * the backend route takes the dataset UUID, not the slug.
+ */
+export async function retractDataset(datasetId: string, payload: RetractDatasetPayload): Promise<void> {
+  await apiClient.post(`/admin/datasets/${datasetId}/retract`, payload);
+}
+
 /**
  * Get audit logs
  */
@@ -384,100 +400,6 @@ export async function exportAuditLogs(
     params: params as Record<string, unknown>,
   });
   return response.data;
-}
-
-/**
- * Invites
- */
-export enum InviteRole {
-  CONTRIBUTOR = 'contributor',
-  ADMIN = 'admin',
-}
-
-export enum InviteStatus {
-  PENDING = 'pending',
-  ACCEPTED = 'accepted',
-  EXPIRED = 'expired',
-  REVOKED = 'revoked',
-}
-
-export interface OrganisationInvite {
-  id: string;
-  organisationId: string;
-  organisationName: string;
-  invitedEmail: string;
-  invitedByEmail: string;
-  invitedByName: string;
-  role: InviteRole;
-  status: InviteStatus;
-  expiresAt: string;
-  acceptedAt: string | null;
-  createdAt: string;
-}
-
-export interface CreateInviteDto {
-  invitedEmail: string;
-  role: InviteRole;
-  message?: string;
-}
-
-/**
- * Get invites for an organisation
- */
-export async function getOrganisationInvites(
-  organisationId: string
-): Promise<OrganisationInvite[]> {
-  const response = await apiClient.get<ApiResponse<OrganisationInvite[]>>(
-    `/admin/organisations/${organisationId}/invites`
-  );
-  return response.data.data;
-}
-
-/**
- * Create an invite for an organisation
- */
-export async function createInvite(
-  organisationId: string,
-  data: CreateInviteDto
-): Promise<OrganisationInvite> {
-  const response = await apiClient.post<ApiResponse<OrganisationInvite>>(
-    `/admin/organisations/${organisationId}/invites`,
-    data
-  );
-  return response.data.data;
-}
-
-/**
- * Revoke an invite
- */
-export async function revokeInvite(
-  organisationId: string,
-  inviteId: string
-): Promise<{ message: string }> {
-  const response = await apiClient.delete<ApiResponse<{ message: string }>>(
-    `/admin/organisations/${organisationId}/invites/${inviteId}`
-  );
-  return response.data.data;
-}
-
-/**
- * Resend an invite
- */
-export async function resendInvite(
-  organisationId: string,
-  inviteId: string
-): Promise<{ message: string }> {
-  const response = await apiClient.post<ApiResponse<{ message: string }>>(
-    `/admin/organisations/${organisationId}/invites/${inviteId}/resend`
-  );
-  return response.data.data;
-}
-
-/**
- * Permanently delete an invite
- */
-export async function deleteInvite(inviteId: string): Promise<void> {
-  await apiClient.delete(`/admin/invites/${inviteId}/permanent`);
 }
 
 /**
@@ -642,6 +564,121 @@ export async function getDashboardActivity(): Promise<{
     '/admin/dashboard/activity'
   );
   return response.data.data;
+}
+
+export interface AnalyticsTimeSeries {
+  uploadsOverTime: Array<{ month: string; uploads: number }>;
+  newUsersOverTime: Array<{ month: string; users: number }>;
+  headline: {
+    totalUsers: number;
+    totalDatasets: number;
+    totalDownloads: number;
+    downloadsThisMonth: number;
+    pendingReview: number;
+  };
+  popularDatasets: Array<{
+    datasetId: string;
+    title: string;
+    downloads: number;
+  }>;
+}
+
+export interface DatasetPipelineStats {
+  total: number;
+  pending: number;
+  approved: number;
+  rejected: number;
+  byStatus: Record<string, number>;
+  byCategory: Array<{
+    categoryId: string | null;
+    categoryName: string;
+    count: number;
+  }>;
+  byOrganisation: Array<{ orgId: string; orgName: string; count: number }>;
+  staleness: {
+    publishedTotal: number;
+    overdue: number;
+    dueSoon: number;
+    noSchedule: number;
+  };
+}
+
+export interface GovernanceAnalytics {
+  aliasResolution: {
+    pendingIndicatorAliases: number;
+    pendingOrgunitAliases: number;
+    confirmedIndicatorAliases: number;
+    autoResolutionRate: number;
+  };
+  burdenQuality: Array<{
+    indicatorSlug: string;
+    indicatorName: string;
+    missingPct: number;
+    totalRows: number;
+  }>;
+  openConflicts: number;
+  stagingTotal: number;
+  indicatorPendingStaging: number;
+}
+
+export interface DatasetCompareResult {
+  datasetA: string;
+  datasetB: string;
+  keysA: number;
+  keysB: number;
+  sharedKeys: number;
+  coverageOverlap: number;
+  conflicts: number;
+  completenessA: number | null;
+  completenessB: number | null;
+}
+
+/**
+ * Get real month-bucketed uploads/new-users series for the Analytics page
+ */
+export async function getAdminAnalytics(
+  months = 6
+): Promise<AnalyticsTimeSeries> {
+  const response = await apiClient.get<ApiResponse<AnalyticsTimeSeries>>(
+    '/admin/analytics',
+    { params: { months } }
+  );
+  return response.data.data;
+}
+
+export async function getDatasetPipelineStats(): Promise<DatasetPipelineStats> {
+  const response = await apiClient.get<ApiResponse<DatasetPipelineStats>>(
+    '/admin/datasets/stats'
+  );
+  return response.data.data;
+}
+
+export async function getGovernanceAnalytics(): Promise<GovernanceAnalytics> {
+  const response = await apiClient.get<ApiResponse<GovernanceAnalytics>>(
+    '/admin/analytics/governance'
+  );
+  return response.data.data;
+}
+
+export async function compareDatasets(
+  datasetA: string,
+  datasetB: string
+): Promise<DatasetCompareResult> {
+  const response = await apiClient.get<ApiResponse<DatasetCompareResult>>(
+    '/analytics/compare',
+    { params: { dataset_a: datasetA, dataset_b: datasetB } }
+  );
+  return response.data.data;
+}
+
+/**
+ * Export month-bucketed analytics as CSV
+ */
+export async function exportAnalytics(months = 6): Promise<Blob> {
+  const response = await apiClient.getBlob('/admin/analytics/export', {
+    params: { months },
+  });
+  return response.data;
 }
 
 /**

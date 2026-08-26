@@ -20,12 +20,22 @@ export type PermissionAction =
   | "upload:programs"        // Upload reports/documents to programme records
   | "approve:access-requests" // Approve/deny restricted-dataset access requests
   | "view:access-requests"   // Read-only: see the access-request list without adjudicating
+  | "view:partner-interest"  // Read-only: see partner interest submissions
+  | "review:partner-interest" // Approve/decline partner interest submissions
+  | "view:contact-messages"  // Read-only: see public contact-form inbox
+  | "review:contact-messages" // Update contact-form status and staff notes
   | "create:organisations"   // Register new organisations on the platform
   | "edit:organisations"     // Update any organisation's profile
   | "deactivate:organisations" // Enable/disable any organisation
   | "delete:organisations"   // Soft-delete an organisation and everything it owns
   | "manage:organisation-agreements" // Upload/replace/download data-sharing agreements
-  | "create:datasets";       // Upload a dataset on behalf of an organisation
+  | "create:datasets"        // Upload a dataset on behalf of an organisation
+  | "manage:documents"       // Create/edit/archive documents (SOPs, policies, reports)
+  | "manage:groups"          // Create/edit/delete curated dataset/document groups
+  | "manage:analytics"       // Force-refresh the platform analytics dashboard cache
+  | "manage:gis-reference-data" // Choose active GIS layer datasets, reconcile ward names
+  | "manage:partner-api-keys" // Generate/revoke a partner organisation's programmatic API key
+  | "manage:indicators"; // Manage the canonical indicator registry, alias review queue, and AI-assisted resolution admin
 
 export const PROGRAM_PERMISSION_ACTIONS: PermissionAction[] = [
   "create:programs",
@@ -59,12 +69,22 @@ export const PERMISSION_ACTION_LABELS: Record<PermissionAction, string> = {
   "upload:programs": "Upload Programme Reports",
   "approve:access-requests": "Approve Access Requests",
   "view:access-requests": "View Access Requests",
+  "view:partner-interest": "View Partner Interest",
+  "review:partner-interest": "Review Partner Interest",
+  "view:contact-messages": "View Contact Messages",
+  "review:contact-messages": "Review Contact Messages",
   "create:organisations": "Create Organisations",
   "edit:organisations": "Edit Organisations",
   "deactivate:organisations": "Deactivate Organisations",
   "delete:organisations": "Delete Organisations",
   "manage:organisation-agreements": "Manage Org Agreements",
   "create:datasets": "Upload Dataset for Org",
+  "manage:documents": "Manage Documents",
+  "manage:groups": "Manage Groups",
+  "manage:analytics": "Manage Analytics",
+  "manage:gis-reference-data": "Manage GIS Reference Layers",
+  "manage:partner-api-keys": "Manage Partner API Keys",
+  "manage:indicators": "Manage Indicators",
 };
 
 export const PERMISSION_ACTION_DESCRIPTIONS: Record<PermissionAction, string> = {
@@ -98,6 +118,14 @@ export const PERMISSION_ACTION_DESCRIPTIONS: Record<PermissionAction, string> = 
     "Can approve or deny a user's request for access to a restricted-visibility dataset. Includes viewing the request list.",
   "view:access-requests":
     "Can see the list of access requests (requester, dataset, reason, status) without being able to approve or deny them.",
+  "view:partner-interest":
+    "Can see the list of partner interest submissions (organisation, contact, message, status) without being able to approve or decline them.",
+  "review:partner-interest":
+    "Can approve or decline partner interest submissions. Does not automatically create organisations or send invites — review stays a manual staff intent check.",
+  "view:contact-messages":
+    "Can see messages submitted through the public contact form without changing their status.",
+  "review:contact-messages":
+    "Can mark contact messages as open or closed and add internal staff notes. Does not send a reply automatically.",
   "create:organisations":
     "Can register new organisations on the platform.",
   "edit:organisations":
@@ -110,6 +138,18 @@ export const PERMISSION_ACTION_DESCRIPTIONS: Record<PermissionAction, string> = 
     "Can upload, replace, and download the signed data-sharing agreement for any organisation.",
   "create:datasets":
     "Can upload a dataset on behalf of an organisation they aren't a member of.",
+  "manage:documents":
+    "Can create, edit, and archive documents (SOPs, policies, guidelines, reports, research) in the document repository.",
+  "manage:groups":
+    "Can create, edit, and delete curated topic collections of datasets and documents, and control which datasets/documents belong to them.",
+  "manage:analytics":
+    "Can force an immediate recompute of the platform analytics dashboard cache.",
+  "manage:gis-reference-data":
+    "Can choose which dataset backs each GIS map layer, rebuild the canonical ward table, and reconcile raw LGA/ward spellings.",
+  "manage:partner-api-keys":
+    "Can generate and revoke a partner organisation's programmatic API key for pulling data outside the browser.",
+  "manage:indicators":
+    "Can manage the canonical indicator registry (create/edit/activate), resolve pending indicator and org-unit aliases in the ingestion review queue, and run Stage 8 / calibration / AI admin tools.",
 };
 
 /**
@@ -148,8 +188,40 @@ export const PERMISSION_ACTION_GROUPS: Array<{ label: string; actions: Permissio
     actions: ["create:programs", "edit:programs", "delete:programs", "upload:programs"],
   },
   {
+    label: "Documents",
+    actions: ["manage:documents"],
+  },
+  {
+    label: "Groups",
+    actions: ["manage:groups"],
+  },
+  {
     label: "Access Requests",
     actions: ["view:access-requests", "approve:access-requests"],
+  },
+  {
+    label: "Partner Interest",
+    actions: ["view:partner-interest", "review:partner-interest"],
+  },
+  {
+    label: "Contact",
+    actions: ["view:contact-messages", "review:contact-messages"],
+  },
+  {
+    label: "Analytics",
+    actions: ["manage:analytics"],
+  },
+  {
+    label: "GIS",
+    actions: ["manage:gis-reference-data"],
+  },
+  {
+    label: "Partner API",
+    actions: ["manage:partner-api-keys"],
+  },
+  {
+    label: "Indicators",
+    actions: ["manage:indicators"],
   },
 ];
 

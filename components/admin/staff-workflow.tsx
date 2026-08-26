@@ -44,7 +44,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent, TabsTrigger } from "@/components/ui/tabs";
 import {
   Table,
   TableBody,
@@ -68,8 +68,14 @@ import {
   useStaffInvites,
   useStaffMembers,
 } from "@/lib/hooks/useStaff";
-import { cn } from "@/lib/utils";
+import {
+  AdminSectionTabsNav,
+  ADMIN_TAB_TRIGGER_BASE,
+  AdminTabCount,
+} from "@/components/admin/admin-section-tabs-nav";
+import { Panel, tabToneClass } from "@/components/admin/admin-analytics-ui";
 import { formatDate, formatDateTime } from "@/lib/utils/date";
+import { cn } from "@/lib/utils";
 
 interface AgencyDataset {
   id: string;
@@ -314,51 +320,63 @@ export function StaffWorkflow({ organisationId }: { organisationId: string }) {
   };
 
   return (
-    <section className="space-y-4" aria-labelledby="agency-workspace-heading">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h2 id="agency-workspace-heading" className="text-lg font-semibold">Staff & datasets</h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Manage agency staff, permission-group access, invitations, and the agency&apos;s own datasets.
-          </p>
-        </div>
-        {activeTab === "datasets" ? (
-          <Link href="/upload?agency=1" className={cn(buttonVariants({}), "h-11 w-full sm:h-9 sm:w-auto")}>
-            <Upload className="size-4" aria-hidden="true" />
+    <Panel
+      title="Staff & datasets"
+      description="Manage agency staff, permission-group access, invitations, and the agency's own datasets."
+      icon={Users}
+      tone="info"
+      action={
+        activeTab === "datasets" ? (
+          <Link href="/upload?agency=1" className={cn(buttonVariants({}), "h-9 w-full sm:w-auto")}>
+            <Upload className="size-4" aria-hidden />
             Upload dataset
           </Link>
         ) : (
-          <Button className="h-11 w-full sm:h-9 sm:w-auto" onClick={() => setInviteOpen(true)}>
-            <UserPlus className="size-4" aria-hidden="true" />
+          <Button className="h-9 w-full sm:w-auto" onClick={() => setInviteOpen(true)}>
+            <UserPlus className="size-4" aria-hidden />
             Invite staff
           </Button>
-        )}
-      </div>
+        )
+      }
+    >
+    <section className="space-y-4" aria-labelledby="agency-workspace-heading">
+      <span id="agency-workspace-heading" className="sr-only">
+        Staff and datasets workspace
+      </span>
 
       <Tabs value={activeTab} onValueChange={(value) => value && setActiveTab(value)}>
-        <div className="rounded-2xl border bg-card p-3 sm:p-4">
-          <div className="mb-3 px-1">
-            <h3 className="text-sm font-semibold">Agency workspace</h3>
-            <p className="mt-0.5 text-xs text-muted-foreground">Choose a section to manage staff access, invitations, or datasets.</p>
-          </div>
-          <div className="scrollbar-hide overflow-x-auto rounded-xl bg-muted/70 p-1">
-            <TabsList className="h-auto min-w-max justify-start gap-1 bg-transparent p-0">
-              <TabsTrigger value="staff" className="min-h-11 flex-none gap-2 px-4 data-active:bg-primary data-active:text-primary-foreground data-active:shadow-none dark:data-active:bg-primary dark:data-active:text-primary-foreground">
-                <Users className="size-4" aria-hidden="true" /> Staff
-                <span className="rounded-full bg-background/90 px-1.5 py-0.5 text-[10px] tabular-nums text-foreground">{staffQuery.data?.total ?? 0}</span>
-              </TabsTrigger>
-              <TabsTrigger value="invites" className="min-h-11 flex-none gap-2 px-4 data-active:bg-primary data-active:text-primary-foreground data-active:shadow-none dark:data-active:bg-primary dark:data-active:text-primary-foreground">
-                <MailPlus className="size-4" aria-hidden="true" /> Invitations
-                <span className="rounded-full bg-background/90 px-1.5 py-0.5 text-[10px] tabular-nums text-foreground">{inviteQuery.data?.total ?? 0}</span>
-              </TabsTrigger>
-              <TabsTrigger value="datasets" className="min-h-11 flex-none gap-2 px-4 data-active:bg-primary data-active:text-primary-foreground data-active:shadow-none dark:data-active:bg-primary dark:data-active:text-primary-foreground">
-                <Database className="size-4" aria-hidden="true" /> Datasets
-                <span className="rounded-full bg-background/90 px-1.5 py-0.5 text-[10px] tabular-nums text-foreground">{datasetsQuery.data?.meta.total ?? 0}</span>
-              </TabsTrigger>
-            </TabsList>
-          </div>
+        <AdminSectionTabsNav>
+          <TabsTrigger
+            value="staff"
+            className={cn(ADMIN_TAB_TRIGGER_BASE, tabToneClass("primary"))}
+          >
+            <Users className="size-3.5 shrink-0 sm:size-4" aria-hidden />
+            Staff
+            <AdminTabCount count={staffQuery.data?.total ?? 0} active={activeTab === "staff"} />
+          </TabsTrigger>
+          <TabsTrigger
+            value="invites"
+            className={cn(ADMIN_TAB_TRIGGER_BASE, tabToneClass("warning"))}
+          >
+            <MailPlus className="size-3.5 shrink-0 sm:size-4" aria-hidden />
+            Invitations
+            <AdminTabCount count={inviteQuery.data?.total ?? 0} active={activeTab === "invites"} />
+          </TabsTrigger>
+          <TabsTrigger
+            value="datasets"
+            className={cn(ADMIN_TAB_TRIGGER_BASE, tabToneClass("success"))}
+          >
+            <Database className="size-3.5 shrink-0 sm:size-4" aria-hidden />
+            Datasets
+            <AdminTabCount
+              count={datasetsQuery.data?.meta.total ?? 0}
+              active={activeTab === "datasets"}
+            />
+          </TabsTrigger>
+        </AdminSectionTabsNav>
 
-          <TabsContent value="staff" className="mt-3 overflow-hidden rounded-xl border">
+        <div className="mt-4 overflow-hidden rounded-xl border bg-card">
+          <TabsContent value="staff" className="mt-0">
             <DirectoryToolbar
               search={staffSearch}
               onSearchChange={setStaffSearch}
@@ -375,7 +393,7 @@ export function StaffWorkflow({ organisationId }: { organisationId: string }) {
             />
           </TabsContent>
 
-          <TabsContent value="invites" className="mt-3 overflow-hidden rounded-xl border">
+          <TabsContent value="invites" className="mt-0 border-t">
             <DirectoryToolbar
               search={inviteSearch}
               onSearchChange={setInviteSearch}
@@ -392,7 +410,7 @@ export function StaffWorkflow({ organisationId }: { organisationId: string }) {
             />
           </TabsContent>
 
-          <TabsContent value="datasets" className="mt-3 overflow-hidden rounded-xl border">
+          <TabsContent value="datasets" className="mt-0 border-t">
             <DirectoryToolbar
               search={datasetsSearch}
               onSearchChange={setDatasetsSearch}
@@ -410,7 +428,7 @@ export function StaffWorkflow({ organisationId }: { organisationId: string }) {
           </TabsContent>
         </div>
 
-        <TabsContent value="staff" className="mt-2">
+        <TabsContent value="staff" className="mt-4">
           {staffQuery.isError ? (
             <LoadError title="Could not load agency staff" onRetry={() => staffQuery.refetch()} />
           ) : staffQuery.isLoading ? (
@@ -445,7 +463,7 @@ export function StaffWorkflow({ organisationId }: { organisationId: string }) {
           )}
         </TabsContent>
 
-        <TabsContent value="invites" className="mt-2">
+        <TabsContent value="invites" className="mt-4">
           {inviteQuery.isError ? (
             <LoadError title="Could not load staff invitations" onRetry={() => inviteQuery.refetch()} />
           ) : inviteQuery.isLoading ? (
@@ -479,7 +497,7 @@ export function StaffWorkflow({ organisationId }: { organisationId: string }) {
           )}
         </TabsContent>
 
-        <TabsContent value="datasets" className="mt-2">
+        <TabsContent value="datasets" className="mt-4">
           {datasetsQuery.isError ? (
             <LoadError title="Could not load agency datasets" onRetry={() => datasetsQuery.refetch()} />
           ) : datasetsQuery.isLoading ? (
@@ -605,6 +623,7 @@ export function StaffWorkflow({ organisationId }: { organisationId: string }) {
         }}
       />
     </section>
+    </Panel>
   );
 }
 
