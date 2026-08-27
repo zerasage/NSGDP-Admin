@@ -115,6 +115,14 @@ export async function updateDocument(
   return response.data.data;
 }
 
+export async function submitDocumentForReview(slug: string): Promise<AdminDocument> {
+  const response = await apiClient.post<ApiResponse<AdminDocument>>(
+    `/documents/${slug}/submit-for-review`,
+    {}
+  );
+  return response.data.data;
+}
+
 export async function archiveDocument(slug: string): Promise<void> {
   await apiClient.delete(`/documents/${slug}`);
 }

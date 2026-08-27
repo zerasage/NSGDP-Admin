@@ -5,10 +5,14 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   ArrowLeft, Calendar, Download, Edit, FileText, MoreVertical, RefreshCw,
-  Trash2,
+  Send, Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
-import { useDocumentBySlug, useArchiveDocument } from "@/lib/hooks/useDocuments";
+import {
+  useDocumentBySlug,
+  useArchiveDocument,
+  useSubmitDocumentForReview,
+} from "@/lib/hooks/useDocuments";
 import { publishDocument, unpublishDocument } from "@/lib/api/documents";
 import { useAuth } from "@/lib/auth";
 import { usePermissions } from "@/lib/hooks/usePermissions";
@@ -64,6 +68,7 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ slug:
 
   const documentQuery = useDocumentBySlug(slug);
   const archiveMutation = useArchiveDocument();
+  const submitMutation = useSubmitDocumentForReview();
   const queryClient = useQueryClient();
 
   const publishMutation = useMutation({
@@ -89,6 +94,19 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ slug:
   const document = documentQuery.data;
   const isLoading = documentQuery.isLoading;
   const isError = documentQuery.isError;
+
+  const handleSubmitForReview = () => {
+    submitMutation.mutate(slug, {
+      onSuccess: () => {
+        toast.success("Submitted for review");
+        router.push(`/documents/${slug}/review`);
+      },
+      onError: (error) => {
+        const err = error as { message?: string };
+        toast.error(err?.message || "Failed to submit for review");
+      },
+    });
+  };
 
   const handleArchive = () => {
     archiveMutation.mutate(slug, {
@@ -195,6 +213,21 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ slug:
 
           {canManage && (
             <div className="flex flex-wrap gap-2">
+              {(document.status === "draft" || document.status === "rejected") && (
+                <Button
+                  className="h-11 flex-1 sm:h-9 sm:flex-none"
+                  onClick={handleSubmitForReview}
+                  disabled={submitMutation.isPending || !document.file_path}
+                  title={
+                    document.file_path
+                      ? undefined
+                      : "Attach a file before submitting for review"
+                  }
+                >
+                  <Send className="size-4" />
+                  {submitMutation.isPending ? "Submitting…" : "Submit for review"}
+                </Button>
+              )}
               {(document.status === "pending" ||
                 document.status === "under_review" ||
                 document.status === "approved") && (
@@ -208,12 +241,13 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ slug:
               {(document.status === "approved" ||
                 (document.status === "draft" && document.file_path)) && (
                 <Button
+                  variant={document.status === "draft" ? "outline" : "default"}
                   className="h-11 flex-1 sm:h-9 sm:flex-none"
                   onClick={() => publishMutation.mutate()}
                   disabled={publishMutation.isPending}
                 >
                   <Globe className="size-4" />
-                  Publish
+                  {document.status === "draft" ? "Publish (skip review)" : "Publish"}
                 </Button>
               )}
               {document.status === "published" && (
