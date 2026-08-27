@@ -12,6 +12,7 @@ import { useProgramBySlug, useArchiveProgram } from "@/lib/hooks/usePrograms";
 import { useAuth } from "@/lib/auth";
 import { usePermissions } from "@/lib/hooks/usePermissions";
 import { ProgramFormModal } from "@/components/admin/program-form-modal";
+import { ProgramProgressModal } from "@/components/admin/program-progress-modal";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -35,9 +36,12 @@ export default function ProgramDetailPage({ params }: { params: Promise<{ slug: 
   const { user } = useAuth();
   const { hasPermission, hasAnyPermission } = usePermissions();
   const canManage = user?.role === "super_admin" || hasAnyPermission("create:programs", "edit:programs");
+  const canEditProgress =
+    user?.role === "super_admin" || hasPermission("edit:programs");
   const canDelete = user?.role === "super_admin" || hasPermission("delete:programs");
 
   const [editOpen, setEditOpen] = useState(false);
+  const [progressOpen, setProgressOpen] = useState(false);
   const [archiveOpen, setArchiveOpen] = useState(false);
 
   const programQuery = useProgramBySlug(slug);
@@ -101,9 +105,12 @@ export default function ProgramDetailPage({ params }: { params: Promise<{ slug: 
     );
   }
 
-  const progress = program.target_count && program.reach_count
-    ? Math.min(100, Math.round((program.reach_count / program.target_count) * 100))
-    : null;
+  const progress =
+    program.target_count != null &&
+    program.target_count > 0 &&
+    program.reach_count != null
+      ? Math.min(100, Math.round((program.reach_count / program.target_count) * 100))
+      : null;
 
   // Calculate time-based metrics
   let activeDays = null;
@@ -123,6 +130,11 @@ export default function ProgramDetailPage({ params }: { params: Promise<{ slug: 
       <ProgramFormModal
         open={editOpen}
         onClose={() => setEditOpen(false)}
+        programme={program}
+      />
+      <ProgramProgressModal
+        open={progressOpen}
+        onClose={() => setProgressOpen(false)}
         programme={program}
       />
 
@@ -170,8 +182,17 @@ export default function ProgramDetailPage({ params }: { params: Promise<{ slug: 
             </div>
           </div>
 
-          {(canManage || canDelete) && (
-            <div className="flex gap-2">
+          {(canManage || canDelete || canEditProgress) && (
+            <div className="flex flex-wrap gap-2">
+              {canEditProgress && (
+                <Button
+                  className="h-11 flex-1 sm:h-9 sm:flex-none"
+                  onClick={() => setProgressOpen(true)}
+                >
+                  <TrendingUp className="size-4" />
+                  Update progress
+                </Button>
+              )}
               {canManage && (
                 <Button
                   variant="outline"
@@ -241,12 +262,22 @@ export default function ProgramDetailPage({ params }: { params: Promise<{ slug: 
       </section>
 
       {/* Progress Section */}
-      {progress !== null && (
-        <Card>
-          <CardHeader className="border-b">
-            <CardTitle>Progress Overview</CardTitle>
-          </CardHeader>
-          <CardContent className="pt-6">
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between gap-3 border-b">
+          <CardTitle>Progress Overview</CardTitle>
+          {canEditProgress && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setProgressOpen(true)}
+            >
+              <TrendingUp className="size-4" />
+              Update
+            </Button>
+          )}
+        </CardHeader>
+        <CardContent className="pt-6">
+          {progress !== null ? (
             <div className="space-y-4">
               <div>
                 <div className="flex items-center justify-between text-sm">
@@ -263,14 +294,21 @@ export default function ProgramDetailPage({ params }: { params: Promise<{ slug: 
                 </div>
                 <p className="mt-2 text-sm text-muted-foreground">
                   {progress >= 100
-                    ? "Target achieved! 🎉"
+                    ? "Target achieved"
                     : `${100 - progress}% remaining to reach target`}
                 </p>
               </div>
             </div>
-          </CardContent>
-        </Card>
-      )}
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              No target set yet.
+              {canEditProgress
+                ? " Use Update progress to set target and reach counts."
+                : ""}
+            </p>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Details Grid */}
       <div className="grid gap-4 lg:grid-cols-2">

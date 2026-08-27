@@ -5,6 +5,7 @@ import {
   createDocument,
   updateDocument,
   archiveDocument,
+  submitDocumentForReview,
   type CreateDocumentPayload,
   type UpdateDocumentPayload,
   type GetDocumentsParams,
@@ -44,6 +45,17 @@ export function useUpdateDocument() {
     onSuccess: (_result, variables) => {
       queryClient.invalidateQueries({ queryKey: ['documents'] });
       queryClient.invalidateQueries({ queryKey: ['document', variables.slug] });
+    },
+  });
+}
+
+export function useSubmitDocumentForReview() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (slug: string) => submitDocumentForReview(slug),
+    onSuccess: (_result, slug) => {
+      queryClient.invalidateQueries({ queryKey: ['documents'] });
+      queryClient.invalidateQueries({ queryKey: ['document', slug] });
     },
   });
 }

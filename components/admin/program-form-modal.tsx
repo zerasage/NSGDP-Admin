@@ -68,6 +68,13 @@ interface ProgramFormModalProps {
   programme?: AdminProgramme;
 }
 
+function parseOptionalCount(raw: string): number | undefined {
+  const trimmed = raw.trim();
+  if (trimmed === "") return undefined;
+  const n = Number.parseInt(trimmed, 10);
+  return Number.isFinite(n) ? n : undefined;
+}
+
 export function ProgramFormModal({ open, onClose, programme }: ProgramFormModalProps) {
   const isEditing = !!programme;
   const [submitting, setSubmitting] = useState(false);
@@ -142,9 +149,9 @@ export function ProgramFormModal({ open, onClose, programme }: ProgramFormModalP
           ? data.objectives.split("\n").map((s) => s.trim()).filter(Boolean)
           : undefined,
         primaryMetric: data.primaryMetric || undefined,
-        targetCount: data.targetCount ? parseInt(data.targetCount, 10) : undefined,
-        reachCount: data.reachCount ? parseInt(data.reachCount, 10) : undefined,
-        lgasCoveredCount: data.lgasCoveredCount ? parseInt(data.lgasCoveredCount, 10) : undefined,
+        targetCount: parseOptionalCount(data.targetCount),
+        reachCount: parseOptionalCount(data.reachCount),
+        lgasCoveredCount: parseOptionalCount(data.lgasCoveredCount),
       };
 
       if (isEditing) {

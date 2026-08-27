@@ -10,11 +10,12 @@ import {
   Plus,
   RotateCcw,
   Search,
+  Send,
   Trash2,
   X,
 } from "lucide-react";
 import { useQueries } from "@tanstack/react-query";
-import { useDocuments, useArchiveDocument } from "@/lib/hooks/useDocuments";
+import { useDocuments, useArchiveDocument, useSubmitDocumentForReview } from "@/lib/hooks/useDocuments";
 import { getDocuments } from "@/lib/api/documents";
 import { useAuth } from "@/lib/auth";
 import { usePermissions } from "@/lib/hooks/usePermissions";
@@ -77,11 +78,11 @@ const STATUS_CONFIG: Record<DocumentStatus, { label: string; tone: MetricTone }>
 };
 
 const TABS: Array<{ key: DocumentStatus | "all"; label: string; tone: MetricTone }> = [
+  { key: "all", label: "All documents", tone: "muted" },
+  { key: "draft", label: "Draft", tone: "warning" },
   { key: "pending", label: "Pending review", tone: "warning" },
   { key: "under_review", label: "Under review", tone: "info" },
   { key: "approved", label: "Approved", tone: "success" },
-  { key: "all", label: "All documents", tone: "muted" },
-  { key: "draft", label: "Draft", tone: "warning" },
   { key: "published", label: "Published", tone: "success" },
   { key: "rejected", label: "Rejected", tone: "warning" },
   { key: "archived", label: "Archived", tone: "muted" },
@@ -102,10 +103,11 @@ export default function AdminDocumentsPage() {
   const [pageSize, setPageSize] = useState(20);
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
-  const [status, setStatus] = useState<DocumentStatus | "all">("pending");
+  const [status, setStatus] = useState<DocumentStatus | "all">("all");
   const [type, setType] = useState<DocumentType | "all">("all");
   const [formModalOpen, setFormModalOpen] = useState(false);
   const [archiveTarget, setArchiveTarget] = useState<AdminDocument | null>(null);
+  const submitMutation = useSubmitDocumentForReview();
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -460,6 +462,39 @@ export default function AdminDocumentsPage() {
                         </TableCell>
                         <TableCell className="px-4 py-3.5 text-right">
                           <div className="flex justify-end gap-1">
+                            {canManage &&
+                              (doc.status === "draft" || doc.status === "rejected") && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-8"
+                                disabled={!doc.file_path || submitMutation.isPending}
+                                title={
+                                  doc.file_path
+                                    ? "Submit for review"
+                                    : "Attach a file before submitting"
+                                }
+                                onClick={() =>
+                                  submitMutation.mutate(doc.slug, {
+                                    onSuccess: () =>
+                                      toast.success(`“${doc.title}” submitted for review`),
+                                    onError: (error) =>
+                                      toast.error(
+                                        error instanceof Error
+                                          ? error.message
+                                          : "Failed to submit for review"
+                                      ),
+                                  })
+                                }
+                              >
+                                {submitMutation.isPending ? (
+                                  <Loader2 className="size-3.5 animate-spin" />
+                                ) : (
+                                  <Send className="size-3.5" />
+                                )}
+                                Submit
+                              </Button>
+                            )}
                             {(doc.status === "pending" ||
                               doc.status === "under_review" ||
                               doc.status === "approved") && (
@@ -538,6 +573,28 @@ export default function AdminDocumentsPage() {
                   </dl>
 
                   <div className="mt-4 flex flex-wrap gap-2">
+                    {canManage &&
+                      (doc.status === "draft" || doc.status === "rejected") && (
+                      <Button
+                        className="h-11 flex-1"
+                        disabled={!doc.file_path || submitMutation.isPending}
+                        onClick={() =>
+                          submitMutation.mutate(doc.slug, {
+                            onSuccess: () =>
+                              toast.success(`“${doc.title}” submitted for review`),
+                            onError: (error) =>
+                              toast.error(
+                                error instanceof Error
+                                  ? error.message
+                                  : "Failed to submit for review"
+                              ),
+                          })
+                        }
+                      >
+                        <Send className="mr-1.5 size-3.5" />
+                        Submit for review
+                      </Button>
+                    )}
                     {(doc.status === "pending" ||
                       doc.status === "under_review" ||
                       doc.status === "approved") && (

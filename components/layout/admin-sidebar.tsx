@@ -46,26 +46,27 @@ export const adminNavItems: Array<{
   // no org-admin bypass to account for here.
   anyPermission?: PermissionActionKey[];
 }> = [
+  // Order: daily ops → catalogue → inbound → people → reference → config → audit
   { href: "/", label: "Platform Dashboard", icon: LayoutDashboard, exact: true },
   { href: "/datasets", label: "Review Queue", icon: FileCheck, anyPermission: ["approve:datasets", "publish:datasets"] },
   { href: "/upload?agency=1", label: "Upload to Agency", icon: Upload, anyPermission: ["create:datasets"] },
+  { href: "/ingestion-ops", label: "Ingestion Ops", icon: Activity, anyPermission: ["manage:indicators"] },
+  { href: "/access-requests", label: "Access Requests", icon: KeyRound, anyPermission: ["view:access-requests", "approve:access-requests"] },
   { href: "/organisations", label: "Organisations", icon: Building2 },
   // Blanket-staff-readable, same as Organisations/Audit Log: everyone in the
   // admin portal can browse; create/edit/archive are gated within the page.
   { href: "/documents", label: "Documents", icon: FileText },
-  { href: "/groups", label: "Groups", icon: FolderKanban },
   { href: "/programs", label: "Programmes", icon: Target, anyPermission: ["create:programs", "edit:programs", "upload:programs", "delete:programs"] },
+  { href: "/groups", label: "Groups", icon: FolderKanban },
+  { href: "/analytics", label: "Platform Analytics", icon: BarChart3 },
+  { href: "/partner-interest", label: "Partner Interest", icon: Handshake, anyPermission: ["view:partner-interest", "review:partner-interest"] },
+  { href: "/contact", label: "Contact Messages", icon: Mail, anyPermission: ["view:contact-messages", "review:contact-messages"] },
   { href: "/users", label: "All Users", icon: Users, anyPermission: ["invite:users", "promote:org-admin", "demote:org-admin", "remove:org-members"] },
+  { href: "/gis-reference", label: "GIS Reference Layers", icon: Map, anyPermission: ["manage:gis-reference-data"] },
   { href: "/agency", label: "Agency", icon: UserCog, superAdminOnly: true },
   { href: "/permission-groups", label: "Permission Groups", icon: ShieldCheck, superAdminOnly: true },
   { href: "/organisation-groups", label: "Organisation Groups", icon: Network, superAdminOnly: true },
-  { href: "/access-requests", label: "Access Requests", icon: KeyRound, anyPermission: ["view:access-requests", "approve:access-requests"] },
-  { href: "/partner-interest", label: "Partner Interest", icon: Handshake, anyPermission: ["view:partner-interest", "review:partner-interest"] },
-  { href: "/contact", label: "Contact Messages", icon: Mail, anyPermission: ["view:contact-messages", "review:contact-messages"] },
-  { href: "/analytics", label: "Platform Analytics", icon: BarChart3 },
   { href: "/governance", label: "Data Governance", icon: ShieldAlert, superAdminOnly: true },
-  { href: "/gis-reference", label: "GIS Reference Layers", icon: Map, anyPermission: ["manage:gis-reference-data"] },
-  { href: "/ingestion-ops", label: "Ingestion Ops", icon: Activity, anyPermission: ["manage:indicators"] },
   { href: "/audit-logs", label: "Audit Log", icon: ScrollText },
 ];
 
