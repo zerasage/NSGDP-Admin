@@ -49,6 +49,19 @@ function stepIcon(status: IngestionStep["status"]) {
   return <Circle className="size-3.5 text-muted-foreground/50" aria-hidden />;
 }
 
+function isJobTerminal(progress: IngestionProgress): boolean {
+  return progress.status === "failed" || progress.status === "cancelled";
+}
+
+/** When the job row is terminal, never show a stage as still running. */
+function effectiveStepStatus(
+  step: IngestionStep,
+  jobTerminal: boolean,
+): IngestionStep["status"] {
+  if (jobTerminal && step.status === "running") return "failed";
+  return step.status;
+}
+
 /** Compact wall-clock label: 45s, 3m 12s, 1h 04m. */
 function formatDurationMs(ms: number): string {
   if (!Number.isFinite(ms) || ms < 0) return "—";
@@ -63,14 +76,19 @@ function formatDurationMs(ms: number): string {
   return `${minutes}m ${String(seconds).padStart(2, "0")}s`;
 }
 
-function stepDurationLabel(step: IngestionStep, nowMs: number): string | null {
+function stepDurationLabel(
+  step: IngestionStep,
+  nowMs: number,
+  jobTerminal: boolean,
+): string | null {
   if (!step.startedAt) return null;
   const start = Date.parse(step.startedAt);
   if (!Number.isFinite(start)) return null;
+  const displayStatus = effectiveStepStatus(step, jobTerminal);
   const end =
     step.completedAt != null && Number.isFinite(Date.parse(step.completedAt))
       ? Date.parse(step.completedAt)
-      : step.status === "running"
+      : displayStatus === "running"
         ? nowMs
         : null;
   if (end == null) return null;
@@ -143,9 +161,11 @@ export function IngestionProgressPanel({
 }: IngestionProgressPanelProps) {
   const pct = Math.min(100, Math.max(0, progress.progress ?? 0));
   const complete = looksComplete(progress);
+  const jobTerminal = isJobTerminal(progress);
   const trulyFailed = progress.status === "failed" && !complete;
   const active =
     !complete &&
+    !jobTerminal &&
     (progress.status === "pending" ||
       progress.status === "validating" ||
       progress.status === "processing");
@@ -202,20 +222,21 @@ export function IngestionProgressPanel({
       {!compact && (
         <ol className="mt-4 grid gap-1.5 sm:grid-cols-2">
           {progress.steps.map((step) => {
+            const displayStatus = effectiveStepStatus(step, jobTerminal);
             const duration =
               nowMs > 0 || step.completedAt
-                ? stepDurationLabel(step, nowMs)
+                ? stepDurationLabel(step, nowMs, jobTerminal)
                 : null;
             return (
               <li
                 key={step.key}
                 className={cn(
                   "flex items-start gap-2 rounded-xl border px-3 py-2 text-[13px]",
-                  step.status === "running" && "border-primary/40 bg-primary/5",
-                  step.status === "failed" && "border-destructive/40 bg-destructive/5"
+                  displayStatus === "running" && "border-primary/40 bg-primary/5",
+                  displayStatus === "failed" && "border-destructive/40 bg-destructive/5"
                 )}
               >
-                <span className="mt-0.5 shrink-0">{stepIcon(step.status)}</span>
+                <span className="mt-0.5 shrink-0">{stepIcon(displayStatus)}</span>
                 <span className="min-w-0 flex-1">
                   <span className="flex items-start justify-between gap-2">
                     <span className="font-medium leading-5">{step.label}</span>
@@ -230,7 +251,7 @@ export function IngestionProgressPanel({
                       {step.message}
                     </span>
                   ) : null}
-                  {step.status === "running" && step.itemsTotal != null ? (
+                  {displayStatus === "running" && step.itemsTotal != null ? (
                     <span className="mt-0.5 block text-xs tabular-nums text-muted-foreground">
                       {step.itemsDone.toLocaleString()} / {step.itemsTotal.toLocaleString()}
                     </span>

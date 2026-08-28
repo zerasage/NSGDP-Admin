@@ -38,7 +38,7 @@ export function RelatedDatasetsTab({ datasetId }: { datasetId: string }) {
       <EmptyState
         icon={Link2}
         title="No related datasets found"
-        description="Cross-dataset matching runs after other datasets publish — a strong overlap in indicators, org units, and periods surfaces here as a candidate."
+        description="Matching runs automatically when ingestion finishes (resolved staging rows) and again when analytics loads into the warehouse. It compares this dataset against other catalogue datasets with shared indicators, org units, and periods (≥40% overlap). Re-uploading on the same dataset record does not self-match — you need a separate dataset with overlapping data."
       />
     );
   }

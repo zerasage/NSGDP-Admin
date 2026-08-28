@@ -351,6 +351,20 @@ export async function publishDataset(datasetSlug: string): Promise<Dataset> {
 }
 
 /**
+ * Load resolved staging into disease_burden (analytics warehouse).
+ * Separate from catalogue publish.
+ */
+export async function publishDatasetAnalytics(
+  datasetSlug: string
+): Promise<Dataset> {
+  const response = await apiClient.post<ApiResponse<Dataset>>(
+    `/admin/datasets/${datasetSlug}/publish-analytics`,
+    {}
+  );
+  return response.data.data;
+}
+
+/**
  * Unpublish a dataset from the public catalogue (stays approved)
  */
 export async function unpublishDataset(datasetSlug: string): Promise<Dataset> {
@@ -363,7 +377,7 @@ export async function unpublishDataset(datasetSlug: string): Promise<Dataset> {
 
 export interface RetractDatasetPayload {
   reason: string;
-  mfaCode: string;
+  mfaCode?: string;
   forgetAliases?: boolean;
   purgeStaging?: boolean;
 }
