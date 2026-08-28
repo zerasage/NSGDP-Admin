@@ -39,17 +39,28 @@ export interface IngestionFitness {
   notifiedVerdict?: IngestionFitnessVerdict | null;
 }
 
+/** Reasons that mean "different workbook shape", not bad data quality. */
+const CATALOGUE_ONLY_REASONS = new Set<IngestionFitnessReason>([
+  "UNSUPPORTED_FORMAT",
+  "ZERO_OBSERVATIONS",
+  "UNKNOWN_SHEETS",
+  "NON_OBSERVATION_STRUCTURE",
+]);
+
 export const FITNESS_VERDICT_LABEL: Record<IngestionFitnessVerdict, string> = {
   ok: "Fit for warehouse",
   flagged: "Flagged for review",
-  rejected_unusable: "Rejected as unusable",
+  rejected_unusable: "Rejected for analytics",
 };
 
 export const FITNESS_REASON_LABEL: Record<IngestionFitnessReason, string> = {
-  UNSUPPORTED_FORMAT: "Unsupported file format (CSV, Excel, or JSON tabular only)",
-  ZERO_OBSERVATIONS: "No observations extracted after triage",
-  UNKNOWN_SHEETS: "Unrecognised sheet layouts",
-  NON_OBSERVATION_STRUCTURE: "Workbook structure looks like a plan or form, not observation data",
+  UNSUPPORTED_FORMAT:
+    "File format is not the analytics grid pipeline (CSV/Excel indicator tables)",
+  ZERO_OBSERVATIONS:
+    "No indicator rows extracted — may be catalogue-only health data",
+  UNKNOWN_SHEETS: "Sheet layouts were not recognised as observation grids",
+  NON_OBSERVATION_STRUCTURE:
+    "Workbook looks like a plan, form, or register — not an indicator grid",
   HIGH_OUT_OF_SCOPE: "High share of out-of-scope geography",
   LOW_USABLE_RATE: "Very few publishable observations",
   WRONG_GEOGRAPHY_HINT: "Title or sheet name suggests wrong state geography",
@@ -57,10 +68,44 @@ export const FITNESS_REASON_LABEL: Record<IngestionFitnessReason, string> = {
   HIGH_INDICATOR_PENDING: "Many indicators still unresolved",
 };
 
+export function isCatalogueOnlyFitness(fitness: IngestionFitness): boolean {
+  if (fitness.verdict !== "rejected_unusable") return false;
+  if (fitness.reasons.length === 0) return true;
+  return fitness.reasons.every((reason) => CATALOGUE_ONLY_REASONS.has(reason));
+}
+
+/** User-facing verdict — softer when the file is valid but not warehouse-shaped. */
+export function fitnessVerdictLabel(fitness: IngestionFitness): string {
+  if (fitness.verdict === "ok") return FITNESS_VERDICT_LABEL.ok;
+  if (fitness.verdict === "flagged") return FITNESS_VERDICT_LABEL.flagged;
+  if (isCatalogueOnlyFitness(fitness)) return "Not analytics-shaped";
+  return FITNESS_VERDICT_LABEL.rejected_unusable;
+}
+
+export function fitnessVerdictDescription(fitness: IngestionFitness): string {
+  if (fitness.verdict === "flagged") {
+    return "Canonicalization completed with quality signals that need a human check before loading analytics.";
+  }
+  if (fitness.verdict === "rejected_unusable" && isCatalogueOnlyFitness(fitness)) {
+    return "This file did not yield indicator rows for the analytics warehouse. Catalogue publish is still fine — it may be a different type of health data.";
+  }
+  if (fitness.verdict === "rejected_unusable") {
+    return "This upload is unlikely to yield publishable warehouse data. Review the report before loading analytics.";
+  }
+  return "No analytics fitness concerns.";
+}
+
 export function fitnessTone(verdict: IngestionFitnessVerdict): MetricTone {
   if (verdict === "rejected_unusable") return "destructive";
   if (verdict === "flagged") return "warning";
   return "success";
+}
+
+export function fitnessDisplayTone(fitness: IngestionFitness): MetricTone {
+  if (fitness.verdict === "ok") return "success";
+  if (fitness.verdict === "flagged") return "warning";
+  if (isCatalogueOnlyFitness(fitness)) return "info";
+  return "destructive";
 }
 
 export function needsFitnessAttention(
@@ -73,7 +118,7 @@ export function formatFitnessReason(reason: string): string {
   return FITNESS_REASON_LABEL[reason as IngestionFitnessReason] ?? reason;
 }
 
-/** Hard block publish when canonicalization rejected the upload. */
+/** Hard block analytics load when canonicalization rejected the upload. */
 export function blocksPublishByFitness(
   fitness: IngestionFitness | null | undefined,
 ): boolean {
@@ -83,9 +128,14 @@ export function blocksPublishByFitness(
 export function publishBlockedByFitnessMessage(
   fitness: IngestionFitness
 ): string {
-  if (fitness.reasons.length === 0) {
-    return "Publish blocked: ingestion fitness is rejected as unusable. Open Ingestion to review the report.";
+  const summary =
+    fitness.reasons.length > 0
+      ? fitness.reasons.map(formatFitnessReason).join("; ")
+      : "no warehouse observations";
+
+  if (isCatalogueOnlyFitness(fitness)) {
+    return `Analytics load blocked: ${fitnessVerdictLabel(fitness)} (${summary}). Catalogue publish is still allowed.`;
   }
-  const summary = fitness.reasons.map(formatFitnessReason).join("; ");
-  return `Publish blocked: ingestion fitness is rejected as unusable (${summary}).`;
+
+  return `Analytics load blocked: ${fitnessVerdictLabel(fitness)} (${summary}). Open Ingestion to review the report.`;
 }

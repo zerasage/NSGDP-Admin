@@ -1,8 +1,10 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useEffect } from 'react';
 import * as api from '../api/ingestion-review';
 
 const REVIEW_QUEUE_KEY = 'ingestion-review-queue';
 const REPORT_KEY = 'ingestion-report';
+export const ANALYTICS_PUBLISH_STATUS_KEY = 'analytics-publish-status';
 const COVERAGE_KEY = 'ingestion-coverage';
 const RELATED_KEY = 'ingestion-related-datasets';
 export const INGESTION_PROGRESS_KEY = 'ingestion-progress';
@@ -14,13 +16,19 @@ function isActiveProgressStatus(status: api.IngestionJobStatus | undefined): boo
 
 export function useReviewQueue(
   datasetId?: string,
-  options?: { global?: boolean; limit?: number; enabled?: boolean }
+  options?: {
+    global?: boolean;
+    limit?: number;
+    enabled?: boolean;
+    mode?: api.ReviewQueueMode;
+  }
 ) {
   const global = options?.global === true;
+  const mode = options?.mode ?? 'pending';
   return useQuery({
-    queryKey: [REVIEW_QUEUE_KEY, global ? 'global' : datasetId, options?.limit],
+    queryKey: [REVIEW_QUEUE_KEY, global ? 'global' : datasetId, options?.limit, mode],
     queryFn: () =>
-      api.getReviewQueue(global ? undefined : datasetId, options?.limit),
+      api.getReviewQueue(global ? undefined : datasetId, options?.limit, mode),
     enabled:
       options?.enabled !== false && (global || !!datasetId),
   });
@@ -34,23 +42,54 @@ export function useIngestionReport(datasetId: string | undefined) {
   });
 }
 
+export function useAnalyticsPublishStatus(datasetId: string | undefined) {
+  return useQuery({
+    queryKey: [ANALYTICS_PUBLISH_STATUS_KEY, datasetId],
+    queryFn: () => api.getAnalyticsPublishStatus(datasetId!),
+    enabled: !!datasetId,
+    refetchInterval: (query) => {
+      const data = query.state.data;
+      if (data?.phase === 'loading' || data?.phase === 'updating') return 2000;
+      if (data?.ingestionInProgress) return 2000;
+      return false;
+    },
+  });
+}
+
 export function useIngestionProgress(
   datasetId: string | undefined,
   options?: { pollWhileActive?: boolean }
 ) {
   const pollWhileActive = options?.pollWhileActive !== false;
-  return useQuery({
+  const queryClient = useQueryClient();
+  const query = useQuery({
     queryKey: [INGESTION_PROGRESS_KEY, datasetId],
     queryFn: () => {
       if (!datasetId) throw new Error('datasetId required');
       return api.getIngestionProgress(datasetId);
     },
     enabled: !!datasetId,
-    refetchInterval: (query) => {
+    refetchInterval: (q) => {
       if (!pollWhileActive) return false;
-      return isActiveProgressStatus(query.state.data?.status) ? 2000 : false;
+      return isActiveProgressStatus(q.state.data?.status) ? 2000 : false;
     },
   });
+
+  useEffect(() => {
+    const status = query.data?.status;
+    if (
+      status === 'failed' ||
+      status === 'cancelled' ||
+      status === 'completed'
+    ) {
+      queryClient.invalidateQueries({ queryKey: ['dataset'] });
+      queryClient.invalidateQueries({
+        queryKey: [ANALYTICS_PUBLISH_STATUS_KEY, datasetId],
+      });
+    }
+  }, [query.data?.status, datasetId, queryClient]);
+
+  return query;
 }
 
 export function useInFlightIngestionJobs(options?: { enabled?: boolean }) {
@@ -89,17 +128,21 @@ export function useConfirmIndicatorAlias(datasetId?: string) {
       queryClient.invalidateQueries({ queryKey: [REPORT_KEY, datasetId] });
       queryClient.invalidateQueries({ queryKey: ['dataset'] });
       queryClient.invalidateQueries({ queryKey: ['ingestion-observability'] });
+      queryClient.invalidateQueries({ queryKey: [ANALYTICS_PUBLISH_STATUS_KEY] });
     },
   });
 }
 
-export function useRejectIndicatorAlias() {
+export function useRejectIndicatorAlias(datasetId?: string) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (aliasId: string) => api.rejectIndicatorAlias(aliasId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [REVIEW_QUEUE_KEY] });
+      queryClient.invalidateQueries({ queryKey: [REPORT_KEY, datasetId] });
+      queryClient.invalidateQueries({ queryKey: ['dataset'] });
       queryClient.invalidateQueries({ queryKey: ['ingestion-observability'] });
+      queryClient.invalidateQueries({ queryKey: [ANALYTICS_PUBLISH_STATUS_KEY] });
     },
   });
 }
@@ -121,6 +164,25 @@ export function useRunDatasetIngestion(datasetId?: string) {
       queryClient.invalidateQueries({ queryKey: [REPORT_KEY, datasetId] });
       queryClient.invalidateQueries({ queryKey: [REVIEW_QUEUE_KEY, datasetId] });
       queryClient.invalidateQueries({ queryKey: [INGESTION_PROGRESS_KEY, datasetId] });
+      queryClient.invalidateQueries({ queryKey: [ANALYTICS_PUBLISH_STATUS_KEY, datasetId] });
+      queryClient.invalidateQueries({ queryKey: [IN_FLIGHT_JOBS_KEY] });
+      queryClient.invalidateQueries({ queryKey: ['dataset'] });
+    },
+  });
+}
+
+export function useCancelDatasetIngestion(datasetId?: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () => {
+      if (!datasetId) throw new Error('datasetId required');
+      return api.cancelDatasetIngestion(datasetId);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [REPORT_KEY, datasetId] });
+      queryClient.invalidateQueries({ queryKey: [REVIEW_QUEUE_KEY, datasetId] });
+      queryClient.invalidateQueries({ queryKey: [INGESTION_PROGRESS_KEY, datasetId] });
+      queryClient.invalidateQueries({ queryKey: [ANALYTICS_PUBLISH_STATUS_KEY, datasetId] });
       queryClient.invalidateQueries({ queryKey: [IN_FLIGHT_JOBS_KEY] });
       queryClient.invalidateQueries({ queryKey: ['dataset'] });
     },

@@ -15,6 +15,13 @@ export interface ReviewQueueCandidate {
   method: string;
 }
 
+export interface ReviewQueueSampleObservation {
+  rawOrgunit: string | null;
+  rawPeriod: string | null;
+  value: number | null;
+  cellRef: string;
+}
+
 export interface ReviewQueueItem {
   id: string;
   // Org-unit items appear in this same queue but have no confirm/reject
@@ -28,11 +35,20 @@ export interface ReviewQueueItem {
   datasetId?: string;
   datasetTitle?: string;
   datasetSlug?: string;
-  candidates: ReviewQueueCandidate[] | null;
+  candidates: ReviewQueueCandidate[] | unknown[] | null;
   method: string;
   confidence: string | null;
   indicatorId: string | null;
+  status?: string;
+  affectedRows?: number;
+  siblingLabels?: string[];
+  programmeHint?: string | null;
+  suggestedRegistryName?: string | null;
+  sample?: ReviewQueueSampleObservation | null;
 }
+
+export type ReviewQueueMode = 'pending' | 'auto';
+
 
 import type { IngestionFitness } from '@/lib/utils/ingestion-fitness';
 
@@ -88,10 +104,14 @@ export interface RelationView {
   createdAt: string;
 }
 
-export async function getReviewQueue(datasetId?: string, limit?: number): Promise<ReviewQueueItem[]> {
+export async function getReviewQueue(
+  datasetId?: string,
+  limit?: number,
+  mode: ReviewQueueMode = 'pending',
+): Promise<ReviewQueueItem[]> {
   const response = await apiClient.get<ApiResponse<ReviewQueueItem[]>>(
     '/admin/governance/ingestion/review-queue',
-    { params: { datasetId, limit } }
+    { params: { datasetId, limit, mode } }
   );
   return response.data.data;
 }
@@ -104,13 +124,62 @@ export async function confirmIndicatorAlias(aliasId: string, indicatorId: string
   return response.data.data;
 }
 
-export async function rejectIndicatorAlias(aliasId: string): Promise<void> {
-  await apiClient.post(`/admin/governance/ingestion/aliases/${aliasId}/reject`, {});
+export async function rejectIndicatorAlias(
+  aliasId: string,
+): Promise<{ excluded: number }> {
+  const response = await apiClient.post<ApiResponse<{ excluded: number }>>(
+    `/admin/governance/ingestion/aliases/${aliasId}/reject`,
+    {},
+  );
+  return response.data.data;
 }
 
 export async function getIngestionReport(datasetId: string): Promise<IngestionReport> {
   const response = await apiClient.get<ApiResponse<IngestionReport>>(
     `/admin/governance/ingestion/datasets/${datasetId}/report`
+  );
+  return response.data.data;
+}
+
+export type AnalyticsPipelineStepState =
+  | 'done'
+  | 'active'
+  | 'pending'
+  | 'blocked';
+
+export type AnalyticsPublishPhase =
+  | 'not_applicable'
+  | 'blocked'
+  | 'ready'
+  | 'loading'
+  | 'loaded'
+  | 'updating'
+  | 'failed';
+
+export interface AnalyticsPublishStatus {
+  phase: AnalyticsPublishPhase;
+  blockReason: string | null;
+  unpublishedRows: number;
+  pendingAliases: number;
+  cataloguePublished: boolean;
+  analyticsPublishedAt: string | null;
+  lastError: string | null;
+  publishingSince: string | null;
+  workerHint: string | null;
+  ingestionInProgress: boolean;
+  steps: {
+    ingested: AnalyticsPipelineStepState;
+    aliasesClear: AnalyticsPipelineStepState;
+    catalogueLive: AnalyticsPipelineStepState;
+    analyticsLoaded: AnalyticsPipelineStepState;
+  };
+}
+
+export async function getAnalyticsPublishStatus(
+  datasetId: string,
+): Promise<AnalyticsPublishStatus> {
+  const response = await apiClient.get<ApiResponse<AnalyticsPublishStatus>>(
+    `/admin/governance/ingestion/datasets/${datasetId}/analytics-publish-status`,
   );
   return response.data.data;
 }
@@ -136,6 +205,12 @@ export interface IngestionEnsureResult {
   action: "enqueued" | "already_queued" | "skipped";
   reason?: string;
   ingestionJobId?: string;
+}
+
+export interface IngestionCancelResult {
+  cancelled: boolean;
+  jobId?: string;
+  reason?: string;
 }
 
 export interface IngestionBackfillResult {
@@ -200,6 +275,17 @@ export async function runDatasetIngestion(
   const response = await apiClient.post<ApiResponse<IngestionEnsureResult>>(
     `/admin/governance/ingestion/datasets/${datasetId}/run${qs}`,
     {}
+  );
+  return response.data.data;
+}
+
+/** Stop in-flight ingestion or clear stuck processing state after a worker restart. */
+export async function cancelDatasetIngestion(
+  datasetId: string,
+): Promise<IngestionCancelResult> {
+  const response = await apiClient.post<ApiResponse<IngestionCancelResult>>(
+    `/admin/governance/ingestion/datasets/${datasetId}/cancel`,
+    {},
   );
   return response.data.data;
 }

@@ -76,6 +76,8 @@ export interface Dataset {
   approved_at: string | null;
   published_by: string | null;
   published_at: string | null;
+  analytics_published_by?: string | null;
+  analytics_published_at?: string | null;
 }
 
 export interface DatasetListParams {

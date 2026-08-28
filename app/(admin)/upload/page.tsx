@@ -286,9 +286,7 @@ export default function AdminUploadDatasetPage() {
           ? "Dataset saved as draft"
           : `Dataset created${uploadedFiles.length ? ` with ${uploadedFiles.length} file(s)` : ""} and submitted for review`,
       });
-      // The org detail route is keyed by slug, not id, despite the folder being named [id]
-      const orgSlug = organisations.find((o) => o.id === effectiveOrganisationId)?.slug;
-      router.push(orgSlug ? `/organisations/${orgSlug}` : "/organisations");
+      router.push(`/datasets/${dataset.slug}`);
     } catch (error) {
       toast({
         title: "Error",

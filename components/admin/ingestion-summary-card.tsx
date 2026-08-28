@@ -18,12 +18,15 @@ import {
   ingestionCtaLabel,
   canManualRunIngestion,
   isIngestionInFlight,
+  isProgressPipelineActive,
+  resolveIngestionDisplayStatus,
   type IngestionStatus,
 } from "@/lib/utils/ingestion-status";
 import { cn } from "@/lib/utils";
 import {
-  FITNESS_VERDICT_LABEL,
-  fitnessTone,
+  fitnessDisplayTone,
+  fitnessVerdictLabel,
+  isCatalogueOnlyFitness,
   needsFitnessAttention,
 } from "@/lib/utils/ingestion-fitness";
 import { toast } from "sonner";
@@ -49,7 +52,8 @@ export function IngestionSummaryCard({
   const { data: progress } = useIngestionProgress(datasetId);
   const runMutation = useRunDatasetIngestion(datasetId);
   const pendingAliases = aliases?.length ?? 0;
-  const inFlight = isIngestionInFlight(ingestionStatus);
+  const displayStatus = resolveIngestionDisplayStatus(ingestionStatus, progress);
+  const inFlight = isIngestionInFlight(displayStatus);
   const catalogueOk =
     !catalogueStatus ||
     catalogueStatus === "pending" ||
@@ -58,14 +62,12 @@ export function IngestionSummaryCard({
   const showRun =
     canManageIngestion &&
     catalogueOk &&
-    canManualRunIngestion(ingestionStatus) &&
+    canManualRunIngestion(displayStatus) &&
     !inFlight;
   const showProgress =
     !!progress &&
     (inFlight ||
-      progress.status === "pending" ||
-      progress.status === "validating" ||
-      progress.status === "processing" ||
+      isProgressPipelineActive(progress) ||
       (ingestionStatus === "failed" && progress.status === "failed"));
 
   if (reportLoading || aliasesLoading) {
@@ -99,20 +101,27 @@ export function IngestionSummaryCard({
   };
 
   const helperCopy = (() => {
-    if (ingestionStatus === "uploaded") {
+    if (displayStatus === "uploaded") {
       return "Ingestion is queued. Progress updates below as the worker claims the job.";
     }
-    if (ingestionStatus === "processing") {
+    if (displayStatus === "processing") {
       return "Ingestion is running. Stage progress updates live below.";
     }
-    if (ingestionStatus === "failed") {
+    if (displayStatus === "failed") {
       return "The last ingestion run failed. Retry to rebuild the report and alias queue.";
     }
-    if (ingestionStatus === "not_ingested") {
+    if (displayStatus === "not_ingested") {
       return "This dataset is in the review path but ingestion has not started. Run it to build the report and alias queue.";
     }
     if (pendingAliases > 0) {
       return `${pendingAliases} unresolved string${pendingAliases === 1 ? "" : "s"} need a human decision before publish is clean.`;
+    }
+    if (
+      displayStatus === "processed_pending_approval" &&
+      report?.fitness &&
+      isCatalogueOnlyFitness(report.fitness)
+    ) {
+      return "Ingestion finished with no analytics grid rows. This file can still be published to the catalogue — it may be a different type of health data.";
     }
     return "Workbook resolution summary for this dataset.";
   })();
@@ -125,7 +134,7 @@ export function IngestionSummaryCard({
             <h2 className="text-base font-semibold leading-6">Ingestion</h2>
             <Badge
               variant={
-                ingestionStatus === "failed"
+                displayStatus === "failed"
                   ? "destructive"
                   : pendingAliases > 0
                     ? "secondary"
@@ -134,19 +143,21 @@ export function IngestionSummaryCard({
               className="gap-1.5 text-[11px] font-semibold uppercase"
             >
               {inFlight ? <Loader2 className="size-3 animate-spin" aria-hidden /> : null}
-              {INGESTION_STATUS_LABEL[ingestionStatus]}
+              {INGESTION_STATUS_LABEL[displayStatus]}
             </Badge>
             {needsFitnessAttention(report?.fitness) && (
               <Badge
                 variant="outline"
                 className={cn(
                   "text-[11px] font-semibold uppercase",
-                  fitnessTone(report.fitness.verdict) === "destructive"
+                  fitnessDisplayTone(report.fitness) === "destructive"
                     ? "border-destructive/30 bg-destructive/10 text-destructive"
-                    : "border-warning/30 bg-warning/10 text-amber-700 dark:text-warning"
+                    : fitnessDisplayTone(report.fitness) === "info"
+                      ? "border-info/30 bg-info/10 text-info"
+                      : "border-warning/30 bg-warning/10 text-amber-700 dark:text-warning"
                 )}
               >
-                {FITNESS_VERDICT_LABEL[report.fitness.verdict]}
+                {fitnessVerdictLabel(report.fitness)}
               </Badge>
             )}
           </div>
@@ -166,7 +177,7 @@ export function IngestionSummaryCard({
               ) : (
                 <Play className="size-3.5" aria-hidden />
               )}
-              {ingestionStatus === "failed" ? "Retry ingestion" : "Run ingestion"}
+              {displayStatus === "failed" ? "Retry ingestion" : "Run ingestion"}
             </Button>
           )}
           <Button
@@ -174,7 +185,7 @@ export function IngestionSummaryCard({
             className="h-8 gap-1.5"
             onClick={() => router.push(ingestionCtaHref(slug, pendingAliases))}
           >
-            {ingestionCtaLabel(ingestionStatus, pendingAliases)}
+            {ingestionCtaLabel(displayStatus, pendingAliases)}
             <ArrowRight className="size-3.5" aria-hidden />
           </Button>
         </div>
