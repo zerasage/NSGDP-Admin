@@ -124,6 +124,17 @@ export async function confirmIndicatorAlias(aliasId: string, indicatorId: string
   return response.data.data;
 }
 
+export async function confirmOrgunitAlias(
+  aliasId: string,
+  orgunitId: string,
+): Promise<{ promoted: number }> {
+  const response = await apiClient.post<ApiResponse<{ promoted: number }>>(
+    `/admin/governance/ingestion/orgunit-aliases/${aliasId}/confirm`,
+    { orgunitId },
+  );
+  return response.data.data;
+}
+
 export async function rejectIndicatorAlias(
   aliasId: string,
 ): Promise<{ excluded: number }> {

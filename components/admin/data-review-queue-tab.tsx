@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/feedback/empty-state";
 import { AliasDecisionDialog } from "@/components/admin/alias-decision-dialog";
+import { OrgunitConfirmDialog } from "@/components/admin/orgunit-confirm-dialog";
 import { AliasReviewContextPanel } from "@/components/admin/alias-review-context-panel";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { MetricCard, Panel } from "@/components/admin/admin-analytics-ui";
@@ -55,6 +56,7 @@ export function DataReviewQueueTab({
   const confirmMutation = useConfirmIndicatorAlias(datasetId);
   const rejectMutation = useRejectIndicatorAlias(datasetId);
   const [deciding, setDeciding] = useState<ReviewQueueItem | null>(null);
+  const [orgunitItem, setOrgunitItem] = useState<ReviewQueueItem | null>(null);
   const [rejectTarget, setRejectTarget] = useState<ReviewQueueItem | null>(null);
   const [kindFilter, setKindFilter] = useState<MeasureKind | "all">("all");
 
@@ -353,12 +355,18 @@ export function DataReviewQueueTab({
                         </Button>
                       </div>
                     ) : (
-                      <Link href="/gis-reference">
-                        <Button size="sm" variant="outline">
-                          <MapPin className="size-4" />
-                          Resolve in GIS Reference
+                      <div className="flex shrink-0 gap-2">
+                        <Button size="sm" onClick={() => setOrgunitItem(item)}>
+                          <CheckCircle2 className="size-4" />
+                          Confirm ward
                         </Button>
-                      </Link>
+                        <Link href="/gis-reference">
+                          <Button size="sm" variant="outline">
+                            <MapPin className="size-4" />
+                            GIS coverage
+                          </Button>
+                        </Link>
+                      </div>
                     )}
                   </div>
                 );
@@ -367,6 +375,11 @@ export function DataReviewQueueTab({
           </div>
         </Panel>
       )}
+
+      <OrgunitConfirmDialog
+        item={orgunitItem}
+        onOpenChange={(open) => !open && setOrgunitItem(null)}
+      />
 
       <AliasDecisionDialog
         item={deciding}

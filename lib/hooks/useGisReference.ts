@@ -1,10 +1,13 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, useQueries } from '@tanstack/react-query';
+import { useEffect, useState } from 'react';
 import {
   getGisReferenceLayers,
-  setGisReferenceLayer,
+  uploadGisReferenceLayer,
+  getGisJobStatus,
   rebuildCanonicalWards,
   getGisResolutionReport,
-  addWardNameVariant,
+  confirmGisWardAlias,
+  searchWardsInLga,
   type GisReferenceSlot,
 } from '../api/gis-reference';
 
@@ -15,15 +18,45 @@ export function useGisReferenceLayers() {
   });
 }
 
-export function useSetGisReferenceLayer() {
+export function useUploadGisReferenceLayer() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ slot, datasetId }: { slot: GisReferenceSlot; datasetId: string }) =>
-      setGisReferenceLayer(slot, datasetId),
+    mutationFn: ({
+      slot,
+      file,
+      label,
+    }: {
+      slot: GisReferenceSlot;
+      file: File;
+      label?: string;
+    }) => uploadGisReferenceLayer(slot, file, label),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['gis-reference-layers'] });
+      queryClient.invalidateQueries({ queryKey: ['gis-resolution-report'] });
     },
   });
+}
+
+export function useGisJobStatus(jobId: string | null) {
+  const [enabled, setEnabled] = useState(!!jobId);
+  const query = useQuery({
+    queryKey: ['gis-job', jobId],
+    queryFn: () => getGisJobStatus(jobId as string),
+    enabled: enabled && !!jobId,
+    refetchInterval: (q) => {
+      const status = q.state.data?.status;
+      if (!status || status === 'completed' || status === 'failed' || status === 'not_found') {
+        return false;
+      }
+      return 1000;
+    },
+  });
+
+  useEffect(() => {
+    setEnabled(!!jobId);
+  }, [jobId]);
+
+  return query;
 }
 
 export function useRebuildCanonicalWards() {
@@ -44,11 +77,28 @@ export function useGisResolutionReport(slot: GisReferenceSlot | null) {
   });
 }
 
-export function useAddWardNameVariant() {
+export function useGisResolutionReports(slots: GisReferenceSlot[]) {
+  return useQueries({
+    queries: slots.map((slot) => ({
+      queryKey: ['gis-resolution-report', slot],
+      queryFn: () => getGisResolutionReport(slot),
+      enabled: slots.length > 0,
+    })),
+  });
+}
+
+export function useSearchWardsInLga(lga: string, q: string, open: boolean) {
+  return useQuery({
+    queryKey: ['gis-ward-search', lga, q],
+    queryFn: () => searchWardsInLga(lga, q || undefined),
+    enabled: open && !!lga.trim(),
+  });
+}
+
+export function useConfirmGisWardAlias() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ wardCode, variant }: { wardCode: string; variant: string }) =>
-      addWardNameVariant(wardCode, variant),
+    mutationFn: confirmGisWardAlias,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['gis-resolution-report'] });
     },
