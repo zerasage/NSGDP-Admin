@@ -1,20 +1,18 @@
 "use client";
 
-import { useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
   AlertTriangle,
   Building2,
   CheckCircle2,
-  ExternalLink,
   Layers,
   Loader2,
-  Map,
+  Map as MapIcon,
   MapPin,
   Pencil,
   RotateCcw,
   ShieldAlert,
-  Upload,
   Users,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -23,23 +21,21 @@ import { usePermissions } from "@/lib/hooks/usePermissions";
 import {
   useGisReferenceLayers,
   useRebuildCanonicalWards,
-  useGisResolutionReport,
+  useGisResolutionReports,
 } from "@/lib/hooks/useGisReference";
 import {
   GIS_REFERENCE_SLOTS,
+  GIS_RECONCILABLE_SLOTS,
   GIS_SLOT_LABELS,
+  isGisReconcilableSlot,
   type GisReferenceLayer,
   type GisReferenceSlot,
+  type GisReconcilableSlot,
+  type GisResolutionReport,
 } from "@/lib/api/gis-reference";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Tabs, TabsContent, TabsTrigger } from "@/components/ui/tabs";
 import {
   Table,
   TableBody,
@@ -57,40 +53,145 @@ import {
   PanelIcon,
   METRIC_TONE,
   type MetricTone,
+  tabToneClass,
 } from "@/components/admin/admin-analytics-ui";
+import {
+  AdminSectionTabsNav,
+  AdminTabCount,
+  ADMIN_TAB_TRIGGER_BASE,
+} from "@/components/admin/admin-section-tabs-nav";
 import { formatDate } from "@/lib/utils/date";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-import { SetGisLayerDialog } from "@/components/admin/set-gis-layer-dialog";
-import { GisVariantDialog } from "@/components/admin/gis-variant-dialog";
+import { ReplaceGisLayerDialog } from "@/components/admin/replace-gis-layer-dialog";
+import { GisWardConfirmDialog } from "@/components/admin/gis-ward-confirm-dialog";
+import {
+  GisGazetteerRebuildStatus,
+  GIS_PENDING_REBUILD_KEY,
+  type GisPendingRebuild,
+} from "@/components/admin/gis-gazetteer-rebuild-banner";
+import type { GisUploadResult } from "@/lib/api/gis-reference";
 
-const RECONCILABLE_SLOTS: GisReferenceSlot[] = [
-  "ward_boundaries",
-  "facility_registry",
-  "settlements",
-];
+const RECONCILABLE_SLOT_META: Record<GisReconcilableSlot, { tone: MetricTone }> = {
+  ward_boundaries: { tone: "info" },
+  facility_registry: { tone: "success" },
+  settlements: { tone: "muted" },
+};
+
+function pickReportSlot(
+  configured: GisReconcilableSlot[],
+  reports: Map<GisReferenceSlot, GisResolutionReport>,
+  preferred?: GisReconcilableSlot | null,
+): GisReconcilableSlot | null {
+  if (configured.length === 0) return null;
+  if (preferred && configured.includes(preferred)) return preferred;
+
+  const withUnmatched = configured
+    .filter((slot) => (reports.get(slot)?.unmatched.length ?? 0) > 0)
+    .sort(
+      (a, b) =>
+        (reports.get(b)?.unmatched.length ?? 0) -
+        (reports.get(a)?.unmatched.length ?? 0),
+    );
+  if (withUnmatched.length > 0) return withUnmatched[0];
+
+  return configured[0];
+}
+
+function ResolutionReportBody({
+  slot,
+  report,
+  onConfirm,
+}: {
+  slot: GisReferenceSlot;
+  report: GisResolutionReport;
+  onConfirm: (pair: { lga: string; ward: string }) => void;
+}) {
+  return (
+    <div className="space-y-4">
+      {report.belowCoverageThreshold ? (
+        <div className="rounded-xl border border-warning/30 bg-warning/[0.06] px-4 py-3 text-sm text-amber-900 dark:text-warning">
+          Match rate {Math.round(report.matchRate * 100)}% is below the 95% threshold —{" "}
+          {report.unmatched.length} spelling(s) still need review before this layer is fully fit
+          for analytics.
+        </div>
+      ) : null}
+      <div className="grid gap-3 sm:grid-cols-3">
+        <MetricCard label="Total pairs" value={report.totalPairs} tone="muted" />
+        <MetricCard label="Matched" value={report.matched} icon={CheckCircle2} tone="success" />
+        <MetricCard
+          label="Unmatched"
+          value={report.unmatched.length}
+          icon={AlertTriangle}
+          tone={report.unmatched.length > 0 ? "destructive" : "success"}
+        />
+      </div>
+
+      {report.unmatched.length === 0 ? (
+        <div className="rounded-xl border border-success/25 bg-success/[0.06] px-4 py-6 text-center text-sm text-muted-foreground">
+          Every raw LGA/ward spelling in{" "}
+          <span className="font-medium text-foreground">{GIS_SLOT_LABELS[slot]}</span> resolves to
+          a canonical ward.
+        </div>
+      ) : (
+        <DataTableShell>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>LGA (raw)</TableHead>
+                <TableHead>Ward (raw)</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {report.unmatched.map((pair) => (
+                <TableRow key={`${pair.lga}|${pair.ward}`}>
+                  <TableCell>{pair.lga}</TableCell>
+                  <TableCell>{pair.ward}</TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex justify-end gap-1.5">
+                      <Button size="sm" variant="outline" onClick={() => onConfirm(pair)}>
+                        Confirm ward
+                      </Button>
+                      <Link
+                        href={`/ingestion-ops?orgunit=${encodeURIComponent(pair.ward)}`}
+                        className={cn(buttonVariants({ variant: "ghost", size: "sm" }))}
+                      >
+                        Review queue
+                      </Link>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </DataTableShell>
+      )}
+    </div>
+  );
+}
 
 const SLOT_META: Record<
   GisReferenceSlot,
   { icon: LucideIcon; tone: MetricTone; description: string; formats: string }
 > = {
   lga_boundaries: {
-    icon: Map,
+    icon: MapIcon,
     tone: "primary",
     description: "State-wide LGA polygons for map outlines and lookups.",
-    formats: "GeoJSON, Shapefile, GeoPackage",
+    formats: "GeoPackage (.gpkg)",
   },
   ward_boundaries: {
     icon: MapPin,
     tone: "info",
     description: "Ward polygons — source for the canonical ward gazetteer.",
-    formats: "GeoJSON, Shapefile, GeoPackage",
+    formats: "GeoPackage (.gpkg)",
   },
   facility_registry: {
     icon: Building2,
     tone: "success",
     description: "Health facility points used for map overlays and analytics.",
-    formats: "CSV, Excel, GeoJSON",
+    formats: "GeoPackage (.gpkg)",
   },
   population: {
     icon: Users,
@@ -102,18 +203,31 @@ const SLOT_META: Record<
     icon: Layers,
     tone: "muted",
     description: "Settlement / MLoS layer for fine-grained place names.",
-    formats: "GeoJSON, CSV",
+    formats: "GeoPackage (.gpkg)",
   },
 };
+
+function layerConfigured(layer?: GisReferenceLayer): boolean {
+  return Boolean(layer?.fileId || layer?.datasetId);
+}
+
+function layerDisplayName(layer?: GisReferenceLayer): string | null {
+  if (!layer) return null;
+  return layer.label ?? layer.filename ?? layer.datasetName ?? null;
+}
 
 function ActiveLayersList({
   layers,
   isLoading,
   onEdit,
+  pendingRebuild,
+  onClearRebuild,
 }: {
   layers: GisReferenceLayer[] | undefined;
   isLoading: boolean;
   onEdit: (slot: GisReferenceSlot) => void;
+  pendingRebuild: GisPendingRebuild | null;
+  onClearRebuild: () => void;
 }) {
   if (isLoading) {
     return (
@@ -134,7 +248,7 @@ function ActiveLayersList({
             <TableRow>
               <TableHead>Layer</TableHead>
               <TableHead>Status</TableHead>
-              <TableHead>Active dataset</TableHead>
+              <TableHead>Active source</TableHead>
               <TableHead>Updated</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
@@ -143,91 +257,93 @@ function ActiveLayersList({
             {GIS_REFERENCE_SLOTS.map((slot) => {
               const layer = layers?.find((l) => l.slot === slot);
               const meta = SLOT_META[slot];
-              const configured = Boolean(layer?.datasetId);
+              const configured = layerConfigured(layer);
+              const displayName = layerDisplayName(layer);
+              const rebuilding =
+                pendingRebuild?.slot === slot ? pendingRebuild : null;
 
               return (
-                <TableRow
-                  key={slot}
-                  className={cn(!configured && "bg-warning/[0.04]")}
-                >
-                  <TableCell>
-                    <div className="flex items-center gap-3">
-                      <PanelIcon icon={meta.icon} tone={meta.tone} />
-                      <div className="min-w-0">
-                        <p className="font-medium">{GIS_SLOT_LABELS[slot]}</p>
-                        <p className="text-xs text-muted-foreground">{meta.description}</p>
+                <Fragment key={slot}>
+                  <TableRow className={cn(!configured && "bg-warning/4")}>
+                    <TableCell>
+                      <div className="flex items-center gap-3">
+                        <PanelIcon icon={meta.icon} tone={meta.tone} />
+                        <div className="min-w-0">
+                          <p className="font-medium">{GIS_SLOT_LABELS[slot]}</p>
+                          <p className="text-xs text-muted-foreground">{meta.description}</p>
+                        </div>
                       </div>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    {configured ? (
-                      <Badge className="border-success/30 bg-success/10 text-success">Active</Badge>
-                    ) : (
-                      <Badge
-                        variant="outline"
-                        className="gap-1 border-warning/30 text-amber-700 dark:text-warning"
-                      >
-                        <AlertTriangle className="size-3" />
-                        Unset
-                      </Badge>
-                    )}
-                  </TableCell>
-                  <TableCell className="max-w-xs">
-                    {configured && layer?.datasetName ? (
-                      <div>
-                        {layer.datasetSlug ? (
-                          <Link
-                            href={`/datasets/${layer.datasetSlug}`}
-                            className="font-medium text-primary underline-offset-4 hover:underline"
-                          >
-                            {layer.datasetName}
-                          </Link>
-                        ) : (
-                          <span className="font-medium">{layer.datasetName}</span>
-                        )}
-                        {layer.datasetSlug ? (
-                          <p className="text-xs text-muted-foreground">{layer.datasetSlug}</p>
-                        ) : null}
+                    </TableCell>
+                    <TableCell>
+                      {rebuilding ? (
+                        <Badge className="gap-1 border-info/30 bg-info/10 text-info">
+                          <Loader2 className="size-3 animate-spin" />
+                          Rebuilding
+                        </Badge>
+                      ) : configured ? (
+                        <Badge className="border-success/30 bg-success/10 text-success">Active</Badge>
+                      ) : (
+                        <Badge
+                          variant="outline"
+                          className="gap-1 border-warning/30 text-amber-700 dark:text-warning"
+                        >
+                          <AlertTriangle className="size-3" />
+                          Unset
+                        </Badge>
+                      )}
+                    </TableCell>
+                    <TableCell className="max-w-xs">
+                      {configured && displayName ? (
+                        <div>
+                          <span className="font-medium">{displayName}</span>
+                          {layer?.filename ? (
+                            <p className="text-xs text-muted-foreground">{layer.filename}</p>
+                          ) : null}
+                          {layer?.source === "dataset" && layer.datasetSlug ? (
+                            <Link
+                              href={`/datasets/${layer.datasetSlug}`}
+                              className="text-xs text-primary underline-offset-4 hover:underline"
+                            >
+                              Legacy catalogue dataset
+                            </Link>
+                          ) : layer?.source === "file" ? (
+                            <p className="text-xs text-muted-foreground">Dedicated GIS file</p>
+                          ) : null}
+                        </div>
+                      ) : (
+                        <p className="text-xs text-muted-foreground">
+                          Expects {meta.formats}
+                        </p>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {layer?.updatedAt ? formatDate(layer.updatedAt) : "—"}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end gap-1.5">
+                        <Button
+                          size="sm"
+                          variant={configured ? "outline" : "default"}
+                          onClick={() => onEdit(slot)}
+                          disabled={!!rebuilding}
+                        >
+                          <Pencil className="size-3.5" />
+                          {configured ? "Replace" : "Upload layer"}
+                        </Button>
                       </div>
-                    ) : (
-                      <p className="text-xs text-muted-foreground">
-                        Expects {meta.formats}
-                      </p>
-                    )}
-                  </TableCell>
-                  <TableCell className="text-sm text-muted-foreground">
-                    {layer?.updatedAt ? formatDate(layer.updatedAt) : "—"}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex justify-end gap-1.5">
-                      <Button
-                        size="sm"
-                        variant={configured ? "outline" : "default"}
-                        onClick={() => onEdit(slot)}
-                      >
-                        <Pencil className="size-3.5" />
-                        {configured ? "Change" : "Assign"}
-                      </Button>
-                      {!configured ? (
-                        <Link
-                          href="/upload"
-                          className={cn(buttonVariants({ variant: "outline", size: "sm" }), "gap-1.5")}
-                        >
-                          <Upload className="size-3.5 shrink-0" aria-hidden />
-                          Upload
-                        </Link>
-                      ) : layer?.datasetSlug ? (
-                        <Link
-                          href={`/datasets/${layer.datasetSlug}`}
-                          className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "gap-1.5")}
-                        >
-                          <ExternalLink className="size-3.5 shrink-0" aria-hidden />
-                          View
-                        </Link>
-                      ) : null}
-                    </div>
-                  </TableCell>
-                </TableRow>
+                    </TableCell>
+                  </TableRow>
+                  {rebuilding ? (
+                    <TableRow className="hover:bg-transparent">
+                      <TableCell colSpan={5} className="bg-info/4 py-2">
+                        <GisGazetteerRebuildStatus
+                          pending={rebuilding}
+                          onClear={onClearRebuild}
+                        />
+                      </TableCell>
+                    </TableRow>
+                  ) : null}
+                </Fragment>
               );
             })}
           </TableBody>
@@ -239,13 +355,16 @@ function ActiveLayersList({
         {GIS_REFERENCE_SLOTS.map((slot) => {
           const layer = layers?.find((l) => l.slot === slot);
           const meta = SLOT_META[slot];
-          const configured = Boolean(layer?.datasetId);
+          const configured = layerConfigured(layer);
+          const displayName = layerDisplayName(layer);
           const tone = METRIC_TONE[meta.tone];
+          const rebuilding =
+            pendingRebuild?.slot === slot ? pendingRebuild : null;
 
           return (
             <div
               key={slot}
-              className={cn("space-y-3 p-4", !configured && tone.card)}
+              className={cn("space-y-3 p-4", !configured && !rebuilding && tone.card)}
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="flex items-start gap-3">
@@ -255,7 +374,12 @@ function ActiveLayersList({
                     <p className="mt-0.5 text-xs text-muted-foreground">{meta.description}</p>
                   </div>
                 </div>
-                {configured ? (
+                {rebuilding ? (
+                  <Badge className="shrink-0 gap-1 border-info/30 bg-info/10 text-info">
+                    <Loader2 className="size-3 animate-spin" />
+                    Rebuilding
+                  </Badge>
+                ) : configured ? (
                   <Badge className="shrink-0 border-success/30 bg-success/10 text-success">
                     Active
                   </Badge>
@@ -271,20 +395,11 @@ function ActiveLayersList({
               </div>
 
               <div className="text-sm">
-                {configured && layer?.datasetName ? (
-                  layer.datasetSlug ? (
-                    <Link
-                      href={`/datasets/${layer.datasetSlug}`}
-                      className="font-medium text-primary underline-offset-4 hover:underline"
-                    >
-                      {layer.datasetName}
-                    </Link>
-                  ) : (
-                    <span className="font-medium">{layer.datasetName}</span>
-                  )
+                {configured && displayName ? (
+                  <span className="font-medium">{displayName}</span>
                 ) : (
                   <span className="text-xs text-muted-foreground">
-                    No dataset — upload {meta.formats} first
+                    No file — upload {meta.formats}
                   </span>
                 )}
                 {layer?.updatedAt ? (
@@ -294,24 +409,23 @@ function ActiveLayersList({
                 ) : null}
               </div>
 
+              {rebuilding ? (
+                <GisGazetteerRebuildStatus
+                  pending={rebuilding}
+                  onClear={onClearRebuild}
+                />
+              ) : null}
+
               <div className="flex flex-wrap gap-2">
                 <Button
                   size="sm"
                   variant={configured ? "outline" : "default"}
                   onClick={() => onEdit(slot)}
+                  disabled={!!rebuilding}
                 >
                   <Pencil className="size-3.5" />
-                  {configured ? "Change" : "Assign"}
+                  {configured ? "Replace" : "Upload layer"}
                 </Button>
-                {!configured && (
-                  <Link
-                    href="/upload"
-                    className={cn(buttonVariants({ variant: "outline", size: "sm" }), "gap-1.5")}
-                  >
-                    <Upload className="size-3.5 shrink-0" aria-hidden />
-                    Upload
-                  </Link>
-                )}
               </div>
             </div>
           );
@@ -330,10 +444,85 @@ export default function GisReferenceLayersPage() {
   const rebuildMutation = useRebuildCanonicalWards();
 
   const [editingSlot, setEditingSlot] = useState<GisReferenceSlot | null>(null);
-  const [reportSlot, setReportSlot] = useState<GisReferenceSlot>("ward_boundaries");
+  const [pendingRebuild, setPendingRebuild] = useState<GisPendingRebuild | null>(null);
+  const [reportSlot, setReportSlot] = useState<GisReconcilableSlot | null>(null);
   const [variantTarget, setVariantTarget] = useState<{ lga: string; ward: string } | null>(null);
 
-  const { data: report, isLoading: reportLoading } = useGisResolutionReport(reportSlot);
+  useEffect(() => {
+    try {
+      const raw = sessionStorage.getItem(GIS_PENDING_REBUILD_KEY);
+      if (!raw) return;
+      const parsed = JSON.parse(raw) as GisPendingRebuild;
+      if (parsed?.jobId && parsed?.slot) {
+        setPendingRebuild(parsed);
+      }
+    } catch {
+      sessionStorage.removeItem(GIS_PENDING_REBUILD_KEY);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (pendingRebuild) {
+      sessionStorage.setItem(GIS_PENDING_REBUILD_KEY, JSON.stringify(pendingRebuild));
+    } else {
+      sessionStorage.removeItem(GIS_PENDING_REBUILD_KEY);
+    }
+  }, [pendingRebuild]);
+
+  const clearPendingRebuild = () => setPendingRebuild(null);
+
+  const configuredReconcilable = useMemo(
+    (): GisReconcilableSlot[] =>
+      GIS_RECONCILABLE_SLOTS.filter((slot) =>
+        layerConfigured(layers?.find((l) => l.slot === slot)),
+      ),
+    [layers],
+  );
+
+  const reportQueries = useGisResolutionReports(configuredReconcilable);
+
+  const reportsBySlot = useMemo(() => {
+    const map = new Map<GisReferenceSlot, GisResolutionReport>();
+    configuredReconcilable.forEach((slot, index) => {
+      const data = reportQueries[index]?.data;
+      if (data) map.set(slot, data);
+    });
+    return map;
+  }, [configuredReconcilable, reportQueries]);
+
+  const preferredReportSlot =
+    pendingRebuild?.slot && isGisReconcilableSlot(pendingRebuild.slot)
+      ? pendingRebuild.slot
+      : reportSlot;
+
+  const activeReportSlot = pickReportSlot(
+    configuredReconcilable,
+    reportsBySlot,
+    preferredReportSlot,
+  );
+
+  const activeReport = activeReportSlot ? reportsBySlot.get(activeReportSlot) : undefined;
+  const activeReportLoading =
+    activeReportSlot != null &&
+    reportQueries[configuredReconcilable.indexOf(activeReportSlot)]?.isLoading;
+
+  const anyReportLoading = reportQueries.some((query) => query.isLoading);
+  const totalUnmatched = [...reportsBySlot.values()].reduce(
+    (sum, report) => sum + report.unmatched.length,
+    0,
+  );
+  const layersWithUnmatched = [...reportsBySlot.values()].filter(
+    (report) => report.unmatched.length > 0,
+  ).length;
+
+  const handleLayerUploaded = (result: GisUploadResult) => {
+    if (isGisReconcilableSlot(result.slot)) {
+      setReportSlot(result.slot);
+    }
+    if (result.jobId && result.rebuildStatus === "queued") {
+      setPendingRebuild({ jobId: result.jobId, slot: result.slot });
+    }
+  };
 
   if (!canManage) {
     return (
@@ -347,7 +536,7 @@ export default function GisReferenceLayersPage() {
 
   const configuredCount = layers
     ? GIS_REFERENCE_SLOTS.filter((slot) =>
-        layers.find((l) => l.slot === slot)?.datasetId
+        layerConfigured(layers.find((l) => l.slot === slot)),
       ).length
     : 0;
   const unsetCount = GIS_REFERENCE_SLOTS.length - configuredCount;
@@ -364,11 +553,18 @@ export default function GisReferenceLayersPage() {
   };
 
   const matchRate =
-    report && report.totalPairs > 0
-      ? `${Math.round((report.matched / report.totalPairs) * 100)}%`
-      : report
+    activeReport && activeReport.totalPairs > 0
+      ? `${Math.round((activeReport.matched / activeReport.totalPairs) * 100)}%`
+      : activeReport
         ? "100%"
         : "—";
+
+  const unmatchedHint =
+    layersWithUnmatched > 0
+      ? `${layersWithUnmatched} layer${layersWithUnmatched === 1 ? "" : "s"} need review`
+      : configuredReconcilable.length > 0
+        ? "All reconciled"
+        : undefined;
 
   return (
     <div className="space-y-6">
@@ -376,12 +572,8 @@ export default function GisReferenceLayersPage() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight">GIS Reference Layers</h1>
           <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-            Assign published datasets to the five platform map slots, then reconcile raw
-            LGA/ward spellings against the canonical gazetteer. Upload new files from{" "}
-            <Link href="/upload" className="font-medium text-primary underline-offset-4 hover:underline">
-              Upload dataset
-            </Link>
-            — this page only picks which dataset backs each layer.
+            Upload dedicated GIS reference files for the five platform map slots, then reconcile
+            raw LGA/ward spellings via the shared org-unit ladder and Data Review queue.
           </p>
         </div>
         <Button
@@ -414,128 +606,131 @@ export default function GisReferenceLayersPage() {
         />
         <MetricCard
           label="Unmatched spellings"
-          value={reportLoading ? "…" : (report?.unmatched.length ?? "—")}
-          hint={report ? GIS_SLOT_LABELS[reportSlot] : undefined}
+          value={
+            configuredReconcilable.length === 0
+              ? "—"
+              : anyReportLoading && reportsBySlot.size === 0
+                ? "…"
+                : totalUnmatched
+          }
+          hint={unmatchedHint}
           icon={MapPin}
           tone={
-            report && report.unmatched.length > 0
+            totalUnmatched > 0
               ? "destructive"
-              : report
+              : configuredReconcilable.length > 0 && !anyReportLoading
                 ? "success"
                 : "muted"
           }
         />
         <MetricCard
           label="Match rate"
-          value={reportLoading ? "…" : matchRate}
-          hint={report ? `${report.matched} of ${report.totalPairs} pairs` : undefined}
+          value={activeReportLoading ? "…" : matchRate}
+          hint={
+            activeReport
+              ? `${activeReport.matched} of ${activeReport.totalPairs} pairs · ${activeReportSlot ? GIS_SLOT_LABELS[activeReportSlot] : ""}`
+              : undefined
+          }
           icon={Layers}
           tone="info"
         />
-      </div>
+            </div>
 
       <Panel
         title="Active map layers"
-        description="Each slot reads from one dataset. Changing a source updates the public map after the gazetteer rebuild runs."
-        icon={Map}
+        description="Each slot reads from one staff-uploaded file (or legacy catalogue dataset). Replacing a layer triggers gazetteer rebuild when applicable."
+        icon={MapIcon}
         tone="primary"
       >
         <ActiveLayersList
           layers={layers}
           isLoading={isLoading}
           onEdit={setEditingSlot}
+          pendingRebuild={pendingRebuild}
+          onClearRebuild={clearPendingRebuild}
         />
       </Panel>
 
       <Panel
         title="Name resolution report"
-        description="Raw LGA/ward strings from the active layer that do not yet map to a canonical ward."
+        description="Unmatched LGA/ward spellings across reconcilable layers. Tabs show counts per layer — the layer with issues is selected automatically."
         icon={MapPin}
         tone="warning"
-        action={
-          <Select
-            value={reportSlot}
-            onValueChange={(v) => v && setReportSlot(v as GisReferenceSlot)}
-          >
-            <SelectTrigger className="h-9 w-56">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {RECONCILABLE_SLOTS.map((slot) => (
-                <SelectItem key={slot} value={slot}>
-                  {GIS_SLOT_LABELS[slot]}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        }
       >
-        {reportLoading ? (
-          <Skeleton className="h-32 w-full rounded-xl" />
-        ) : report ? (
-          <div className="space-y-4">
-            <div className="grid gap-3 sm:grid-cols-3">
-              <MetricCard label="Total pairs" value={report.totalPairs} tone="muted" />
-              <MetricCard label="Matched" value={report.matched} icon={CheckCircle2} tone="success" />
-              <MetricCard
-                label="Unmatched"
-                value={report.unmatched.length}
-                icon={AlertTriangle}
-                tone={report.unmatched.length > 0 ? "destructive" : "success"}
-              />
-            </div>
+        {configuredReconcilable.length === 0 ? (
+          <EmptyState
+            icon={MapPin}
+            title="No reconcilable layers yet"
+            description="Upload ward boundaries, health facilities, or settlements to see spelling mismatches here."
+          />
+        ) : activeReportSlot ? (
+          <Tabs
+            value={activeReportSlot}
+            onValueChange={(value) =>
+              value && setReportSlot(value as GisReconcilableSlot)
+            }
+          >
+            <AdminSectionTabsNav>
+              {configuredReconcilable.map((slot) => {
+                const slotReport = reportsBySlot.get(slot);
+                const unmatchedCount = slotReport?.unmatched.length ?? 0;
+                const isActive = slot === activeReportSlot;
+                const meta = RECONCILABLE_SLOT_META[slot];
 
-            {report.unmatched.length === 0 ? (
-              <div className="rounded-xl border border-success/25 bg-success/[0.06] px-4 py-6 text-center text-sm text-muted-foreground">
-                Every raw LGA/ward spelling in{" "}
-                <span className="font-medium text-foreground">{GIS_SLOT_LABELS[reportSlot]}</span>{" "}
-                resolves to a canonical ward.
-              </div>
-            ) : (
-              <DataTableShell>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>LGA (raw)</TableHead>
-                      <TableHead>Ward (raw)</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {report.unmatched.map((pair) => (
-                      <TableRow key={`${pair.lga}|${pair.ward}`}>
-                        <TableCell>{pair.lga}</TableCell>
-                        <TableCell>{pair.ward}</TableCell>
-                        <TableCell className="text-right">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => setVariantTarget(pair)}
-                          >
-                            Attach to ward
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </DataTableShell>
-            )}
-          </div>
-        ) : null}
+                return (
+                  <TabsTrigger
+                    key={slot}
+                    value={slot}
+                    className={cn(ADMIN_TAB_TRIGGER_BASE, tabToneClass(meta.tone))}
+                  >
+                  {GIS_SLOT_LABELS[slot]}
+                    <AdminTabCount count={unmatchedCount} active={isActive} />
+                  </TabsTrigger>
+                );
+              })}
+            </AdminSectionTabsNav>
+
+            {configuredReconcilable.map((slot) => {
+              const slotIndex = configuredReconcilable.indexOf(slot);
+              const slotQuery = reportQueries[slotIndex];
+              const slotReport = reportsBySlot.get(slot);
+
+              return (
+                <TabsContent key={slot} value={slot} className="mt-4">
+                  {slotQuery?.isLoading ? (
+                    <Skeleton className="h-32 w-full rounded-xl" />
+                  ) : slotReport ? (
+                    <ResolutionReportBody
+                      slot={slot}
+                      report={slotReport}
+                      onConfirm={setVariantTarget}
+                    />
+                  ) : slotQuery?.isError ? (
+                    <div className="rounded-xl border border-destructive/30 bg-destructive/[0.06] px-4 py-3 text-sm">
+                      Could not load the resolution report for {GIS_SLOT_LABELS[slot]}.
+            </div>
+          ) : null}
+                </TabsContent>
+              );
+            })}
+          </Tabs>
+        ) : (
+          <Skeleton className="h-32 w-full rounded-xl" />
+        )}
       </Panel>
 
       {editingSlot && (
-        <SetGisLayerDialog
+        <ReplaceGisLayerDialog
           slot={editingSlot}
           currentLayer={layers?.find((l) => l.slot === editingSlot)}
           open={!!editingSlot}
           onClose={() => setEditingSlot(null)}
+          onUploaded={handleLayerUploaded}
         />
       )}
 
       {variantTarget && (
-        <GisVariantDialog
+        <GisWardConfirmDialog
           lga={variantTarget.lga}
           ward={variantTarget.ward}
           open={!!variantTarget}

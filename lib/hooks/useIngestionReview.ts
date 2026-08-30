@@ -133,6 +133,21 @@ export function useConfirmIndicatorAlias(datasetId?: string) {
   });
 }
 
+export function useConfirmOrgunitAlias(datasetId?: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ aliasId, orgunitId }: { aliasId: string; orgunitId: string }) =>
+      api.confirmOrgunitAlias(aliasId, orgunitId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [REVIEW_QUEUE_KEY] });
+      queryClient.invalidateQueries({ queryKey: [REPORT_KEY, datasetId] });
+      queryClient.invalidateQueries({ queryKey: ['gis-resolution-report'] });
+      queryClient.invalidateQueries({ queryKey: ['ingestion-observability'] });
+      queryClient.invalidateQueries({ queryKey: [ANALYTICS_PUBLISH_STATUS_KEY] });
+    },
+  });
+}
+
 export function useRejectIndicatorAlias(datasetId?: string) {
   const queryClient = useQueryClient();
   return useMutation({
