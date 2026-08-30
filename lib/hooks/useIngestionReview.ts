@@ -152,7 +152,23 @@ export function useRejectIndicatorAlias(datasetId?: string) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (aliasId: string) => api.rejectIndicatorAlias(aliasId),
-    onSuccess: () => {
+    onMutate: async (aliasId) => {
+      await queryClient.cancelQueries({ queryKey: [REVIEW_QUEUE_KEY] });
+      const previous = queryClient.getQueriesData<api.ReviewQueueItem[]>({
+        queryKey: [REVIEW_QUEUE_KEY],
+      });
+      queryClient.setQueriesData<api.ReviewQueueItem[]>(
+        { queryKey: [REVIEW_QUEUE_KEY] },
+        (old) => old?.filter((item) => item.id !== aliasId),
+      );
+      return { previous };
+    },
+    onError: (_error, _aliasId, context) => {
+      context?.previous?.forEach(([queryKey, data]) => {
+        queryClient.setQueryData(queryKey, data);
+      });
+    },
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: [REVIEW_QUEUE_KEY] });
       queryClient.invalidateQueries({ queryKey: [REPORT_KEY, datasetId] });
       queryClient.invalidateQueries({ queryKey: ['dataset'] });

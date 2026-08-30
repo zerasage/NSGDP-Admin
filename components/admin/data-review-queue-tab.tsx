@@ -107,14 +107,15 @@ export function DataReviewQueueTab({
 
   const handleNotAnIndicatorConfirm = () => {
     if (!rejectTarget) return;
-    rejectMutation.mutate(rejectTarget.id, {
+    const aliasId = rejectTarget.id;
+    setRejectTarget(null);
+    rejectMutation.mutate(aliasId, {
       onSuccess: (result) => {
         toast.success(
           result?.excluded
             ? `Excluded — ${result.excluded} row(s) marked as not an indicator`
             : "Marked as not an indicator",
         );
-        setRejectTarget(null);
       },
       onError: (error: unknown) =>
         toast.error(
@@ -402,7 +403,6 @@ export function DataReviewQueueTab({
         confirmLabel="Not an indicator"
         variant="destructive"
         loading={rejectMutation.isPending}
-        closeOnConfirm={false}
         onConfirm={handleNotAnIndicatorConfirm}
       />
     </div>
