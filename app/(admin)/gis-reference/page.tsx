@@ -446,6 +446,9 @@ export default function GisReferenceLayersPage() {
   const [editingSlot, setEditingSlot] = useState<GisReferenceSlot | null>(null);
   const [pendingRebuild, setPendingRebuild] = useState<GisPendingRebuild | null>(null);
   const [reportSlot, setReportSlot] = useState<GisReconcilableSlot | null>(null);
+  const [visitedReportSlots, setVisitedReportSlots] = useState<
+    Set<GisReconcilableSlot>
+  >(new Set());
   const [variantTarget, setVariantTarget] = useState<{ lga: string; ward: string } | null>(null);
 
   useEffect(() => {
@@ -479,7 +482,29 @@ export default function GisReferenceLayersPage() {
     [layers],
   );
 
-  const reportQueries = useGisResolutionReports(configuredReconcilable);
+  const preferredReportSlot =
+    pendingRebuild?.slot && isGisReconcilableSlot(pendingRebuild.slot)
+      ? pendingRebuild.slot
+      : reportSlot;
+
+  useEffect(() => {
+    if (configuredReconcilable.length === 0) return;
+    const seed =
+      preferredReportSlot && configuredReconcilable.includes(preferredReportSlot)
+        ? preferredReportSlot
+        : configuredReconcilable[0];
+    setVisitedReportSlots((prev) => {
+      if (prev.has(seed)) return prev;
+      const next = new Set(prev);
+      next.add(seed);
+      return next;
+    });
+  }, [configuredReconcilable, preferredReportSlot]);
+
+  const reportQueries = useGisResolutionReports(
+    configuredReconcilable,
+    [...visitedReportSlots],
+  );
 
   const reportsBySlot = useMemo(() => {
     const map = new Map<GisReferenceSlot, GisResolutionReport>();
@@ -489,11 +514,6 @@ export default function GisReferenceLayersPage() {
     });
     return map;
   }, [configuredReconcilable, reportQueries]);
-
-  const preferredReportSlot =
-    pendingRebuild?.slot && isGisReconcilableSlot(pendingRebuild.slot)
-      ? pendingRebuild.slot
-      : reportSlot;
 
   const activeReportSlot = pickReportSlot(
     configuredReconcilable,
@@ -666,9 +686,17 @@ export default function GisReferenceLayersPage() {
         ) : activeReportSlot ? (
           <Tabs
             value={activeReportSlot}
-            onValueChange={(value) =>
-              value && setReportSlot(value as GisReconcilableSlot)
-            }
+            onValueChange={(value) => {
+              if (!value) return;
+              const slot = value as GisReconcilableSlot;
+              setReportSlot(slot);
+              setVisitedReportSlots((prev) => {
+                if (prev.has(slot)) return prev;
+                const next = new Set(prev);
+                next.add(slot);
+                return next;
+              });
+            }}
           >
             <AdminSectionTabsNav>
               {configuredReconcilable.map((slot) => {

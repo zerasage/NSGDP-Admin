@@ -20,6 +20,34 @@ export function formatDate(value: string | Date | null | undefined): string {
   });
 }
 
+/** Whole calendar days from `from` to `to` (local dates, ignoring time). */
+export function calendarDaysBetween(
+  from: string | Date,
+  to: string | Date,
+): number {
+  const start = toDate(from);
+  const end = toDate(to);
+  if (!start || !end) return 0;
+  const startUtc = Date.UTC(start.getFullYear(), start.getMonth(), start.getDate());
+  const endUtc = Date.UTC(end.getFullYear(), end.getMonth(), end.getDate());
+  return Math.floor((endUtc - startUtc) / (1000 * 60 * 60 * 24));
+}
+
+/** Days elapsed since start (0 if not started yet). */
+export function daysActiveSince(start: string | Date, now = new Date()): number {
+  return Math.max(0, calendarDaysBetween(start, now));
+}
+
+/** Days until start (0 if already started). */
+export function daysUntilStart(start: string | Date, now = new Date()): number {
+  return Math.max(0, calendarDaysBetween(now, start));
+}
+
+/** Days until end (0 if past end). */
+export function daysUntilEnd(end: string | Date, now = new Date()): number {
+  return Math.max(0, calendarDaysBetween(now, end));
+}
+
 /** "22 Jul 2026, 14:35" */
 export function formatDateTime(value: string | Date | null | undefined): string {
   const date = toDate(value);

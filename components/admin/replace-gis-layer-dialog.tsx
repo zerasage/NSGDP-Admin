@@ -40,7 +40,14 @@ export function ReplaceGisLayerDialog({
 }: ReplaceGisLayerDialogProps) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [label, setLabel] = useState(currentLayer?.label ?? "");
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [uploadPercent, setUploadPercent] = useState<number | null>(null);
   const uploadMutation = useUploadGisReferenceLayer();
+
+  const formatBytes = (bytes: number) => {
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  };
 
   const handleSubmit = async () => {
     const file = fileRef.current?.files?.[0];
@@ -49,7 +56,13 @@ export function ReplaceGisLayerDialog({
       return;
     }
     try {
-      const result = await uploadMutation.mutateAsync({ slot, file, label });
+      setUploadPercent(0);
+      const result = await uploadMutation.mutateAsync({
+        slot,
+        file,
+        label,
+        onUploadProgress: setUploadPercent,
+      });
       onUploaded?.(result);
       if (result.rebuildStatus === "queued" && result.jobId) {
         toast.success(
@@ -61,6 +74,8 @@ export function ReplaceGisLayerDialog({
       onClose();
     } catch {
       toast.error("Upload failed — check file type and try again");
+    } finally {
+      setUploadPercent(null);
     }
   };
 
@@ -87,7 +102,16 @@ export function ReplaceGisLayerDialog({
                   ? ".csv,.xlsx,.xls,.gpkg"
                   : ".gpkg"
               }
+              onChange={(e) => setSelectedFile(e.target.files?.[0] ?? null)}
             />
+            {selectedFile ? (
+              <p className="text-xs text-muted-foreground">
+                {selectedFile.name} · {formatBytes(selectedFile.size)}
+                {selectedFile.size > 10 * 1024 * 1024
+                  ? " — large files can take several minutes to upload"
+                  : null}
+              </p>
+            ) : null}
           </div>
           <div className="space-y-2">
             <Label htmlFor="gis-label">Label (optional)</Label>
@@ -99,17 +123,31 @@ export function ReplaceGisLayerDialog({
             />
           </div>
         </div>
+        {uploadMutation.isPending ? (
+          <p className="text-xs text-muted-foreground">
+            {uploadPercent != null && uploadPercent < 100
+              ? `Sending file… ${uploadPercent}%`
+              : "Saving to storage and activating the slot"}
+            {" — "}
+            gazetteer rebuild runs in the background after this finishes.
+          </p>
+        ) : null}
         <DialogFooter>
           <Button variant="outline" onClick={onClose} disabled={uploadMutation.isPending}>
             Cancel
           </Button>
           <Button onClick={handleSubmit} disabled={uploadMutation.isPending}>
             {uploadMutation.isPending ? (
-              <Loader2 className="size-4 animate-spin" />
+              <>
+                <Loader2 className="size-4 animate-spin" />
+                Uploading…
+              </>
             ) : (
-              <Upload className="size-4" />
+              <>
+                <Upload className="size-4" />
+                Upload &amp; activate
+              </>
             )}
-            Upload &amp; activate
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -12,6 +12,11 @@ export type ProgrammeType =
 
 export type ProgrammeStatus = 'active' | 'completed' | 'suspended' | 'archived';
 
+export type ProgrammeProgressMode =
+  | 'lga_coverage'
+  | 'outcome_metric'
+  | 'combined';
+
 export interface AdminProgramme {
   id: string;
   name: string;
@@ -25,10 +30,12 @@ export interface AdminProgramme {
   organisation_id: string | null;
   manager_id: string | null;
   target_lgas: string[] | null;
+  covered_lgas: string[] | null;
   objectives: string[] | null;
   key_indicators: Record<string, unknown>[] | null;
   dataset_count: number;
   campaign_count: number;
+  progress_mode: ProgrammeProgressMode | null;
   primary_metric: string | null;
   target_count: number | null;
   reach_count: number | null;
@@ -57,9 +64,11 @@ export interface CreateProgrammePayload {
   organisationId?: string;
   managerId?: string;
   targetLgas?: string[];
+  coveredLgas?: string[];
   startDate?: string;
   endDate?: string;
   objectives?: string[];
+  progressMode?: ProgrammeProgressMode;
   primaryMetric?: string;
   targetCount?: number;
   reachCount?: number;

@@ -16,6 +16,10 @@ import { getDatasets, type Dataset } from "@/lib/api/datasets";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 
+function isPublishedDataset(dataset: Dataset): boolean {
+  return dataset.status === "approved" && !!dataset.published_at;
+}
+
 interface GroupMembersModalProps {
   open: boolean;
   onClose: () => void;
@@ -35,9 +39,14 @@ export function GroupMembersModal({ open, onClose, groupSlug }: GroupMembersModa
   });
 
   const currentDatasetIds = new Set((group?.datasets ?? []).map((d) => d.id));
+  const publishableResults = (searchResults?.data ?? []).filter(isPublishedDataset);
 
   const handleAdd = (dataset: Dataset) => {
     if (!groupSlug) return;
+    if (!isPublishedDataset(dataset)) {
+      toast.error("Only published datasets can be added to a group.");
+      return;
+    }
     addMutation.mutate(
       { slug: groupSlug, datasetId: dataset.id },
       {
@@ -75,7 +84,7 @@ export function GroupMembersModal({ open, onClose, groupSlug }: GroupMembersModa
             Manage Datasets — {group?.name ?? "…"}
           </DialogTitle>
           <DialogDescription>
-            Add or remove datasets curated in this group.
+            Add or remove datasets curated in this group. Only published datasets can be added.
           </DialogDescription>
         </DialogHeader>
 
@@ -106,11 +115,13 @@ export function GroupMembersModal({ open, onClose, groupSlug }: GroupMembersModa
                 <div className="flex items-center justify-center gap-2 p-4 text-sm text-muted-foreground">
                   <Loader2 className="size-4 animate-spin" /> Searching...
                 </div>
-              ) : (searchResults?.data ?? []).length === 0 ? (
-                <p className="p-4 text-sm text-muted-foreground">No matching datasets.</p>
+              ) : publishableResults.length === 0 ? (
+                <p className="p-4 text-sm text-muted-foreground">
+                  No published datasets match your search. Approve and publish a dataset first.
+                </p>
               ) : (
                 <ul className="divide-y">
-                  {searchResults!.data.map((dataset) => {
+                  {publishableResults.map((dataset) => {
                     const alreadyIn = currentDatasetIds.has(dataset.id);
                     return (
                       <li key={dataset.id} className="flex items-center justify-between gap-3 p-3">

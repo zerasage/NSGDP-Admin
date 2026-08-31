@@ -13,6 +13,17 @@ import { useAuth } from "@/lib/auth";
 import { usePermissions } from "@/lib/hooks/usePermissions";
 import { ProgramFormModal } from "@/components/admin/program-form-modal";
 import { ProgramProgressModal } from "@/components/admin/program-progress-modal";
+import { RichHtmlContent } from "@/components/admin/rich-html-content";
+import { objectivesToEditorHtml } from "@/lib/objectives-html";
+import {
+  headlineProgressPercent,
+  lgaCoverageCounts,
+  lgaCoveragePercent,
+  outcomeMetricPercent,
+  tracksLgaCoverage,
+  tracksOutcomeMetric,
+  PROGRESS_MODE_OPTIONS,
+} from "@/lib/constants/program-progress";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -20,7 +31,7 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
-import { formatDate } from "@/lib/utils/date";
+import { formatDate, daysActiveSince, daysUntilStart, daysUntilEnd } from "@/lib/utils/date";
 import type { ProgrammeStatus } from "@/lib/api/programs";
 
 const statusColors: Record<ProgrammeStatus, string> = {
@@ -105,23 +116,50 @@ export default function ProgramDetailPage({ params }: { params: Promise<{ slug: 
     );
   }
 
-  const progress =
-    program.target_count != null &&
-    program.target_count > 0 &&
-    program.reach_count != null
-      ? Math.min(100, Math.round((program.reach_count / program.target_count) * 100))
-      : null;
+  const mode = program.progress_mode ?? "lga_coverage";
+  const lgaCounts = lgaCoverageCounts(program);
+  const lgaPct = lgaCoveragePercent(program);
+  const outcomePct = outcomeMetricPercent(program);
+  const headlinePct = headlineProgressPercent(program);
+  const progressModeLabel =
+    PROGRESS_MODE_OPTIONS.find((o) => o.value === mode)?.label ?? mode;
 
   // Calculate time-based metrics
-  let activeDays = null;
-  let daysRemaining = null;
+  let timelineMetric: {
+    label: string;
+    value: string;
+    description: string;
+    durationText: string;
+  } | null = null;
+  let daysRemaining: number | null = null;
+
   if (program.status === "active") {
     const now = new Date();
-    if (program.start_date) {
-      activeDays = Math.floor((now.getTime() - new Date(program.start_date).getTime()) / (1000 * 60 * 60 * 24));
-    }
     if (program.end_date) {
-      daysRemaining = Math.max(0, Math.floor((new Date(program.end_date).getTime() - now.getTime()) / (1000 * 60 * 60 * 24)));
+      daysRemaining = daysUntilEnd(program.end_date, now);
+    }
+    if (program.start_date) {
+      const started = daysActiveSince(program.start_date, now);
+      const untilStart = daysUntilStart(program.start_date, now);
+      if (untilStart > 0) {
+        timelineMetric = {
+          label: "Starts in",
+          value: untilStart.toString(),
+          description:
+            daysRemaining !== null
+              ? `${daysRemaining} days until end`
+              : "Scheduled — not started yet",
+          durationText: `Starts in ${untilStart} day${untilStart === 1 ? "" : "s"}`,
+        };
+      } else {
+        timelineMetric = {
+          label: "Active days",
+          value: started.toString(),
+          description:
+            daysRemaining !== null ? `${daysRemaining} days remaining` : "Ongoing",
+          durationText: `${started} day${started === 1 ? "" : "s"} active`,
+        };
+      }
     }
   }
 
@@ -227,36 +265,36 @@ export default function ProgramDetailPage({ params }: { params: Promise<{ slug: 
 
       {/* Metrics Grid */}
       <section className="grid grid-cols-2 gap-3 lg:grid-cols-4" aria-label="Programme metrics">
-        {program.target_count && (
+        {tracksOutcomeMetric(mode) && program.target_count != null && (
           <MetricCard
-            label="Target"
+            label="Outcome target"
             value={program.target_count.toLocaleString()}
             icon={Target}
-            description={program.primary_metric || "Target count"}
+            description={program.primary_metric || "Outcome metric"}
           />
         )}
-        {program.reach_count !== null && (
+        {tracksOutcomeMetric(mode) && program.reach_count !== null && (
           <MetricCard
-            label="Reached"
+            label="Outcome reached"
             value={program.reach_count.toLocaleString()}
             icon={TrendingUp}
-            description={`${progress || 0}% of target`}
+            description={outcomePct != null ? `${outcomePct}% of target` : "In progress"}
           />
         )}
-        {program.lgas_covered_count !== null && (
+        {tracksLgaCoverage(mode) && lgaCounts.target > 0 && (
           <MetricCard
-            label="LGAs Covered"
-            value={program.lgas_covered_count.toString()}
+            label="LGAs covered"
+            value={String(lgaCounts.reach)}
             icon={MapPin}
-            description={`of ${program.target_lgas?.length || 0} target LGAs`}
+            description={`of ${lgaCounts.target} target LGAs`}
           />
         )}
-        {activeDays !== null && (
+        {timelineMetric && (
           <MetricCard
-            label="Active Days"
-            value={activeDays.toString()}
+            label={timelineMetric.label}
+            value={timelineMetric.value}
             icon={Calendar}
-            description={daysRemaining !== null ? `${daysRemaining} days remaining` : "Ongoing"}
+            description={timelineMetric.description}
           />
         )}
       </section>
@@ -276,35 +314,49 @@ export default function ProgramDetailPage({ params }: { params: Promise<{ slug: 
             </Button>
           )}
         </CardHeader>
-        <CardContent className="pt-6">
-          {progress !== null ? (
-            <div className="space-y-4">
-              <div>
-                <div className="flex items-center justify-between text-sm">
-                  <span className="font-medium">{program.primary_metric || "Progress"}</span>
-                  <span className="text-muted-foreground">
-                    {program.reach_count?.toLocaleString()} / {program.target_count?.toLocaleString()}
-                  </span>
-                </div>
-                <div className="mt-2 h-3 w-full overflow-hidden rounded-full bg-muted">
-                  <div
-                    className="h-full bg-primary transition-all duration-500"
-                    style={{ width: `${progress}%` }}
-                  />
-                </div>
-                <p className="mt-2 text-sm text-muted-foreground">
-                  {progress >= 100
-                    ? "Target achieved"
-                    : `${100 - progress}% remaining to reach target`}
-                </p>
+        <CardContent className="pt-6 space-y-4">
+          <p className="text-xs text-muted-foreground">
+            Tracking: {progressModeLabel}
+          </p>
+
+          {tracksLgaCoverage(mode) && lgaPct != null && (
+            <div>
+              <div className="flex items-center justify-between text-sm">
+                <span className="font-medium">LGA coverage</span>
+                <span className="text-muted-foreground">
+                  {lgaCounts.reach} / {lgaCounts.target} LGAs
+                </span>
+              </div>
+              <div className="mt-2 h-3 w-full overflow-hidden rounded-full bg-muted">
+                <div
+                  className="h-full bg-primary transition-all duration-500"
+                  style={{ width: `${lgaPct}%` }}
+                />
               </div>
             </div>
-          ) : (
+          )}
+
+          {tracksOutcomeMetric(mode) && outcomePct != null && (
+            <div>
+              <div className="flex items-center justify-between text-sm">
+                <span className="font-medium">{program.primary_metric || "Outcome"}</span>
+                <span className="text-muted-foreground">
+                  {program.reach_count?.toLocaleString()} / {program.target_count?.toLocaleString()}
+                </span>
+              </div>
+              <div className="mt-2 h-3 w-full overflow-hidden rounded-full bg-muted">
+                <div
+                  className="h-full bg-primary transition-all duration-500"
+                  style={{ width: `${outcomePct}%` }}
+                />
+              </div>
+            </div>
+          )}
+
+          {headlinePct == null && (
             <p className="text-sm text-muted-foreground">
-              No target set yet.
-              {canEditProgress
-                ? " Use Update progress to set target and reach counts."
-                : ""}
+              No progress recorded yet.
+              {canEditProgress ? " Use Update progress to mark coverage or reach." : ""}
             </p>
           )}
         </CardContent>
@@ -340,8 +392,8 @@ export default function ProgramDetailPage({ params }: { params: Promise<{ slug: 
               label="End Date"
               value={program.end_date ? formatDate(program.end_date) : "Not set"}
             />
-            {activeDays !== null && (
-              <InfoRow label="Duration" value={`${activeDays} days active`} />
+            {timelineMetric && (
+              <InfoRow label="Duration" value={timelineMetric.durationText} />
             )}
             {daysRemaining !== null && program.status === "active" && (
               <InfoRow
@@ -365,11 +417,17 @@ export default function ProgramDetailPage({ params }: { params: Promise<{ slug: 
                   value={`${program.target_lgas.length} LGAs`}
                 />
                 <div>
-                  <p className="text-sm font-medium text-muted-foreground">LGA List:</p>
+                  <p className="text-sm font-medium text-muted-foreground">Target LGAs:</p>
                   <div className="mt-2 flex flex-wrap gap-2">
                     {program.target_lgas.map((lga) => (
-                      <Badge key={lga} variant="secondary">
+                      <Badge
+                        key={lga}
+                        variant={
+                          program.covered_lgas?.includes(lga) ? "default" : "secondary"
+                        }
+                      >
                         {lga}
+                        {program.covered_lgas?.includes(lga) ? " · covered" : ""}
                       </Badge>
                     ))}
                   </div>
@@ -386,16 +444,7 @@ export default function ProgramDetailPage({ params }: { params: Promise<{ slug: 
               <CardTitle>Objectives</CardTitle>
             </CardHeader>
             <CardContent className="pt-6">
-              <ul className="space-y-3">
-                {program.objectives.map((objective, index) => (
-                  <li key={index} className="flex gap-3">
-                    <div className="mt-1 flex size-5 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
-                      {index + 1}
-                    </div>
-                    <p className="text-sm leading-relaxed">{objective}</p>
-                  </li>
-                ))}
-              </ul>
+              <RichHtmlContent html={objectivesToEditorHtml(program.objectives)} />
             </CardContent>
           </Card>
         )}

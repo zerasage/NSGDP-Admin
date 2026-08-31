@@ -1,0 +1,30 @@
+/** Canonical Niger State LGA names — matches backend NIGER_STATE_LGAS. */
+export const NIGER_STATE_LGAS = [
+  'Agaie',
+  'Agwara',
+  'Bida',
+  'Borgu',
+  'Bosso',
+  'Chanchaga',
+  'Edati',
+  'Gbako',
+  'Gurara',
+  'Katcha',
+  'Kontagora',
+  'Lapai',
+  'Lavun',
+  'Magama',
+  'Mariga',
+  'Mashegu',
+  'Mokwa',
+  'Munya',
+  'Paikoro',
+  'Rafi',
+  'Rijau',
+  'Shiroro',
+  'Suleja',
+  'Tafa',
+  'Wushishi',
+] as const;
+
+export type NigerStateLga = (typeof NIGER_STATE_LGAS)[number];

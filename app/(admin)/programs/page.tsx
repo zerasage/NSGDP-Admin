@@ -20,6 +20,7 @@ import { usePrograms, useArchiveProgram } from "@/lib/hooks/usePrograms";
 import { getProgrammes } from "@/lib/api/programs";
 import { useAuth } from "@/lib/auth";
 import { usePermissions } from "@/lib/hooks/usePermissions";
+import { headlineProgressSummary } from "@/lib/constants/program-progress";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -82,11 +83,6 @@ const TABS: Array<{ key: ProgrammeStatus | "all"; label: string; tone: MetricTon
   { key: "suspended", label: "Suspended", tone: "warning" },
   { key: "archived", label: "Archived", tone: "muted" },
 ];
-
-function progressPercent(reach: number | null, target: number | null): number | null {
-  if (!reach || !target || target === 0) return null;
-  return Math.min(100, Math.round((reach / target) * 100));
-}
 
 export default function AdminProgramsPage() {
   const { user } = useAuth();
@@ -438,14 +434,17 @@ export default function AdminProgramsPage() {
                       <TableHead className="h-11 px-4">Type</TableHead>
                       <TableHead className="h-11 px-4">Status</TableHead>
                       <TableHead className="h-11 px-4">Progress</TableHead>
-                      <TableHead className="h-11 px-4">LGAs</TableHead>
+                      <TableHead className="h-11 px-4">LGAs covered</TableHead>
                       <TableHead className="h-11 px-4">Created</TableHead>
                       <TableHead className="h-11 px-4 text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {programmes.map((prog) => {
-                      const progress = progressPercent(prog.reach_count, prog.target_count);
+                      const progressSummary = headlineProgressSummary(prog);
+                      const lgaTarget = prog.target_lgas?.length ?? 0;
+                      const lgaCovered =
+                        prog.covered_lgas?.length ?? prog.lgas_covered_count ?? 0;
                       return (
                         <TableRow key={prog.id} className="hover:bg-muted/30">
                           <TableCell className="max-w-sm px-4 py-3.5">
@@ -474,22 +473,38 @@ export default function AdminProgramsPage() {
                             <ProgrammeStatusBadge status={prog.status} />
                           </TableCell>
                           <TableCell className="px-4 py-3.5">
-                            {progress !== null ? (
-                              <div className="flex items-center gap-2">
-                                <div className="h-2 max-w-24 flex-1 overflow-hidden rounded-full bg-muted">
-                                  <div
-                                    className="h-full bg-primary transition-all"
-                                    style={{ width: `${progress}%` }}
-                                  />
+                            {progressSummary.percent !== null ? (
+                              <div className="min-w-0">
+                                <div className="flex items-center gap-2">
+                                  <div className="h-2 max-w-24 flex-1 overflow-hidden rounded-full bg-muted">
+                                    <div
+                                      className="h-full bg-primary transition-all"
+                                      style={{ width: `${progressSummary.percent}%` }}
+                                    />
+                                  </div>
+                                  <span className="text-xs font-medium tabular-nums">
+                                    {progressSummary.percent}%
+                                  </span>
                                 </div>
-                                <span className="text-xs font-medium tabular-nums">{progress}%</span>
+                                {progressSummary.basis && (
+                                  <p className="mt-0.5 line-clamp-1 text-[11px] text-muted-foreground">
+                                    {progressSummary.basis}
+                                  </p>
+                                )}
                               </div>
                             ) : (
                               <span className="text-xs text-muted-foreground">—</span>
                             )}
                           </TableCell>
-                          <TableCell className="px-4 py-3.5 text-center font-medium tabular-nums">
-                            {prog.lgas_covered_count ?? "—"}
+                          <TableCell className="px-4 py-3.5 tabular-nums">
+                            {lgaTarget > 0 ? (
+                              <div>
+                                <span className="font-medium">{lgaCovered}</span>
+                                <span className="text-muted-foreground"> / {lgaTarget}</span>
+                              </div>
+                            ) : (
+                              <span className="text-xs text-muted-foreground">—</span>
+                            )}
                           </TableCell>
                           <TableCell className="px-4 py-3.5 text-xs text-muted-foreground">
                             {formatDate(prog.created_at)}
@@ -531,7 +546,10 @@ export default function AdminProgramsPage() {
 
             <div className="grid grid-cols-1 gap-3 xl:hidden">
               {programmes.map((prog) => {
-                const progress = progressPercent(prog.reach_count, prog.target_count);
+                const progressSummary = headlineProgressSummary(prog);
+                const lgaTarget = prog.target_lgas?.length ?? 0;
+                const lgaCovered =
+                  prog.covered_lgas?.length ?? prog.lgas_covered_count ?? 0;
                 return (
                   <article key={prog.id} className="rounded-xl border bg-card p-4">
                     <div className="flex items-start gap-3">
@@ -558,15 +576,20 @@ export default function AdminProgramsPage() {
                           Progress
                         </dt>
                         <dd className="mt-1 text-sm font-semibold">
-                          {progress !== null ? `${progress}%` : "—"}
+                          {progressSummary.percent !== null ? `${progressSummary.percent}%` : "—"}
                         </dd>
+                        {progressSummary.basis && (
+                          <dd className="mt-0.5 line-clamp-1 text-[11px] text-muted-foreground">
+                            {progressSummary.basis}
+                          </dd>
+                        )}
                       </div>
                       <div className="min-w-0">
                         <dt className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                           LGAs covered
                         </dt>
                         <dd className="mt-1 text-sm font-semibold tabular-nums">
-                          {prog.lgas_covered_count ?? "—"}
+                          {lgaTarget > 0 ? `${lgaCovered} / ${lgaTarget}` : "—"}
                         </dd>
                       </div>
                     </dl>

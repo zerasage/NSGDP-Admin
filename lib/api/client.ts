@@ -190,16 +190,61 @@ async function doUpload(path: string, formData: FormData, accessToken: string | 
   });
 }
 
-export async function apiUpload<T>(path: string, formData: FormData): Promise<T> {
+export interface ApiUploadOptions {
+  /** 0–100 while bytes are sent to the server (not server processing time). */
+  onUploadProgress?: (percent: number) => void;
+}
+
+async function doUploadWithProgress(
+  path: string,
+  formData: FormData,
+  accessToken: string | null,
+  onUploadProgress?: (percent: number) => void,
+): Promise<Response> {
+  if (!onUploadProgress) {
+    return doUpload(path, formData, accessToken);
+  }
+
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", `${BASE_URL}${path}`);
+    xhr.withCredentials = true;
+    if (accessToken) {
+      xhr.setRequestHeader("Authorization", `Bearer ${accessToken}`);
+    }
+    xhr.upload.onprogress = (event) => {
+      if (!event.lengthComputable || event.total <= 0) return;
+      onUploadProgress(Math.min(100, Math.round((event.loaded / event.total) * 100)));
+    };
+    xhr.onload = () => {
+      resolve(
+        new Response(xhr.responseText, {
+          status: xhr.status,
+          statusText: xhr.statusText,
+          headers: { "Content-Type": xhr.getResponseHeader("Content-Type") ?? "application/json" },
+        }),
+      );
+    };
+    xhr.onerror = () => reject(new Error("Upload failed — network error"));
+    xhr.onabort = () => reject(new Error("Upload cancelled"));
+    xhr.send(formData);
+  });
+}
+
+export async function apiUpload<T>(
+  path: string,
+  formData: FormData,
+  options?: ApiUploadOptions,
+): Promise<T> {
   let accessToken = getAccessToken();
 
-  let res = await doUpload(path, formData, accessToken);
+  let res = await doUploadWithProgress(path, formData, accessToken, options?.onUploadProgress);
 
   if (res.status === 401 && accessToken) {
     const newToken = await refreshAccessToken();
     if (newToken) {
       accessToken = newToken;
-      res = await doUpload(path, formData, accessToken);
+      res = await doUploadWithProgress(path, formData, accessToken, options?.onUploadProgress);
     }
   }
 

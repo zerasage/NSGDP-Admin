@@ -128,6 +128,7 @@ export async function uploadGisReferenceLayer(
   slot: GisReferenceSlot,
   file: File,
   label?: string,
+  onUploadProgress?: (percent: number) => void,
 ): Promise<GisUploadResult> {
   const formData = new FormData();
   formData.append('file', file);
@@ -135,6 +136,7 @@ export async function uploadGisReferenceLayer(
   const response = await apiUpload<ApiResponse<GisUploadResult>>(
     `/admin/gis-reference-layers/${slot}/upload`,
     formData,
+    { onUploadProgress },
   );
   return response.data;
 }

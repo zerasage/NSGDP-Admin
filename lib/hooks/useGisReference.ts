@@ -25,11 +25,13 @@ export function useUploadGisReferenceLayer() {
       slot,
       file,
       label,
+      onUploadProgress,
     }: {
       slot: GisReferenceSlot;
       file: File;
       label?: string;
-    }) => uploadGisReferenceLayer(slot, file, label),
+      onUploadProgress?: (percent: number) => void;
+    }) => uploadGisReferenceLayer(slot, file, label, onUploadProgress),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['gis-reference-layers'] });
       queryClient.invalidateQueries({ queryKey: ['gis-resolution-report'] });
@@ -77,12 +79,19 @@ export function useGisResolutionReport(slot: GisReferenceSlot | null) {
   });
 }
 
-export function useGisResolutionReports(slots: GisReferenceSlot[]) {
+export function useGisResolutionReports(
+  slots: GisReferenceSlot[],
+  /** When set, only these slots are fetched (lazy tab loading). */
+  enabledSlots?: GisReferenceSlot[],
+) {
+  const enabledSet = enabledSlots ? new Set(enabledSlots) : null;
   return useQueries({
     queries: slots.map((slot) => ({
       queryKey: ['gis-resolution-report', slot],
       queryFn: () => getGisResolutionReport(slot),
-      enabled: slots.length > 0,
+      enabled:
+        slots.length > 0 && (enabledSet == null || enabledSet.has(slot)),
+      staleTime: 5 * 60 * 1000,
     })),
   });
 }

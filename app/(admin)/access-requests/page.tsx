@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import {
   AlertCircle,
   CheckCircle2,
@@ -350,14 +351,26 @@ export default function AccessRequestsPage() {
                               <p className="line-clamp-1 font-semibold">
                                 {r.requester_name || "Unnamed requester"}
                               </p>
-                              <p className="mt-0.5 line-clamp-1 text-xs text-muted-foreground">
+                              <a
+                                href={`mailto:${r.requester_email}`}
+                                className="mt-0.5 line-clamp-1 text-xs text-muted-foreground hover:underline"
+                              >
                                 {r.requester_email}
-                              </p>
+                              </a>
                             </div>
                           </div>
                         </TableCell>
                         <TableCell className="max-w-56 px-4 py-3.5">
-                          <span className="line-clamp-2 font-medium">{r.dataset_title}</span>
+                          {r.dataset_slug ? (
+                            <Link
+                              href={`/datasets/${r.dataset_slug}`}
+                              className="line-clamp-2 font-medium hover:underline"
+                            >
+                              {r.dataset_title}
+                            </Link>
+                          ) : (
+                            <span className="line-clamp-2 font-medium">{r.dataset_title}</span>
+                          )}
                         </TableCell>
                         <TableCell className="max-w-sm px-4 py-3.5">
                           <span className="line-clamp-2 text-sm text-muted-foreground" title={r.reason}>
@@ -397,7 +410,12 @@ export default function AccessRequestsPage() {
                       <p className="line-clamp-1 text-sm font-semibold leading-5">
                         {r.requester_name || "Unnamed requester"}
                       </p>
-                      <p className="mt-1 truncate text-xs text-muted-foreground">{r.requester_email}</p>
+                      <a
+                        href={`mailto:${r.requester_email}`}
+                        className="mt-1 truncate text-xs text-muted-foreground hover:underline"
+                      >
+                        {r.requester_email}
+                      </a>
                     </div>
                     <StatusBadge status={r.status} />
                   </div>
@@ -411,7 +429,16 @@ export default function AccessRequestsPage() {
                       <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
                         Dataset
                       </p>
-                      <p className="mt-1 line-clamp-2 text-xs font-medium">{r.dataset_title}</p>
+                      {r.dataset_slug ? (
+                        <Link
+                          href={`/datasets/${r.dataset_slug}`}
+                          className="mt-1 line-clamp-2 text-xs font-medium hover:underline"
+                        >
+                          {r.dataset_title}
+                        </Link>
+                      ) : (
+                        <p className="mt-1 line-clamp-2 text-xs font-medium">{r.dataset_title}</p>
+                      )}
                     </div>
                     <div>
                       <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
