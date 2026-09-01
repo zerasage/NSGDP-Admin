@@ -17,8 +17,7 @@ import {
 import { useQueries } from "@tanstack/react-query";
 import { useOrganisations } from "@/lib/hooks/useOrganisations";
 import { getOrganisations } from "@/lib/api/organisations";
-import { useAuth } from "@/lib/auth";
-import { usePermissions } from "@/lib/hooks/usePermissions";
+import { useAdminAccess } from "@/lib/hooks/useAdminAccess";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -64,10 +63,8 @@ const TABS: Array<{ key: "all" | "active" | "inactive"; label: string; tone: Met
 ];
 
 export default function AdminOrganisationsPage() {
-  const { user } = useAuth();
-  const { hasPermission } = usePermissions();
-  const isSuperAdmin = user?.role === "super_admin";
-  const canCreate = isSuperAdmin || hasPermission("create:organisations");
+  const { can } = useAdminAccess();
+  const canCreate = can("create:organisations");
 
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);

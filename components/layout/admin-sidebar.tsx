@@ -28,7 +28,7 @@ import { cn } from "@/lib/utils";
 import { AdminPortalLinks, AdminSidebarBrand } from "@/components/layout/admin-header";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth";
-import { usePermissions } from "@/lib/hooks/usePermissions";
+import { useAdminAccess } from "@/lib/hooks/useAdminAccess";
 import type { PermissionActionKey } from "@/lib/api/permissions";
 import { toast } from "sonner";
 
@@ -73,7 +73,7 @@ export const adminNavItems: Array<{
 function AdminNavLinks({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
   const { user } = useAuth();
-  const { hasAnyPermission } = usePermissions();
+  const { canAny } = useAdminAccess();
   const isSuperAdmin = user?.role === "super_admin";
 
   return (
@@ -81,7 +81,7 @@ function AdminNavLinks({ onNavigate }: { onNavigate?: () => void }) {
       {adminNavItems
         .filter((item) => {
           if (item.superAdminOnly) return isSuperAdmin;
-          if (item.anyPermission) return isSuperAdmin || hasAnyPermission(...item.anyPermission);
+          if (item.anyPermission) return isSuperAdmin || canAny(...item.anyPermission);
           return true;
         })
         .map(({ href, label, icon: Icon, exact }) => {

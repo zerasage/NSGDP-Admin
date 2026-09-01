@@ -17,7 +17,7 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useAuth } from "@/lib/auth";
-import { usePermissions } from "@/lib/hooks/usePermissions";
+import { useAdminAccess } from "@/lib/hooks/useAdminAccess";
 import {
   useGisReferenceLayers,
   useRebuildCanonicalWards,
@@ -437,8 +437,8 @@ function ActiveLayersList({
 
 export default function GisReferenceLayersPage() {
   const { user } = useAuth();
-  const { hasPermission } = usePermissions();
-  const canManage = user?.role === "super_admin" || hasPermission("manage:gis-reference-data");
+  const { can } = useAdminAccess();
+  const canManage = can("manage:gis-reference-data");
 
   const { data: layers, isLoading } = useGisReferenceLayers();
   const rebuildMutation = useRebuildCanonicalWards();

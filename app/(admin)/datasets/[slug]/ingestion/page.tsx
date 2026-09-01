@@ -24,7 +24,7 @@ import { RelatedDatasetsTab } from "@/components/admin/related-datasets-tab";
 import { DatasetAnalyticsPublishPanel } from "@/components/admin/dataset-analytics-publish-panel";
 import { apiClient } from "@/lib/api/client";
 import { useAuth } from "@/lib/auth";
-import { usePermissions } from "@/lib/hooks/usePermissions";
+import { useAdminAccess } from "@/lib/hooks/useAdminAccess";
 import {
   useIngestionProgress,
   useIngestionReport,
@@ -76,13 +76,10 @@ export default function DatasetIngestionPage({
   const searchParams = useSearchParams();
   const tab = parseTab(searchParams.get("tab"));
   const { user } = useAuth();
-  const { hasAnyPermission, hasPermission } = usePermissions();
-  const isSuperAdmin = user?.role === "super_admin";
-  const canView =
-    isSuperAdmin ||
-    hasAnyPermission("approve:datasets", "publish:datasets", "manage:indicators");
-  const canManageIndicators = isSuperAdmin || hasPermission("manage:indicators");
-  const canPublish = isSuperAdmin || hasPermission("publish:datasets");
+  const { can, canAny } = useAdminAccess();
+  const canView = canAny("approve:datasets", "publish:datasets", "manage:indicators");
+  const canManageIndicators = can("manage:indicators");
+  const canPublish = can("publish:datasets");
   const queryClient = useQueryClient();
 
   const { data: dataset, isLoading, error } = useQuery({

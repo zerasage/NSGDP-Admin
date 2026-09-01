@@ -17,8 +17,7 @@ import {
 import { useQueries } from "@tanstack/react-query";
 import { useDocuments, useArchiveDocument, useSubmitDocumentForReview } from "@/lib/hooks/useDocuments";
 import { getDocuments } from "@/lib/api/documents";
-import { useAuth } from "@/lib/auth";
-import { usePermissions } from "@/lib/hooks/usePermissions";
+import { useAdminAccess } from "@/lib/hooks/useAdminAccess";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -95,9 +94,8 @@ function fileSizeLabel(bytes: number | null) {
 }
 
 export default function AdminDocumentsPage() {
-  const { user } = useAuth();
-  const { hasPermission } = usePermissions();
-  const canManage = user?.role === "super_admin" || hasPermission("manage:documents");
+  const { can } = useAdminAccess();
+  const canManage = can("manage:documents");
 
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
@@ -495,9 +493,10 @@ export default function AdminDocumentsPage() {
                                 Submit
                               </Button>
                             )}
-                            {(doc.status === "pending" ||
-                              doc.status === "under_review" ||
-                              doc.status === "approved") && (
+                            {canManage &&
+                              (doc.status === "pending" ||
+                                doc.status === "under_review" ||
+                                doc.status === "approved") && (
                               <Link
                                 href={`/documents/${doc.slug}/review`}
                                 className={cn(
@@ -595,9 +594,10 @@ export default function AdminDocumentsPage() {
                         Submit for review
                       </Button>
                     )}
-                    {(doc.status === "pending" ||
-                      doc.status === "under_review" ||
-                      doc.status === "approved") && (
+                    {canManage &&
+                      (doc.status === "pending" ||
+                        doc.status === "under_review" ||
+                        doc.status === "approved") && (
                       <Link
                         href={`/documents/${doc.slug}/review`}
                         className={cn(buttonVariants({ variant: "default" }), "h-11 flex-1")}

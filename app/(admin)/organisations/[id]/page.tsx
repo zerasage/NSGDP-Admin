@@ -20,7 +20,7 @@ import {
   deleteInvite, getOrganisationInvites, resendInvite, revokeInvite,
 } from "@/lib/api/invites";
 import { useAuth } from "@/lib/auth";
-import { usePermissions } from "@/lib/hooks/usePermissions";
+import { useAdminAccess } from "@/lib/hooks/useAdminAccess";
 import { InviteMemberModal } from "@/components/admin/invite-member-modal";
 import { OrganisationAgreementCard } from "@/components/admin/organisation-agreement-card";
 import { EditOrganisationModal } from "@/components/admin/edit-organisation-modal";
@@ -54,21 +54,19 @@ export default function OrganisationDetailPage({ params }: { params: Promise<{ i
   const router = useRouter();
   const queryClient = useQueryClient();
   const { user } = useAuth();
-  const { hasPermission } = usePermissions();
-  const superAdmin = user?.role === "super_admin";
-  const allowed = (permission: Parameters<typeof hasPermission>[0]) => superAdmin || hasPermission(permission);
-  const canPromote = allowed("promote:org-admin");
-  const canDemote = allowed("demote:org-admin");
-  const canRemove = allowed("remove:org-members");
-  const canEdit = allowed("edit:organisations");
-  const canDeactivate = allowed("deactivate:organisations");
-  const canDeleteOrg = allowed("delete:organisations");
-  const canAgreement = allowed("manage:organisation-agreements");
-  const canInvite = allowed("invite:users");
-  const canUpload = allowed("create:datasets");
-  const canArchive = allowed("archive:datasets");
-  const canDeleteDataset = allowed("archive:datasets");
-  const canManageApiKeys = allowed("manage:partner-api-keys");
+  const { can } = useAdminAccess();
+  const canPromote = can("promote:org-admin");
+  const canDemote = can("demote:org-admin");
+  const canRemove = can("remove:org-members");
+  const canEdit = can("edit:organisations");
+  const canDeactivate = can("deactivate:organisations");
+  const canDeleteOrg = can("delete:organisations");
+  const canAgreement = can("manage:organisation-agreements");
+  const canInvite = can("invite:users");
+  const canUpload = can("create:datasets");
+  const canArchive = can("archive:datasets");
+  const canDeleteDataset = can("archive:datasets");
+  const canManageApiKeys = can("manage:partner-api-keys");
 
   const [inviteOpen, setInviteOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);

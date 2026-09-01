@@ -39,8 +39,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useToast } from "@/lib/hooks/use-toast";
-import { useAuth } from "@/lib/auth";
-import { usePermissions } from "@/lib/hooks/usePermissions";
+import { useAdminAccess } from "@/lib/hooks/useAdminAccess";
 import {
   useContactMessages,
   useContactMessageStats,
@@ -83,13 +82,10 @@ function StatusBadge({ status }: { status: ContactMessageStatus }) {
 
 export default function ContactMessagesPage() {
   const { toast } = useToast();
-  const { user } = useAuth();
-  const { hasPermission, hasAnyPermission, isLoading: permissionsLoading } = usePermissions();
+  const { isLoading: permissionsLoading, can, canAny } = useAdminAccess();
 
-  const isSuperAdmin = user?.role === "super_admin";
-  const canReview = isSuperAdmin || hasPermission("review:contact-messages");
-  const canView =
-    isSuperAdmin || hasAnyPermission("view:contact-messages", "review:contact-messages");
+  const canReview = can("review:contact-messages");
+  const canView = canAny("view:contact-messages", "review:contact-messages");
 
   const [status, setStatus] = useState<ContactMessageStatus | "all">("new");
   const [query, setQuery] = useState("");

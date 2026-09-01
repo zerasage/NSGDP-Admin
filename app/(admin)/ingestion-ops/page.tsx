@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AlertTriangle, Activity, BarChart3, CheckCircle2, Clock, Database, GitBranch, Link2, Loader2, RotateCcw, ShieldAlert, Sparkles, TrendingUp, Trash2, XCircle, Zap } from "lucide-react";
 import { useAuth } from "@/lib/auth";
-import { usePermissions } from "@/lib/hooks/usePermissions";
+import { useAdminAccess } from "@/lib/hooks/useAdminAccess";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -745,9 +745,8 @@ export default function IngestionOpsPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user } = useAuth();
-  const { hasPermission } = usePermissions();
-  const isSuperAdmin = user?.role === "super_admin";
-  const canView = isSuperAdmin || hasPermission("manage:indicators");
+  const { can, isSuperAdmin } = useAdminAccess();
+  const canView = can("manage:indicators");
   const backfillMutation = useBackfillIngestion();
   const tab = parseOpsTab(searchParams.get("tab"));
   const setTab = (value: string) => {

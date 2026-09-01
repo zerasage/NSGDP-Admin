@@ -13,7 +13,7 @@ import { EmptyState } from "@/components/feedback/empty-state";
 import { apiClient } from "@/lib/api/client";
 import { useToast } from "@/lib/hooks/use-toast";
 import { useAuth } from "@/lib/auth";
-import { usePermissions } from "@/lib/hooks/usePermissions";
+import { useAdminAccess } from "@/lib/hooks/useAdminAccess";
 import { useDatasetReview } from "@/lib/hooks/useDatasetReview";
 import { ApprovalPipeline } from "@/components/admin/approval-pipeline";
 import { LifecycleBadge } from "@/components/data/lifecycle-badge";
@@ -35,8 +35,8 @@ export default function DatasetApproveScreenPage({
   const router = useRouter();
   const { toast } = useToast();
   const { user } = useAuth();
-  const { hasPermission } = usePermissions();
-  const canApprove = user?.role === "super_admin" || hasPermission("approve:datasets");
+  const { can } = useAdminAccess();
+  const canApprove = can("approve:datasets");
   const [showReject, setShowReject] = useState(false);
   const [rejectReason, setRejectReason] = useState("");
 

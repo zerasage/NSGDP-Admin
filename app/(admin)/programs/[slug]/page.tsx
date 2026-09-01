@@ -9,8 +9,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { useProgramBySlug, useArchiveProgram } from "@/lib/hooks/usePrograms";
-import { useAuth } from "@/lib/auth";
-import { usePermissions } from "@/lib/hooks/usePermissions";
+import { useAdminAccess } from "@/lib/hooks/useAdminAccess";
 import { ProgramFormModal } from "@/components/admin/program-form-modal";
 import { ProgramProgressModal } from "@/components/admin/program-progress-modal";
 import { RichHtmlContent } from "@/components/admin/rich-html-content";
@@ -44,12 +43,10 @@ const statusColors: Record<ProgrammeStatus, string> = {
 export default function ProgramDetailPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = use(params);
   const router = useRouter();
-  const { user } = useAuth();
-  const { hasPermission, hasAnyPermission } = usePermissions();
-  const canManage = user?.role === "super_admin" || hasAnyPermission("create:programs", "edit:programs");
-  const canEditProgress =
-    user?.role === "super_admin" || hasPermission("edit:programs");
-  const canDelete = user?.role === "super_admin" || hasPermission("delete:programs");
+  const { can } = useAdminAccess();
+  const canEdit = can("edit:programs");
+  const canEditProgress = can("edit:programs");
+  const canDelete = can("delete:programs");
 
   const [editOpen, setEditOpen] = useState(false);
   const [progressOpen, setProgressOpen] = useState(false);
@@ -220,7 +217,7 @@ export default function ProgramDetailPage({ params }: { params: Promise<{ slug: 
             </div>
           </div>
 
-          {(canManage || canDelete || canEditProgress) && (
+          {(canEdit || canDelete || canEditProgress) && (
             <div className="flex flex-wrap gap-2">
               {canEditProgress && (
                 <Button
@@ -231,7 +228,7 @@ export default function ProgramDetailPage({ params }: { params: Promise<{ slug: 
                   Update progress
                 </Button>
               )}
-              {canManage && (
+              {canEdit && (
                 <Button
                   variant="outline"
                   className="h-11 flex-1 sm:h-9 sm:flex-none"

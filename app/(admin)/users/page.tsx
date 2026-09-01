@@ -17,7 +17,7 @@ import {
   X,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
-import { usePermissions } from "@/lib/hooks/usePermissions";
+import { useAdminAccess } from "@/lib/hooks/useAdminAccess";
 import {
   useDeactivateUserDelegated,
   useUpdateUserStatus,
@@ -91,16 +91,13 @@ const roleOptions: Array<{ value: UserRole; label: string }> = [
 
 export default function AdminUsersPage() {
   const { user } = useAuth();
-  const { hasAnyPermission, isLoading: permissionsLoading } = usePermissions();
-  const isSuperAdmin = user?.role === "super_admin";
-  const canViewUsers =
-    isSuperAdmin ||
-    hasAnyPermission(
-      "invite:users",
-      "promote:org-admin",
-      "demote:org-admin",
-      "remove:org-members",
-    );
+  const { isLoading: permissionsLoading, canAny, isSuperAdmin } = useAdminAccess();
+  const canViewUsers = canAny(
+    "invite:users",
+    "promote:org-admin",
+    "demote:org-admin",
+    "remove:org-members",
+  );
 
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);

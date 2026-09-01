@@ -44,8 +44,7 @@ import {
   type MetricTone,
 } from "@/components/admin/admin-analytics-ui";
 import { useToast } from "@/lib/hooks/use-toast";
-import { useAuth } from "@/lib/auth";
-import { usePermissions } from "@/lib/hooks/usePermissions";
+import { useAdminAccess } from "@/lib/hooks/useAdminAccess";
 import { adminApi, archiveDataset, publishDataset, unarchiveDataset } from "@/lib/api/admin";
 import type { DatasetStatus } from "@/lib/api/datasets";
 import type { Visibility } from "@/types";
@@ -109,12 +108,11 @@ async function fetchStatusCount(status: DatasetStatus): Promise<number> {
 export default function DatasetsReviewPage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const { user } = useAuth();
-  const { hasPermission, hasAnyPermission, isLoading: permissionsLoading } = usePermissions();
-  const isSuperAdmin = user?.role === "super_admin";
-  const canViewQueue = isSuperAdmin || hasAnyPermission("approve:datasets", "publish:datasets");
-  const canPublish = isSuperAdmin || hasPermission("publish:datasets");
-  const canArchive = isSuperAdmin || hasPermission("archive:datasets");
+  const { isLoading: permissionsLoading, can, canAny } = useAdminAccess();
+  const canViewQueue = canAny("approve:datasets", "publish:datasets");
+  const canApprove = can("approve:datasets");
+  const canPublish = can("publish:datasets");
+  const canArchive = can("archive:datasets");
 
   const [tab, setTab] = useState<DatasetStatus | "all">("pending");
   const [query, setQuery] = useState("");
@@ -267,19 +265,25 @@ export default function DatasetsReviewPage() {
 
   const renderActions = (dataset: Dataset, mobile = false) => {
     const isReviewable = dataset.status === "pending" || dataset.status === "under_review";
+    const reviewHref = isReviewable && canApprove
+      ? `/datasets/${dataset.slug}/review`
+      : `/datasets/${dataset.slug}`;
 
     return (
       <div className={cn("flex items-center gap-1.5", mobile && "w-full")}>
         <Link
-          href={isReviewable ? `/datasets/${dataset.slug}/review` : `/datasets/${dataset.slug}`}
+          href={reviewHref}
           className={cn(
-            buttonVariants({ variant: isReviewable ? "default" : "outline", size: "sm" }),
+            buttonVariants({
+              variant: isReviewable && canApprove ? "default" : "outline",
+              size: "sm",
+            }),
             "gap-1.5",
             mobile && "h-11 flex-1",
           )}
         >
           <Eye className="size-3.5" aria-hidden="true" />
-          {isReviewable ? "Review" : "View"}
+          {isReviewable && canApprove ? "Review" : "View"}
         </Link>
         {dataset.status === "approved" && !dataset.published_at && canPublish && (
           <Button

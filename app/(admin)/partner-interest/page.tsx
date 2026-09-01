@@ -41,8 +41,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useToast } from "@/lib/hooks/use-toast";
-import { useAuth } from "@/lib/auth";
-import { usePermissions } from "@/lib/hooks/usePermissions";
+import { useAdminAccess } from "@/lib/hooks/useAdminAccess";
 import { 
   usePartnerInterests, 
   useReviewPartnerInterest 
@@ -91,12 +90,9 @@ type ReviewAction = "approve" | "decline";
 
 export default function PartnerInterestPage() {
   const { toast } = useToast();
-  const { user } = useAuth();
-  const { hasPermission, hasAnyPermission, isLoading: permissionsLoading } = usePermissions();
-  
-  const isSuperAdmin = user?.role === "super_admin";
-  const canReview = isSuperAdmin || hasPermission("review:partner-interest");
-  const canView = isSuperAdmin || hasAnyPermission("view:partner-interest", "review:partner-interest");
+  const { isLoading: permissionsLoading, can, canAny } = useAdminAccess();
+  const canReview = can("review:partner-interest");
+  const canView = canAny("view:partner-interest", "review:partner-interest");
 
   const [status, setStatus] = useState<PartnerInterestStatus | "all">("pending");
   const [query, setQuery] = useState("");

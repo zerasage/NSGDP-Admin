@@ -19,7 +19,7 @@ import { OrganisationCombobox } from "@/components/admin/organisation-combobox";
 import { CategoryCombobox } from "@/components/admin/category-combobox";
 import { Autocomplete } from "@/components/ui/autocomplete";
 import { useAuth } from "@/lib/auth";
-import { usePermissions } from "@/lib/hooks/usePermissions";
+import { useAdminAccess } from "@/lib/hooks/useAdminAccess";
 import {
   Select,
   SelectContent,
@@ -94,9 +94,8 @@ export default function AdminUploadDatasetPage() {
   const presetOrgId = searchParams.get("orgId") ?? undefined;
   const presetAgency = searchParams.get("agency") === "1";
   const { user } = useAuth();
-  const { hasPermission, isLoading: permissionsLoading } = usePermissions();
-  const isSuperAdmin = user?.role === "super_admin";
-  const canUpload = isSuperAdmin || hasPermission("create:datasets");
+  const { isLoading: permissionsLoading, can } = useAdminAccess();
+  const canUpload = can("create:datasets");
   const { toast } = useToast();
   const createMutation = useCreateDataset();
   const { data: orgsData } = useOrganisations(1, 200);

@@ -40,8 +40,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useToast } from "@/lib/hooks/use-toast";
-import { useAuth } from "@/lib/auth";
-import { usePermissions } from "@/lib/hooks/usePermissions";
+import { useAdminAccess } from "@/lib/hooks/useAdminAccess";
 import {
   useAccessRequests,
   useApproveAccessRequest,
@@ -83,11 +82,9 @@ function StatusBadge({ status }: { status: AccessRequestStatus }) {
 
 export default function AccessRequestsPage() {
   const { toast } = useToast();
-  const { user } = useAuth();
-  const { hasPermission, hasAnyPermission, isLoading: permissionsLoading } = usePermissions();
-  const isSuperAdmin = user?.role === "super_admin";
-  const canAdjudicate = isSuperAdmin || hasPermission("approve:access-requests");
-  const canView = isSuperAdmin || hasAnyPermission("view:access-requests", "approve:access-requests");
+  const { isLoading: permissionsLoading, can, canAny } = useAdminAccess();
+  const canAdjudicate = can("approve:access-requests");
+  const canView = canAny("view:access-requests", "approve:access-requests");
   const [status, setStatus] = useState<AccessRequestStatus | "all">("pending");
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");

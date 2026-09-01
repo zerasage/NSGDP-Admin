@@ -25,7 +25,7 @@ import { adminApi, archiveDataset } from "@/lib/api/admin";
 import { getCategories } from "@/lib/api/categories";
 import { useToast } from "@/lib/hooks/use-toast";
 import { useAuth } from "@/lib/auth";
-import { usePermissions } from "@/lib/hooks/usePermissions";
+import { useAdminAccess } from "@/lib/hooks/useAdminAccess";
 import { useDatasetReview } from "@/lib/hooks/useDatasetReview";
 import { useSaveQAChecklist } from "@/lib/hooks/useQAChecklist";
 import { ApprovalPipeline } from "@/components/admin/approval-pipeline";
@@ -77,10 +77,9 @@ export default function DatasetReviewScreenPage({
   const router = useRouter();
   const { toast } = useToast();
   const { user } = useAuth();
-  const { hasPermission } = usePermissions();
-  const isSuperAdmin = user?.role === "super_admin";
-  const canApprove = isSuperAdmin || hasPermission("approve:datasets");
-  const canArchive = isSuperAdmin || hasPermission("archive:datasets");
+  const { can } = useAdminAccess();
+  const canApprove = can("approve:datasets");
+  const canArchive = can("archive:datasets");
 
   const [stageOverride, setStageOverride] = useState<LifecycleStage | null>(null);
   const [qa, setQA] = useState<QAState>(initQAState());

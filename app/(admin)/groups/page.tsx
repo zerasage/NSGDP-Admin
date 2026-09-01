@@ -18,8 +18,7 @@ import {
 import { useQueries } from "@tanstack/react-query";
 import { useGroups, useDeleteGroup } from "@/lib/hooks/useGroups";
 import { getGroups } from "@/lib/api/groups";
-import { useAuth } from "@/lib/auth";
-import { usePermissions } from "@/lib/hooks/usePermissions";
+import { useAdminAccess } from "@/lib/hooks/useAdminAccess";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -50,10 +49,8 @@ import type { AdminGroup } from "@/lib/api/groups";
 import { toast } from "sonner";
 
 export default function AdminGroupsPage() {
-  const { user } = useAuth();
-  const { hasPermission } = usePermissions();
-  const isSuperAdmin = user?.role === "super_admin";
-  const canManage = isSuperAdmin || hasPermission("manage:groups");
+  const { can } = useAdminAccess();
+  const canManage = can("manage:groups");
 
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
@@ -333,7 +330,9 @@ export default function AdminGroupsPage() {
                       <TableHead className="h-11 px-4 text-right">Datasets</TableHead>
                       <TableHead className="h-11 px-4 text-right">Documents</TableHead>
                       <TableHead className="h-11 px-4">Created</TableHead>
-                      <TableHead className="h-11 px-4 text-right">Actions</TableHead>
+                      {canManage && (
+                        <TableHead className="h-11 px-4 text-right">Actions</TableHead>
+                      )}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -364,9 +363,9 @@ export default function AdminGroupsPage() {
                         <TableCell className="px-4 py-3.5 text-xs text-muted-foreground">
                           {formatDate(group.created_at)}
                         </TableCell>
+                        {canManage && (
                         <TableCell className="px-4 py-3.5 text-right">
-                          {canManage && (
-                            <div className="flex justify-end gap-1">
+                          <div className="flex justify-end gap-1">
                               <Button
                                 variant="ghost"
                                 size="icon-sm"
@@ -395,9 +394,9 @@ export default function AdminGroupsPage() {
                               >
                                 <Trash2 className="size-4" aria-hidden="true" />
                               </Button>
-                            </div>
-                          )}
+                          </div>
                         </TableCell>
+                        )}
                       </TableRow>
                     ))}
                   </TableBody>

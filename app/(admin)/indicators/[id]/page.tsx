@@ -4,7 +4,7 @@ import { use, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, History, Lock, Pencil, ShieldAlert } from "lucide-react";
 import { useAuth } from "@/lib/auth";
-import { usePermissions } from "@/lib/hooks/usePermissions";
+import { useAdminAccess } from "@/lib/hooks/useAdminAccess";
 import {
   useIndicators,
   useUpdateIndicator,
@@ -27,8 +27,8 @@ export default function IndicatorDetailPage({
   const { id } = use(params);
   const router = useRouter();
   const { user } = useAuth();
-  const { hasPermission } = usePermissions();
-  const canManage = user?.role === "super_admin" || hasPermission("manage:indicators");
+  const { can } = useAdminAccess();
+  const canManage = can("manage:indicators");
 
   const { data: indicators, isLoading } = useIndicators();
   const { data: revisions } = useIndicatorRevisions(id);

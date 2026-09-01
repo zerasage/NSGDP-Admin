@@ -18,8 +18,7 @@ import {
 import { useQueries } from "@tanstack/react-query";
 import { usePrograms, useArchiveProgram } from "@/lib/hooks/usePrograms";
 import { getProgrammes } from "@/lib/api/programs";
-import { useAuth } from "@/lib/auth";
-import { usePermissions } from "@/lib/hooks/usePermissions";
+import { useAdminAccess } from "@/lib/hooks/useAdminAccess";
 import { headlineProgressSummary } from "@/lib/constants/program-progress";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -85,14 +84,10 @@ const TABS: Array<{ key: ProgrammeStatus | "all"; label: string; tone: MetricTon
 ];
 
 export default function AdminProgramsPage() {
-  const { user } = useAuth();
-  const { hasPermission, hasAnyPermission, isLoading: permissionsLoading } = usePermissions();
-  const isSuperAdmin = user?.role === "super_admin";
-  const canView =
-    isSuperAdmin ||
-    hasAnyPermission("create:programs", "edit:programs", "upload:programs", "delete:programs");
-  const canManage = isSuperAdmin || hasAnyPermission("create:programs", "edit:programs");
-  const canDelete = isSuperAdmin || hasPermission("delete:programs");
+  const { isLoading: permissionsLoading, can, canAny } = useAdminAccess();
+  const canView = canAny("create:programs", "edit:programs", "upload:programs", "delete:programs");
+  const canCreate = can("create:programs");
+  const canDelete = can("delete:programs");
 
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
@@ -266,7 +261,7 @@ export default function AdminProgramsPage() {
         icon={Target}
         tone="info"
         action={
-          canManage ? (
+          canCreate ? (
             <Button className="h-9 w-full sm:w-auto" onClick={openCreate}>
               <Plus className="size-4" aria-hidden="true" />
               Create programme
@@ -417,7 +412,7 @@ export default function AdminProgramsPage() {
               action={
                 hasFilters
                   ? { label: "Clear filters", onClick: clearFilters }
-                  : canManage
+                  : canCreate
                     ? { label: "Create programme", onClick: openCreate }
                     : undefined
               }
@@ -510,31 +505,29 @@ export default function AdminProgramsPage() {
                             {formatDate(prog.created_at)}
                           </TableCell>
                           <TableCell className="px-4 py-3.5 text-right">
-                            {canManage && (
-                              <div className="flex justify-end gap-1">
-                                <Link
-                                  href={`/programs/${prog.slug}`}
-                                  className={cn(buttonVariants({ variant: "ghost", size: "icon-sm" }))}
-                                  aria-label={`View ${prog.name}`}
-                                  title="View details"
+                            <div className="flex justify-end gap-1">
+                              <Link
+                                href={`/programs/${prog.slug}`}
+                                className={cn(buttonVariants({ variant: "ghost", size: "icon-sm" }))}
+                                aria-label={`View ${prog.name}`}
+                                title="View details"
+                              >
+                                <Edit className="size-4" aria-hidden="true" />
+                              </Link>
+                              {canDelete && (
+                                <Button
+                                  variant="ghost"
+                                  size="icon-sm"
+                                  aria-label={`Archive ${prog.name}`}
+                                  title="Archive programme"
+                                  className="text-destructive hover:text-destructive"
+                                  onClick={() => setArchiveTarget(prog)}
+                                  disabled={prog.status === "archived"}
                                 >
-                                  <Edit className="size-4" aria-hidden="true" />
-                                </Link>
-                                {canDelete && (
-                                  <Button
-                                    variant="ghost"
-                                    size="icon-sm"
-                                    aria-label={`Archive ${prog.name}`}
-                                    title="Archive programme"
-                                    className="text-destructive hover:text-destructive"
-                                    onClick={() => setArchiveTarget(prog)}
-                                    disabled={prog.status === "archived"}
-                                  >
-                                    <Trash2 className="size-4" aria-hidden="true" />
-                                  </Button>
-                                )}
-                              </div>
-                            )}
+                                  <Trash2 className="size-4" aria-hidden="true" />
+                                </Button>
+                              )}
+                            </div>
                           </TableCell>
                         </TableRow>
                       );
@@ -594,28 +587,26 @@ export default function AdminProgramsPage() {
                       </div>
                     </dl>
 
-                    {canManage && (
-                      <div className="mt-4 flex gap-2">
-                        <Link
-                          href={`/programs/${prog.slug}`}
-                          className={cn(buttonVariants({ variant: "outline" }), "h-11 flex-1")}
+                    <div className="mt-4 flex gap-2">
+                      <Link
+                        href={`/programs/${prog.slug}`}
+                        className={cn(buttonVariants({ variant: "outline" }), "h-11 flex-1")}
+                      >
+                        <Edit className="mr-1.5 size-3.5" />
+                        View details
+                      </Link>
+                      {canDelete && (
+                        <Button
+                          variant="outline"
+                          className="h-11 flex-1 text-destructive"
+                          onClick={() => setArchiveTarget(prog)}
+                          disabled={prog.status === "archived"}
                         >
-                          <Edit className="mr-1.5 size-3.5" />
-                          View details
-                        </Link>
-                        {canDelete && (
-                          <Button
-                            variant="outline"
-                            className="h-11 flex-1 text-destructive"
-                            onClick={() => setArchiveTarget(prog)}
-                            disabled={prog.status === "archived"}
-                          >
-                            <Trash2 className="mr-1.5 size-3.5" />
-                            Archive
-                          </Button>
-                        )}
-                      </div>
-                    )}
+                          <Trash2 className="mr-1.5 size-3.5" />
+                          Archive
+                        </Button>
+                      )}
+                    </div>
                   </article>
                 );
               })}

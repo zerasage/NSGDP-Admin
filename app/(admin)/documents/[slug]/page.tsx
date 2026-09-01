@@ -15,7 +15,7 @@ import {
 } from "@/lib/hooks/useDocuments";
 import { publishDocument, unpublishDocument } from "@/lib/api/documents";
 import { useAuth } from "@/lib/auth";
-import { usePermissions } from "@/lib/hooks/usePermissions";
+import { useAdminAccess } from "@/lib/hooks/useAdminAccess";
 import { DocumentFormModal } from "@/components/admin/document-form-modal";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -60,8 +60,8 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ slug:
   const { slug } = use(params);
   const router = useRouter();
   const { user } = useAuth();
-  const { hasPermission } = usePermissions();
-  const canManage = user?.role === "super_admin" || hasPermission("manage:documents");
+  const { can } = useAdminAccess();
+  const canManage = can("manage:documents");
 
   const [editOpen, setEditOpen] = useState(false);
   const [archiveOpen, setArchiveOpen] = useState(false);

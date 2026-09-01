@@ -46,7 +46,7 @@ import type { DatasetFile, DatasetStatus } from "@/lib/api/datasets";
 import type { Visibility } from "@/types";
 import { useToast } from "@/lib/hooks/use-toast";
 import { useAuth } from "@/lib/auth";
-import { usePermissions } from "@/lib/hooks/usePermissions";
+import { useAdminAccess } from "@/lib/hooks/useAdminAccess";
 import { DatasetPreviewCard, DatasetPreviewDialog } from "@/components/data/dataset-preview-card";
 import { formatDate } from "@/lib/utils/date";
 import {
@@ -147,13 +147,12 @@ export default function DatasetDetailPage({
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { user } = useAuth();
-  const { hasPermission, hasAnyPermission } = usePermissions();
-  const isSuperAdmin = user?.role === "super_admin";
-  const canView = isSuperAdmin || hasAnyPermission("approve:datasets", "publish:datasets");
-  const canApprove = isSuperAdmin || hasPermission("approve:datasets");
-  const canPublish = isSuperAdmin || hasPermission("publish:datasets");
-  const canArchive = isSuperAdmin || hasPermission("archive:datasets");
-  const canManageIngestion = isSuperAdmin || hasPermission("manage:indicators");
+  const { can, canAny } = useAdminAccess();
+  const canView = canAny("approve:datasets", "publish:datasets");
+  const canApprove = can("approve:datasets");
+  const canPublish = can("publish:datasets");
+  const canArchive = can("archive:datasets");
+  const canManageIngestion = can("manage:indicators");
   const [archiveOpen, setArchiveOpen] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
 

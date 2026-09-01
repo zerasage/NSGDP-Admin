@@ -177,8 +177,8 @@ export function ProgramFormModal({ open, onClose, programme }: ProgramFormModalP
         code: data.code || undefined,
         organisationId: isEditing ? (programme.organisation_id ?? agencyOrg.id) : agencyOrg.id,
         targetLgas: data.targetLgas,
-        startDate: data.startDate || undefined,
-        endDate: data.endDate || undefined,
+        startDate: data.startDate,
+        endDate: data.endDate,
         objectives: objectivesFromEditorHtml(data.objectives),
         progressMode: data.progressMode,
         primaryMetric: tracksOutcomeMetric(data.progressMode)
@@ -355,7 +355,9 @@ export function ProgramFormModal({ open, onClose, programme }: ProgramFormModalP
 
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
-                <Label htmlFor="startDate">Start Date</Label>
+                <Label htmlFor="startDate">
+                  Start Date <span className="text-destructive">*</span>
+                </Label>
                 <Input
                   id="startDate"
                   type="date"
@@ -368,7 +370,9 @@ export function ProgramFormModal({ open, onClose, programme }: ProgramFormModalP
               </div>
 
               <div>
-                <Label htmlFor="endDate">End Date</Label>
+                <Label htmlFor="endDate">
+                  End Date <span className="text-destructive">*</span>
+                </Label>
                 <Input
                   id="endDate"
                   type="date"
