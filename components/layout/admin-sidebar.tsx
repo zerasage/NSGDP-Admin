@@ -30,6 +30,10 @@ import { AdminPortalLinks, AdminSidebarBrand } from "@/components/layout/admin-h
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth";
 import { useAdminAccess } from "@/lib/hooks/useAdminAccess";
+import {
+  useAdminNavBadges,
+  type AdminNavBadgeKey,
+} from "@/lib/hooks/useAdminNavBadges";
 import type { PermissionActionKey } from "@/lib/api/permissions";
 import { toast } from "sonner";
 
@@ -39,6 +43,7 @@ export const adminNavItems: Array<{
   icon: typeof LayoutDashboard;
   exact?: boolean;
   superAdminOnly?: boolean;
+  badgeKey?: AdminNavBadgeKey;
   // Visible if super_admin OR the user holds ANY of these delegated permissions.
   // Omit entirely for items every admin-portal principal can see (dashboard,
   // notifications, and blanket-staff-readable pages like organisations/audit-logs).
@@ -49,20 +54,49 @@ export const adminNavItems: Array<{
 }> = [
   // Order: daily ops → catalogue → inbound → people → reference → config → audit
   { href: "/", label: "Platform Dashboard", icon: LayoutDashboard, exact: true },
-  { href: "/datasets", label: "Review Queue", icon: FileCheck, anyPermission: ["approve:datasets", "publish:datasets"] },
+  {
+    href: "/datasets",
+    label: "Review Queue",
+    icon: FileCheck,
+    badgeKey: "datasetReviewQueue",
+    anyPermission: ["approve:datasets", "publish:datasets"],
+  },
   { href: "/upload?agency=1", label: "Upload to Agency", icon: Upload, anyPermission: ["create:datasets"] },
   { href: "/ingestion-ops", label: "Ingestion Ops", icon: Activity, anyPermission: ["manage:indicators"] },
   { href: "/system-health", label: "System Health", icon: HeartPulse, superAdminOnly: true },
-  { href: "/access-requests", label: "Access Requests", icon: KeyRound, anyPermission: ["view:access-requests", "approve:access-requests"] },
+  {
+    href: "/access-requests",
+    label: "Access Requests",
+    icon: KeyRound,
+    badgeKey: "accessRequests",
+    anyPermission: ["view:access-requests", "approve:access-requests"],
+  },
   { href: "/organisations", label: "Organisations", icon: Building2 },
   // Blanket-staff-readable, same as Organisations/Audit Log: everyone in the
   // admin portal can browse; create/edit/archive are gated within the page.
-  { href: "/documents", label: "Documents", icon: FileText },
+  {
+    href: "/documents",
+    label: "Documents",
+    icon: FileText,
+    badgeKey: "documentReviewQueue",
+  },
   { href: "/programs", label: "Programmes", icon: Target, anyPermission: ["create:programs", "edit:programs", "upload:programs", "delete:programs"] },
   { href: "/groups", label: "Groups", icon: FolderKanban },
   { href: "/analytics", label: "Platform Analytics", icon: BarChart3 },
-  { href: "/partner-interest", label: "Partner Interest", icon: Handshake, anyPermission: ["view:partner-interest", "review:partner-interest"] },
-  { href: "/contact", label: "Contact Messages", icon: Mail, anyPermission: ["view:contact-messages", "review:contact-messages"] },
+  {
+    href: "/partner-interest",
+    label: "Partner Interest",
+    icon: Handshake,
+    badgeKey: "partnerInterest",
+    anyPermission: ["view:partner-interest", "review:partner-interest"],
+  },
+  {
+    href: "/contact",
+    label: "Contact Messages",
+    icon: Mail,
+    badgeKey: "contactMessages",
+    anyPermission: ["view:contact-messages", "review:contact-messages"],
+  },
   { href: "/users", label: "All Users", icon: Users, anyPermission: ["invite:users", "promote:org-admin", "demote:org-admin", "remove:org-members"] },
   { href: "/gis-reference", label: "GIS Reference Layers", icon: Map, anyPermission: ["manage:gis-reference-data"] },
   { href: "/agency", label: "Agency", icon: UserCog, superAdminOnly: true },
@@ -72,10 +106,23 @@ export const adminNavItems: Array<{
   { href: "/audit-logs", label: "Audit Log", icon: ScrollText },
 ];
 
+function NavBadge({ count }: { count: number }) {
+  const label = count > 99 ? "99+" : String(count);
+  return (
+    <span
+      className="ml-auto inline-flex min-w-5 shrink-0 items-center justify-center rounded-full bg-amber-500 px-1.5 py-0.5 text-[10px] font-semibold leading-none text-white tabular-nums"
+      aria-label={`${count} pending`}
+    >
+      {label}
+    </span>
+  );
+}
+
 function AdminNavLinks({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
   const { user } = useAuth();
-  const { canAny } = useAdminAccess();
+  const { canAny, can } = useAdminAccess();
+  const { counts } = useAdminNavBadges();
   const isSuperAdmin = user?.role === "super_admin";
 
   return (
@@ -86,9 +133,17 @@ function AdminNavLinks({ onNavigate }: { onNavigate?: () => void }) {
           if (item.anyPermission) return isSuperAdmin || canAny(...item.anyPermission);
           return true;
         })
-        .map(({ href, label, icon: Icon, exact }) => {
+        .map(({ href, label, icon: Icon, exact, badgeKey }) => {
         const hrefPath = href.split("?")[0];
         const active = exact ? pathname === hrefPath : pathname.startsWith(hrefPath);
+        const badgeCount =
+          badgeKey === "documentReviewQueue"
+            ? isSuperAdmin || can("manage:documents")
+              ? counts[badgeKey]
+              : undefined
+            : badgeKey
+              ? counts[badgeKey]
+              : undefined;
         return (
           <Link
             key={href}
@@ -104,6 +159,9 @@ function AdminNavLinks({ onNavigate }: { onNavigate?: () => void }) {
           >
             <Icon className="size-4 shrink-0" aria-hidden="true" />
             <span className="min-w-0 flex-1 truncate">{label}</span>
+            {badgeCount != null && badgeCount > 0 ? (
+              <NavBadge count={badgeCount} />
+            ) : null}
           </Link>
         );
       })}
