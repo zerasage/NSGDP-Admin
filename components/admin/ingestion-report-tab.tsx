@@ -24,6 +24,7 @@ import {
   useNarrateIngestion,
 } from "@/lib/hooks/useIngestionReview";
 import { IngestionFitnessPanel } from "@/components/admin/ingestion-fitness-panel";
+import { INGESTION_REPORT_TIPS } from "@/lib/constants/dataset-tooltips";
 import { toast } from "sonner";
 
 const SPECIES_LABELS: Record<string, string> = {
@@ -73,14 +74,14 @@ export function IngestionReportTab({ datasetId }: { datasetId: string }) {
       <IngestionFitnessPanel fitness={report.fitness} />
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <MetricCard label="Staging rows" value={report.stagingTotal} icon={FileSpreadsheet} tone="info" />
-        <MetricCard label="Resolved" value={report.resolved} icon={CheckCircle2} tone="success" />
-        <MetricCard label="Flagged" value={report.flagged} icon={AlertTriangle} tone="warning" />
-        <MetricCard label="Auto-resolution" value={autoRate} icon={Sparkles} tone="primary" />
+        <MetricCard label="Staging rows" value={report.stagingTotal} tip={INGESTION_REPORT_TIPS.staging_rows} icon={FileSpreadsheet} tone="info" />
+        <MetricCard label="Resolved" value={report.resolved} tip={INGESTION_REPORT_TIPS.resolved} icon={CheckCircle2} tone="success" />
+        <MetricCard label="Flagged" value={report.flagged} tip={INGESTION_REPORT_TIPS.flagged} icon={AlertTriangle} tone="warning" />
+        <MetricCard label="Auto-resolution" value={autoRate} tip={INGESTION_REPORT_TIPS.auto_resolution} icon={Sparkles} tone="primary" />
       </div>
 
       {Object.keys(report.byHoldReason).length > 0 && (
-        <Panel title="Held for review, by reason" icon={AlertTriangle} tone="warning">
+        <Panel title="Held for review, by reason" titleTip={INGESTION_REPORT_TIPS.held_for_review} icon={AlertTriangle} tone="warning">
           <div className="flex flex-wrap gap-2">
             {Object.entries(report.byHoldReason).map(([reason, count]) => (
               <Badge key={reason} variant="outline" className="border-warning/30 bg-warning/10">
@@ -93,6 +94,7 @@ export function IngestionReportTab({ datasetId }: { datasetId: string }) {
 
       <Panel
         title="Per-sheet coverage"
+        titleTip={INGESTION_REPORT_TIPS.per_sheet_coverage}
         icon={FileSpreadsheet}
         tone="info"
         action={
@@ -149,7 +151,7 @@ export function IngestionReportTab({ datasetId }: { datasetId: string }) {
       </Panel>
 
       {narrateMutation.data && (
-        <Panel title="AI Summary" icon={Sparkles} tone="primary" className="border-primary/30">
+        <Panel title="AI Summary" titleTip={INGESTION_REPORT_TIPS.ai_summary} icon={Sparkles} tone="primary" className="border-primary/30">
           <p className="text-sm leading-6">{narrateMutation.data.summary}</p>
         </Panel>
       )}

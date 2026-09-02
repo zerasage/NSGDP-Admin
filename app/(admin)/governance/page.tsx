@@ -7,6 +7,7 @@ import {
   Clock,
   Database,
   Layers,
+  Lock,
   ShieldAlert,
   Sparkles,
   Tags,
@@ -29,6 +30,14 @@ import {
   Panel,
   type MetricTone,
 } from "@/components/admin/admin-analytics-ui";
+import { HelpTip } from "@/components/admin/help-tip";
+import {
+  GOVERNANCE_METRIC_TIPS,
+  GOVERNANCE_PAGE_TIP,
+  GOVERNANCE_PANEL_TIPS,
+} from "@/lib/constants/governance-tooltips";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import { useAuth } from "@/lib/auth";
 import {
   useDatasetPipelineStats,
   useGovernanceAnalytics,
@@ -69,9 +78,22 @@ function missingPctTone(pct: number): MetricTone {
 }
 
 export default function GovernancePage() {
+  const { user } = useAuth();
   const pipeline = useDatasetPipelineStats();
   const governance = useGovernanceAnalytics();
   const loading = pipeline.isLoading || governance.isLoading;
+
+  if (user?.role !== "super_admin") {
+    return (
+      <div className="flex min-h-[60vh] items-center justify-center">
+        <EmptyState
+          icon={Lock}
+          title="Access restricted"
+          description="Data governance metrics are super-admin only — they expose platform-wide pipeline health and conflict data."
+        />
+      </div>
+    );
+  }
 
   if (loading) {
     return (
@@ -95,9 +117,13 @@ export default function GovernancePage() {
   const autoResolutionPct = Math.round((gov?.aliasResolution.autoResolutionRate ?? 0) * 100);
 
   return (
+    <TooltipProvider delay={200}>
     <div className="space-y-8">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Data Governance</h1>
+        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+          Data Governance
+          <HelpTip content={GOVERNANCE_PAGE_TIP} label="About data governance" />
+        </h1>
         <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
           Dataset pipeline health, update freshness, alias resolution, and burden-data completeness
           across published indicators.
@@ -111,6 +137,7 @@ export default function GovernancePage() {
           hint="All statuses across the platform"
           icon={Database}
           tone="primary"
+          tip={GOVERNANCE_METRIC_TIPS.total}
         />
         <MetricCard
           label="Pending review"
@@ -118,6 +145,7 @@ export default function GovernancePage() {
           hint="Awaiting approval or publish"
           icon={Clock}
           tone="warning"
+          tip={GOVERNANCE_METRIC_TIPS.pending}
         />
         <MetricCard
           label="Overdue updates"
@@ -125,13 +153,19 @@ export default function GovernancePage() {
           hint="Published datasets past their schedule"
           icon={AlertTriangle}
           tone="destructive"
+          tip={GOVERNANCE_METRIC_TIPS.overdue}
         />
         <MetricCard
-          label="Open conflicts"
-          value={gov?.openConflicts ?? 0}
-          hint="Observation conflicts needing resolution"
+          label="Datasets with conflicts"
+          value={gov?.datasetsWithOpenConflicts ?? 0}
+          hint={
+            (gov?.openConflicts ?? 0) > 0
+              ? `${(gov?.openConflicts ?? 0).toLocaleString()} clashing keys`
+              : "No stored vs upload disagreements"
+          }
           icon={ShieldAlert}
-          tone="info"
+          tone={(gov?.datasetsWithOpenConflicts ?? 0) > 0 ? "destructive" : "info"}
+          tip={GOVERNANCE_METRIC_TIPS.conflicts}
         />
       </div>
 
@@ -141,6 +175,7 @@ export default function GovernancePage() {
           description="Current pipeline distribution."
           icon={Layers}
           tone="primary"
+          titleTip={GOVERNANCE_PANEL_TIPS.byStatus}
         >
           <div className="space-y-2">
             {Object.entries(stats?.byStatus ?? {}).length === 0 ? (
@@ -162,6 +197,7 @@ export default function GovernancePage() {
           description="How current published catalogue entries are."
           icon={Clock}
           tone="warning"
+          titleTip={GOVERNANCE_PANEL_TIPS.freshness}
         >
           <div className="space-y-2">
             <StatRow label="Published total" value={stats?.staleness.publishedTotal ?? 0} />
@@ -186,6 +222,7 @@ export default function GovernancePage() {
           description="Dataset counts grouped by catalogue category."
           icon={Tags}
           tone="info"
+          titleTip={GOVERNANCE_PANEL_TIPS.byCategory}
         >
           {(stats?.byCategory ?? []).length === 0 ? (
             <p className="text-sm text-muted-foreground">No categories with datasets yet.</p>
@@ -216,6 +253,7 @@ export default function GovernancePage() {
           description="Alias resolution and staging backlog."
           icon={Sparkles}
           tone="success"
+          titleTip={GOVERNANCE_PANEL_TIPS.ingestionQuality}
         >
           <div className="space-y-2">
             <StatRow
@@ -242,6 +280,7 @@ export default function GovernancePage() {
         description="Share of ingested disease-burden observations marked missing — gaps where source files had no reported value for that LGA, ward, or period."
         icon={BarChart3}
         tone="destructive"
+        titleTip={GOVERNANCE_PANEL_TIPS.burdenQuality}
       >
         {(gov?.burdenQuality ?? []).length === 0 ? (
           <EmptyState
@@ -295,5 +334,6 @@ export default function GovernancePage() {
         )}
       </Panel>
     </div>
+    </TooltipProvider>
   );
 }

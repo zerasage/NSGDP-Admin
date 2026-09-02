@@ -4,8 +4,16 @@ import { useMemo, useState } from "react";
 import { Building2, Lock, Network, Plus, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { OrganisationGroupsPanel } from "@/components/admin/organisation-groups-panel";
+import { HelpTip } from "@/components/admin/help-tip";
 import { EmptyState } from "@/components/feedback/empty-state";
 import { MetricCard, Panel } from "@/components/admin/admin-analytics-ui";
+import {
+  ORG_GROUPS_METRIC_TIPS,
+  ORG_GROUPS_NEW_GROUP_TIP,
+  ORG_GROUPS_PAGE_TIP,
+  ORG_GROUPS_WORKSPACE_PANEL_TIP,
+} from "@/lib/constants/organisation-groups-tooltips";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { useAuth } from "@/lib/auth";
 import { useOrganisationGroups } from "@/lib/hooks/useOrganisationGroups";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -37,17 +45,16 @@ export default function OrganisationGroupsPage() {
   }
 
   return (
+    <TooltipProvider delay={200}>
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Organisation Groups</h1>
+        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+          Organisation Groups
+          <HelpTip content={ORG_GROUPS_PAGE_TIP} label="About organisation groups" />
+        </h1>
         <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
           Manage groups of organisations, their membership, and the capabilities granted to them.
         </p>
-      </div>
-
-      <div className="rounded-xl border border-info/25 bg-info/[0.06] px-4 py-3 text-sm text-muted-foreground">
-        Organisation groups batch capability grants (e.g. programme creation) across member partners.
-        Unlike staff permission groups, these are structural policy decisions kept under super-admin control.
       </div>
 
       {isLoading ? (
@@ -64,6 +71,7 @@ export default function OrganisationGroupsPage() {
             hint="Active and inactive"
             icon={Network}
             tone="primary"
+            tip={ORG_GROUPS_METRIC_TIPS.total}
           />
           <MetricCard
             label="Active groups"
@@ -71,6 +79,7 @@ export default function OrganisationGroupsPage() {
             hint="Currently granting capabilities"
             icon={Building2}
             tone="success"
+            tip={ORG_GROUPS_METRIC_TIPS.active}
           />
           <MetricCard
             label="Total members"
@@ -78,6 +87,7 @@ export default function OrganisationGroupsPage() {
             hint="Organisations across all groups"
             icon={Users}
             tone="info"
+            tip={ORG_GROUPS_METRIC_TIPS.members}
           />
         </div>
       )}
@@ -87,15 +97,20 @@ export default function OrganisationGroupsPage() {
         description="Configure which organisations can create programmes and other high-level actions."
         icon={Network}
         tone="primary"
+        titleTip={ORG_GROUPS_WORKSPACE_PANEL_TIP}
         action={
-          <Button className="h-9 w-full sm:w-auto" onClick={() => setCreateOpen(true)}>
-            <Plus className="size-4" />
-            New group
-          </Button>
+          <div className="flex items-center gap-1">
+            <Button className="h-9 w-full sm:w-auto" onClick={() => setCreateOpen(true)}>
+              <Plus className="size-4" />
+              New group
+            </Button>
+            <HelpTip content={ORG_GROUPS_NEW_GROUP_TIP} label="About new group" />
+          </div>
         }
       >
         <OrganisationGroupsPanel createOpen={createOpen} onCreateOpenChange={setCreateOpen} />
       </Panel>
     </div>
+    </TooltipProvider>
   );
 }

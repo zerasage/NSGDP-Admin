@@ -48,6 +48,15 @@ import {
   tabToneClass,
   type MetricTone,
 } from "@/components/admin/admin-analytics-ui";
+import { HelpTip } from "@/components/admin/help-tip";
+import {
+  ORGANISATIONS_ADD_TIP,
+  ORGANISATIONS_METRIC_TIPS,
+  ORGANISATIONS_PAGE_TIP,
+  ORGANISATIONS_PANEL_TIP,
+  ORGANISATIONS_TAB_TIPS,
+} from "@/lib/constants/organisations-tooltips";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { formatDate } from "@/lib/utils/date";
 import { ORG_TYPES } from "@/lib/constants/organisation-types";
@@ -56,10 +65,15 @@ import { CreateOrganisationModal } from "@/components/admin/create-organisation-
 
 const typeLabels = new Map(ORG_TYPES.map((type) => [type.value, type.label]));
 
-const TABS: Array<{ key: "all" | "active" | "inactive"; label: string; tone: MetricTone }> = [
-  { key: "all", label: "All organisations", tone: "muted" },
-  { key: "active", label: "Active", tone: "success" },
-  { key: "inactive", label: "Inactive", tone: "muted" },
+const TABS: Array<{
+  key: "all" | "active" | "inactive";
+  label: string;
+  tone: MetricTone;
+  tip: string;
+}> = [
+  { key: "all", label: "All organisations", tone: "muted", tip: ORGANISATIONS_TAB_TIPS.all },
+  { key: "active", label: "Active", tone: "success", tip: ORGANISATIONS_TAB_TIPS.active },
+  { key: "inactive", label: "Inactive", tone: "muted", tip: ORGANISATIONS_TAB_TIPS.inactive },
 ];
 
 export default function AdminOrganisationsPage() {
@@ -151,10 +165,14 @@ export default function AdminOrganisationsPage() {
     : "From first 100 partners";
 
   return (
+    <TooltipProvider delay={200}>
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Organisations</h1>
+          <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+            Organisations
+            <HelpTip content={ORGANISATIONS_PAGE_TIP} label="About organisations" />
+          </h1>
           <p className="mt-1 text-sm text-muted-foreground">
             Manage partner organisations, agreements, and dataset ownership
           </p>
@@ -164,12 +182,6 @@ export default function AdminOrganisationsPage() {
             {total} {total === 1 ? "organisation" : "organisations"}
           </Badge>
         )}
-      </div>
-
-      <div className="rounded-xl border border-info/25 bg-info/[0.06] px-4 py-3 text-sm text-muted-foreground">
-        Partner organisations contribute datasets to the portal. Each org needs a signed data-sharing
-        agreement on file — upload it from the organisation detail page. The platform-owning agency
-        (NSPHCDA) is managed separately under Agency.
       </div>
 
       {statsLoading ? (
@@ -184,6 +196,7 @@ export default function AdminOrganisationsPage() {
             label="Total partners"
             value={totalSummary.data ?? 0}
             hint="Contributing organisations"
+            tip={ORGANISATIONS_METRIC_TIPS.total}
             icon={Building2}
             tone="primary"
           />
@@ -191,6 +204,7 @@ export default function AdminOrganisationsPage() {
             label="Active"
             value={activeSummary.data ?? 0}
             hint="Enabled on the platform"
+            tip={ORGANISATIONS_METRIC_TIPS.active}
             icon={Building2}
             tone="success"
           />
@@ -198,6 +212,7 @@ export default function AdminOrganisationsPage() {
             label="Inactive"
             value={inactiveSummary.data ?? 0}
             hint="Disabled or suspended"
+            tip={ORGANISATIONS_METRIC_TIPS.inactive}
             icon={Building2}
             tone="muted"
           />
@@ -205,6 +220,7 @@ export default function AdminOrganisationsPage() {
             label="Missing agreements"
             value={agreementsSummary.data?.missing ?? 0}
             hint={agreementHint}
+            tip={ORGANISATIONS_METRIC_TIPS.missingAgreements}
             icon={FileWarning}
             tone="warning"
           />
@@ -213,15 +229,19 @@ export default function AdminOrganisationsPage() {
 
       <Panel
         title="Organisation directory"
+        titleTip={ORGANISATIONS_PANEL_TIP}
         description="Filter by status or type, or search by name, acronym, or email."
         icon={Building2}
         tone="info"
         action={
           canCreate ? (
-            <Button className="h-9 w-full sm:w-auto" onClick={() => setCreateModalOpen(true)}>
-              <Plus className="size-4" aria-hidden="true" />
-              Add organisation
-            </Button>
+            <div className="flex w-full items-center gap-1.5 sm:w-auto">
+              <Button className="h-9 flex-1 sm:flex-none" onClick={() => setCreateModalOpen(true)}>
+                <Plus className="size-4" aria-hidden="true" />
+                Add organisation
+              </Button>
+              <HelpTip content={ORGANISATIONS_ADD_TIP} label="About add organisation" />
+            </div>
           ) : undefined
         }
       >
@@ -229,24 +249,28 @@ export default function AdminOrganisationsPage() {
           <div className="rounded-xl border bg-muted/30 p-1">
             <div className="flex flex-wrap gap-1" role="tablist" aria-label="Organisation status">
               {TABS.map((tab) => (
-                <button
-                  key={tab.key}
-                  type="button"
-                  role="tab"
-                  aria-selected={status === tab.key}
-                  onClick={() => {
-                    setStatus(tab.key);
-                    setPage(1);
-                  }}
-                  className={cn(
-                    "min-h-9 rounded-lg px-3 py-2 text-xs font-medium transition-colors sm:text-sm",
-                    status === tab.key
-                      ? cn("shadow-sm", tabToneClass(tab.tone))
-                      : "text-muted-foreground hover:bg-background/80 hover:text-foreground",
-                  )}
-                >
-                  {tab.label}
-                </button>
+                <div key={tab.key} className="inline-flex items-center gap-0.5">
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={status === tab.key}
+                    onClick={() => {
+                      setStatus(tab.key);
+                      setPage(1);
+                    }}
+                    className={cn(
+                      "min-h-9 rounded-lg px-3 py-2 text-xs font-medium transition-colors sm:text-sm",
+                      status === tab.key
+                        ? cn("shadow-sm", tabToneClass(tab.tone))
+                        : "text-muted-foreground hover:bg-background/80 hover:text-foreground",
+                    )}
+                  >
+                    {tab.label}
+                  </button>
+                  {status === tab.key ? (
+                    <HelpTip content={tab.tip} label={`About ${tab.label}`} />
+                  ) : null}
+                </div>
               ))}
             </div>
           </div>
@@ -526,6 +550,7 @@ export default function AdminOrganisationsPage() {
 
       <CreateOrganisationModal open={createModalOpen} onClose={() => setCreateModalOpen(false)} />
     </div>
+    </TooltipProvider>
   );
 }
 

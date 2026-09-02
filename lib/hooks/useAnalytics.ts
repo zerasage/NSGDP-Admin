@@ -1,13 +1,25 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
-import { getAdminAnalytics, exportAnalytics } from "@/lib/api/admin";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { getAdminAnalytics, exportAnalytics, refreshAnalyticsCache } from "@/lib/api/admin";
 
 export function useAdminAnalytics(months = 6) {
   return useQuery({
     queryKey: ["admin-analytics", months],
     queryFn: () => getAdminAnalytics(months),
     staleTime: 60_000,
+  });
+}
+
+export function useRefreshAnalyticsCache() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () => refreshAnalyticsCache(),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-analytics"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      queryClient.invalidateQueries({ queryKey: ["admin", "datasets", "stats"] });
+    },
   });
 }
 

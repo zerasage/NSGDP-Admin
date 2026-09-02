@@ -13,6 +13,17 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { statusPill } from "@/lib/constants/status-surfaces";
+import {
+  AUDIT_LOGS_ACTION_TIP,
+  AUDIT_LOGS_EXPAND_TIP,
+  AUDIT_LOGS_EXPORT_TIP,
+  AUDIT_LOGS_FILTERS_TIP,
+  AUDIT_LOGS_OUTCOME_TIP,
+  AUDIT_LOGS_PAGE_TIP,
+  AUDIT_LOGS_PERIOD_TIP,
+} from "@/lib/constants/audit-logs-tooltips";
+import { HelpTip } from "@/components/admin/help-tip";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { formatDateTime } from "@/lib/utils/date";
 import { toast } from "sonner";
@@ -138,10 +149,14 @@ export default function AdminAuditLogsPage() {
   const toggle = (id: string) => setExpandedId((current) => (current === id ? null : id));
 
   return (
+    <TooltipProvider delay={200}>
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold">Audit logs</h1>
+          <h1 className="flex items-center gap-2 text-2xl font-bold">
+            Audit logs
+            <HelpTip content={AUDIT_LOGS_PAGE_TIP} label="About audit logs" />
+          </h1>
           <p className="mt-1 text-sm text-muted-foreground">Immutable record of platform actions</p>
         </div>
         <div className="flex items-center gap-2">
@@ -154,10 +169,15 @@ export default function AdminAuditLogsPage() {
             {exporting ? <Loader2 className="size-4 animate-spin" /> : <Download className="size-4" />}
             {exporting ? "Exporting…" : "Export CSV"}
           </Button>
+          <HelpTip content={AUDIT_LOGS_EXPORT_TIP} label="About CSV export" />
         </div>
       </div>
 
       <section className="rounded-2xl border bg-card p-4" aria-label="Audit log filters">
+        <div className="mb-3 flex items-center gap-2">
+          <h2 className="text-sm font-semibold">Filters</h2>
+          <HelpTip content={AUDIT_LOGS_FILTERS_TIP} label="About audit log filters" />
+        </div>
         <div className="flex flex-col gap-3 lg:flex-row lg:flex-wrap">
           <div className="relative min-w-64 flex-1">
             <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
@@ -173,17 +193,20 @@ export default function AdminAuditLogsPage() {
               </button>
             )}
           </div>
-          <Filter value={action} setValue={(value) => { setAction(value); setPage(1); }} name="action" options={ACTIONS} />
+          <Filter value={action} setValue={(value) => { setAction(value); setPage(1); }} name="action" options={ACTIONS} tip={AUDIT_LOGS_ACTION_TIP} />
           <Filter value={entityType} setValue={(value) => { setEntityType(value); setPage(1); }} name="entity" options={ENTITIES} />
-          <Filter value={outcome} setValue={(value) => { setOutcome(value); setPage(1); }} name="outcome" options={["success", "failure"]} />
-          <Select value={period} onValueChange={(v) => { if (v) { setPeriod(v); setPage(1); } }}>
-            <SelectTrigger className="h-10 w-full sm:w-44" aria-label="Filter by period">
-              <SelectValue>{(v: string) => PERIODS.find((p) => p.key === v)?.label ?? "All time"}</SelectValue>
-            </SelectTrigger>
-            <SelectContent>
-              {PERIODS.map((item) => <SelectItem key={item.key} value={item.key}>{item.label}</SelectItem>)}
-            </SelectContent>
-          </Select>
+          <Filter value={outcome} setValue={(value) => { setOutcome(value); setPage(1); }} name="outcome" options={["success", "failure"]} tip={AUDIT_LOGS_OUTCOME_TIP} />
+          <div className="flex items-center gap-1">
+            <Select value={period} onValueChange={(v) => { if (v) { setPeriod(v); setPage(1); } }}>
+              <SelectTrigger className="h-10 w-full sm:w-44" aria-label="Filter by period">
+                <SelectValue>{(v: string) => PERIODS.find((p) => p.key === v)?.label ?? "All time"}</SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                {PERIODS.map((item) => <SelectItem key={item.key} value={item.key}>{item.label}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <HelpTip content={AUDIT_LOGS_PERIOD_TIP} label="About date filters" />
+          </div>
           {period === "custom" && (
             <>
               <Input type="date" aria-label="From date" className="h-10 sm:w-40" value={customStart} onChange={(e) => { setCustomStart(e.target.value); setPage(1); }} />
@@ -237,7 +260,9 @@ export default function AdminAuditLogsPage() {
               <table className="w-full text-[13px]">
                 <thead>
                   <tr className="h-11 border-b bg-muted/40 text-left text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                    <th className="w-14 px-4 font-semibold"><span className="sr-only">Details</span></th>
+                    <th className="w-14 px-4 font-semibold">
+                      <HelpTip content={AUDIT_LOGS_EXPAND_TIP} label="About expanded record details" />
+                    </th>
                     <th className="px-4 font-semibold">Timestamp</th>
                     <th className="px-4 font-semibold">Actor</th>
                     <th className="px-4 font-semibold">Action</th>
@@ -299,7 +324,10 @@ export default function AdminAuditLogsPage() {
                     <p className="mt-2 text-xs text-muted-foreground">IP {entry.ip_address || "—"}</p>
                   </div>
                   <Button variant="ghost" className="mt-2 h-11 w-full justify-between" aria-expanded={expandedId === entry.id} onClick={() => toggle(entry.id)}>
-                    Record details
+                    <span className="inline-flex items-center gap-1.5">
+                      Record details
+                      <HelpTip content={AUDIT_LOGS_EXPAND_TIP} label="About expanded record details" />
+                    </span>
                     {expandedId === entry.id ? <ChevronDown className="size-4" /> : <ChevronRight className="size-4" />}
                   </Button>
                   {expandedId === entry.id && <div className="border-t pt-3"><Details entry={entry} /></div>}
@@ -322,20 +350,24 @@ export default function AdminAuditLogsPage() {
         )}
       </div>
     </div>
+    </TooltipProvider>
   );
 }
 
-function Filter({ value, setValue, name, options }: { value: string; setValue: (value: string) => void; name: string; options: string[] }) {
+function Filter({ value, setValue, name, options, tip }: { value: string; setValue: (value: string) => void; name: string; options: string[]; tip?: string }) {
   const allLabel = `All ${name === "entity" ? "entities" : `${name}s`}`;
   return (
-    <Select value={value} onValueChange={(next) => { if (next) setValue(next); }}>
-      <SelectTrigger className="h-10 w-full sm:w-44" aria-label={`Filter by ${name}`}>
-        <SelectValue>{(v: string) => (v === "all" ? allLabel : label(v))}</SelectValue>
-      </SelectTrigger>
-      <SelectContent>
-        <SelectItem value="all">{allLabel}</SelectItem>
-        {options.map((option) => <SelectItem key={option} value={option} className="capitalize">{label(option)}</SelectItem>)}
-      </SelectContent>
-    </Select>
+    <div className="flex items-center gap-1">
+      <Select value={value} onValueChange={(next) => { if (next) setValue(next); }}>
+        <SelectTrigger className="h-10 w-full sm:w-44" aria-label={`Filter by ${name}`}>
+          <SelectValue>{(v: string) => (v === "all" ? allLabel : label(v))}</SelectValue>
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">{allLabel}</SelectItem>
+          {options.map((option) => <SelectItem key={option} value={option} className="capitalize">{label(option)}</SelectItem>)}
+        </SelectContent>
+      </Select>
+      {tip ? <HelpTip content={tip} label={`About ${name} filter`} /> : null}
+    </div>
   );
 }

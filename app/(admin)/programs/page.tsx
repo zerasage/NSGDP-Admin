@@ -54,6 +54,15 @@ import {
 import { cn } from "@/lib/utils";
 import { formatDate } from "@/lib/utils/date";
 import { ProgramFormModal } from "@/components/admin/program-form-modal";
+import { HelpTip } from "@/components/admin/help-tip";
+import {
+  PROGRAMS_CREATE_TIP,
+  PROGRAMS_METRIC_TIPS,
+  PROGRAMS_PAGE_TIP,
+  PROGRAMS_PANEL_TIP,
+  PROGRAMS_TAB_TIPS,
+} from "@/lib/constants/programs-tooltips";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import Link from "next/link";
 import type { AdminProgramme, ProgrammeType, ProgrammeStatus } from "@/lib/api/programs";
 import { toast } from "sonner";
@@ -75,12 +84,17 @@ const STATUS_CONFIG: Record<ProgrammeStatus, { label: string; tone: MetricTone }
   archived: { label: "Archived", tone: "muted" },
 };
 
-const TABS: Array<{ key: ProgrammeStatus | "all"; label: string; tone: MetricTone }> = [
-  { key: "all", label: "All programmes", tone: "muted" },
-  { key: "active", label: "Active", tone: "success" },
-  { key: "completed", label: "Completed", tone: "info" },
-  { key: "suspended", label: "Suspended", tone: "warning" },
-  { key: "archived", label: "Archived", tone: "muted" },
+const TABS: Array<{
+  key: ProgrammeStatus | "all";
+  label: string;
+  tone: MetricTone;
+  tip: string;
+}> = [
+  { key: "all", label: "All programmes", tone: "muted", tip: PROGRAMS_TAB_TIPS.all },
+  { key: "active", label: "Active", tone: "success", tip: PROGRAMS_TAB_TIPS.active },
+  { key: "completed", label: "Completed", tone: "info", tip: PROGRAMS_TAB_TIPS.completed },
+  { key: "suspended", label: "Suspended", tone: "warning", tip: PROGRAMS_TAB_TIPS.suspended },
+  { key: "archived", label: "Archived", tone: "muted", tip: PROGRAMS_TAB_TIPS.archived },
 ];
 
 export default function AdminProgramsPage() {
@@ -195,10 +209,14 @@ export default function AdminProgramsPage() {
   }
 
   return (
+    <TooltipProvider delay={200}>
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Programmes</h1>
+          <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+            Programmes
+            <HelpTip content={PROGRAMS_PAGE_TIP} label="About programmes" />
+          </h1>
           <p className="mt-1 text-sm text-muted-foreground">
             Health campaigns, surveillance, training, and other initiatives — track progress and manage reports
           </p>
@@ -208,12 +226,6 @@ export default function AdminProgramsPage() {
             {total} {total === 1 ? "programme" : "programmes"}
           </Badge>
         )}
-      </div>
-
-      <div className="rounded-xl border border-info/25 bg-info/[0.06] px-4 py-3 text-sm text-muted-foreground">
-        Programmes track health initiatives across LGAs — campaigns, surveillance rounds, screening drives,
-        and training. Upload periodic reports from each programme&apos;s detail page to keep reach and coverage
-        metrics current.
       </div>
 
       {statsLoading ? (
@@ -228,6 +240,7 @@ export default function AdminProgramsPage() {
             label="Total programmes"
             value={totalSummary.data ?? 0}
             hint="All statuses"
+            tip={PROGRAMS_METRIC_TIPS.total}
             icon={Target}
             tone="primary"
           />
@@ -235,6 +248,7 @@ export default function AdminProgramsPage() {
             label="Active"
             value={activeSummary.data ?? 0}
             hint="Currently running"
+            tip={PROGRAMS_METRIC_TIPS.active}
             icon={Target}
             tone="success"
           />
@@ -242,6 +256,7 @@ export default function AdminProgramsPage() {
             label="Completed"
             value={completedSummary.data ?? 0}
             hint="Finished initiatives"
+            tip={PROGRAMS_METRIC_TIPS.completed}
             icon={CheckCircle2}
             tone="info"
           />
@@ -249,6 +264,7 @@ export default function AdminProgramsPage() {
             label="Suspended"
             value={suspendedSummary.data ?? 0}
             hint="Paused or on hold"
+            tip={PROGRAMS_METRIC_TIPS.suspended}
             icon={PauseCircle}
             tone="warning"
           />
@@ -257,15 +273,19 @@ export default function AdminProgramsPage() {
 
       <Panel
         title="Programme directory"
+        titleTip={PROGRAMS_PANEL_TIP}
         description="Filter by status or type, or search by programme name."
         icon={Target}
         tone="info"
         action={
           canCreate ? (
-            <Button className="h-9 w-full sm:w-auto" onClick={openCreate}>
-              <Plus className="size-4" aria-hidden="true" />
-              Create programme
-            </Button>
+            <div className="flex w-full items-center gap-1.5 sm:w-auto">
+              <Button className="h-9 flex-1 sm:flex-none" onClick={openCreate}>
+                <Plus className="size-4" aria-hidden="true" />
+                Create programme
+              </Button>
+              <HelpTip content={PROGRAMS_CREATE_TIP} label="About create programme" />
+            </div>
           ) : undefined
         }
       >
@@ -273,24 +293,28 @@ export default function AdminProgramsPage() {
           <div className="rounded-xl border bg-muted/30 p-1">
             <div className="flex flex-wrap gap-1" role="tablist" aria-label="Programme status">
               {TABS.map((tab) => (
-                <button
-                  key={tab.key}
-                  type="button"
-                  role="tab"
-                  aria-selected={status === tab.key}
-                  onClick={() => {
-                    setStatus(tab.key);
-                    setPage(1);
-                  }}
-                  className={cn(
-                    "min-h-9 rounded-lg px-3 py-2 text-xs font-medium transition-colors sm:text-sm",
-                    status === tab.key
-                      ? cn("shadow-sm", tabToneClass(tab.tone))
-                      : "text-muted-foreground hover:bg-background/80 hover:text-foreground",
-                  )}
-                >
-                  {tab.label}
-                </button>
+                <div key={tab.key} className="inline-flex items-center gap-0.5">
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={status === tab.key}
+                    onClick={() => {
+                      setStatus(tab.key);
+                      setPage(1);
+                    }}
+                    className={cn(
+                      "min-h-9 rounded-lg px-3 py-2 text-xs font-medium transition-colors sm:text-sm",
+                      status === tab.key
+                        ? cn("shadow-sm", tabToneClass(tab.tone))
+                        : "text-muted-foreground hover:bg-background/80 hover:text-foreground",
+                    )}
+                  >
+                    {tab.label}
+                  </button>
+                  {status === tab.key ? (
+                    <HelpTip content={tab.tip} label={`About ${tab.label}`} />
+                  ) : null}
+                </div>
               ))}
             </div>
           </div>
@@ -641,6 +665,7 @@ export default function AdminProgramsPage() {
         onConfirm={confirmArchive}
       />
     </div>
+    </TooltipProvider>
   );
 }
 

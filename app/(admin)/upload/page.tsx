@@ -15,6 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/feedback/empty-state";
 import { METRIC_TONE, Panel } from "@/components/admin/admin-analytics-ui";
+import { HelpTip } from "@/components/admin/help-tip";
 import { OrganisationCombobox } from "@/components/admin/organisation-combobox";
 import { CategoryCombobox } from "@/components/admin/category-combobox";
 import { Autocomplete } from "@/components/ui/autocomplete";
@@ -32,7 +33,8 @@ import { useOrganisations } from "@/lib/hooks/useOrganisations";
 import { useCategories } from "@/lib/hooks/useCategories";
 import { uploadFile } from "@/lib/api/uploads";
 import { NIGER_STATE_LGAS } from "@/lib/constants/core";
-import { UPLOAD_FIELD_TOOLTIPS } from "@/lib/constants/upload-tooltips";
+import { UPLOAD_FIELD_TOOLTIPS, UPLOAD_CONTACT_EMAIL_TIP, UPLOAD_DRAFT_TIP, UPLOAD_PAGE_AGENCY_TIP, UPLOAD_PAGE_TIP, UPLOAD_PREFILL_TIP, UPLOAD_STEP_TIPS, UPLOAD_STEPS_PANEL_TIP, UPLOAD_SUBMIT_TIP } from "@/lib/constants/upload-tooltips";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { useToast } from "@/lib/hooks/use-toast";
 import type { DatasetFormat, DatasetVisibility } from "@/lib/api/datasets";
 import { cn } from "@/lib/utils";
@@ -61,10 +63,21 @@ const LICENSE_OPTIONS = [
   "Restricted — Internal Use Only",
 ];
 
-function StepHeading({ title, description }: { title: string; description: string }) {
+function StepHeading({
+  title,
+  description,
+  tip,
+}: {
+  title: string;
+  description: string;
+  tip?: string;
+}) {
   return (
     <div className="border-b pb-4">
-      <h2 className="text-base font-semibold tracking-tight">{title}</h2>
+      <h2 className="flex items-center gap-2 text-base font-semibold tracking-tight">
+        {title}
+        {tip ? <HelpTip content={tip} label={`About ${title}`} /> : null}
+      </h2>
       <p className="mt-1 text-sm text-muted-foreground">{description}</p>
     </div>
   );
@@ -323,11 +336,16 @@ export default function AdminUploadDatasetPage() {
   }
 
   return (
+    <TooltipProvider delay={200}>
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">
+          <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
             {presetAgency ? "Upload to agency" : "Upload dataset"}
+            <HelpTip
+              content={presetAgency ? UPLOAD_PAGE_AGENCY_TIP : UPLOAD_PAGE_TIP}
+              label="About uploading a dataset"
+            />
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
             {presetAgency
@@ -352,21 +370,15 @@ export default function AdminUploadDatasetPage() {
               onCheckedChange={(checked) => togglePrefill(!!checked)}
             />
             Prefill test data
+            <HelpTip content={UPLOAD_PREFILL_TIP} label="About prefill test data" />
           </label>
         </div>
-      </div>
-
-      <div className="rounded-xl border border-info/25 bg-info/[0.06] px-4 py-3 text-sm text-muted-foreground">
-        Complete all five steps — basic info, coverage, files, governance, and contacts. Submitting
-        sends the dataset to the review queue; saving as draft keeps it editable until you are ready.
-        {presetAgency
-          ? " Agency uploads are owned by the platform organisation and appear in the agency workspace."
-          : " Partner uploads are attributed to the selected organisation."}
       </div>
 
       {/* Mobile stepper: horizontal at top */}
       <Panel
         title="Upload progress"
+        titleTip={UPLOAD_STEPS_PANEL_TIP}
         description={currentStepMeta ? `Current step: ${currentStepMeta.name}` : undefined}
         icon={Upload}
         tone="info"
@@ -383,7 +395,7 @@ export default function AdminUploadDatasetPage() {
       <div className="grid gap-6 lg:grid-cols-[260px_1fr]">
         {/* Vertical stepper sidebar (desktop only) */}
         <aside className="hidden lg:block">
-          <Panel title="Upload steps" icon={Upload} tone="primary" className="sticky top-6">
+          <Panel title="Upload steps" titleTip={UPLOAD_STEPS_PANEL_TIP} icon={Upload} tone="primary" className="sticky top-6">
             <Stepper
               steps={steps}
               currentStep={currentStep}
@@ -400,6 +412,7 @@ export default function AdminUploadDatasetPage() {
             <StepHeading
               title="Basic information"
               description="Identify the owning organisation and describe the dataset clearly."
+              tip={UPLOAD_STEP_TIPS.basic}
             />
 
             <div className="space-y-4">
@@ -426,7 +439,7 @@ export default function AdminUploadDatasetPage() {
                   htmlFor="title"
                   label="Dataset title"
                   required
-                  tooltip={UPLOAD_FIELD_TOOLTIPS.title}
+                  tooltip={UPLOAD_FIELD_TOOLTIPS.datasetName}
                 />
                 <Input
                   id="title"
@@ -517,6 +530,7 @@ export default function AdminUploadDatasetPage() {
             <StepHeading
               title="Coverage and indicators"
               description="Define where and when the data applies, plus the indicators it contains."
+              tip={UPLOAD_STEP_TIPS.coverage}
             />
 
             <div className="space-y-4">
@@ -663,9 +677,16 @@ export default function AdminUploadDatasetPage() {
             <StepHeading
               title="Upload files"
               description="CSV, Excel, JSON, or GeoPackage only. For PDF and other document files, use Documents."
+              tip={UPLOAD_STEP_TIPS.files}
             />
 
-            <FileUploadArea files={uploadedFiles} onFilesChange={setUploadedFiles} />
+            <div className="space-y-2">
+              <FieldLabelTooltip
+                label="Data files"
+                tooltip={UPLOAD_FIELD_TOOLTIPS.files}
+              />
+              <FileUploadArea files={uploadedFiles} onFilesChange={setUploadedFiles} />
+            </div>
 
             <div className="flex justify-between border-t pt-4">
               <Button variant="outline" onClick={() => setCurrentStep(2)}>
@@ -681,6 +702,7 @@ export default function AdminUploadDatasetPage() {
             <StepHeading
               title="Governance"
               description="Document licensing, collection methodology, and known data limitations."
+              tip={UPLOAD_STEP_TIPS.governance}
             />
 
             <div className="space-y-4">
@@ -746,6 +768,7 @@ export default function AdminUploadDatasetPage() {
             <StepHeading
               title="Contact and settings"
               description="Add stewardship contacts, update frequency, and access visibility."
+              tip={UPLOAD_STEP_TIPS.contact}
             />
 
             <div className="space-y-4">
@@ -778,9 +801,11 @@ export default function AdminUploadDatasetPage() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="contactEmail">
-                    Contact email
-                  </Label>
+                  <FieldLabelTooltip
+                    htmlFor="contactEmail"
+                    label="Contact email"
+                    tooltip={UPLOAD_CONTACT_EMAIL_TIP}
+                  />
                   <Input
                     id="contactEmail"
                     type="email"
@@ -837,12 +862,18 @@ export default function AdminUploadDatasetPage() {
                 Back
               </Button>
               <div className="flex flex-col-reverse gap-2 sm:flex-row">
-                <Button variant="outline" onClick={() => handleSubmit(true)} disabled={saving}>
-                  Save as draft
-                </Button>
-                <Button onClick={() => handleSubmit(false)} disabled={saving}>
-                  {saving ? "Submitting..." : "Submit for review"}
-                </Button>
+                <div className="flex items-center gap-1.5">
+                  <Button variant="outline" onClick={() => handleSubmit(true)} disabled={saving}>
+                    Save as draft
+                  </Button>
+                  <HelpTip content={UPLOAD_DRAFT_TIP} label="About save as draft" />
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <Button onClick={() => handleSubmit(false)} disabled={saving}>
+                    {saving ? "Submitting..." : "Submit for review"}
+                  </Button>
+                  <HelpTip content={UPLOAD_SUBMIT_TIP} label="About submit for review" />
+                </div>
               </div>
             </div>
           </div>
@@ -850,5 +881,6 @@ export default function AdminUploadDatasetPage() {
         </section>
       </div>
     </div>
+    </TooltipProvider>
   );
 }

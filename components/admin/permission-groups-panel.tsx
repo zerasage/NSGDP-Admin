@@ -29,6 +29,11 @@ import {
   AdminSectionTabsNav,
   ADMIN_TAB_TRIGGER_BASE,
 } from "@/components/admin/admin-section-tabs-nav";
+import { HelpTip } from "@/components/admin/help-tip";
+import {
+  PERMISSION_GROUPS_MEMBERS_TAB_TIP,
+  PERMISSION_GROUPS_PERMISSIONS_TAB_TIP,
+} from "@/lib/constants/permission-groups-tooltips";
 import { useToast } from "@/lib/hooks/use-toast";
 import {
   useCreatePermissionGroup,
@@ -85,6 +90,7 @@ export function PermissionGroupsPanel({
   const [pendingDeactivate, setPendingDeactivate] = useState<string | null>(null);
   const [pendingDelete, setPendingDelete] = useState<string | null>(null);
   const [pendingReactivate, setPendingReactivate] = useState<string | null>(null);
+  const [detailTab, setDetailTab] = useState("permissions");
 
   const selected = groups?.find((group) => group.id === selectedId) ?? groups?.[0] ?? null;
   const effectiveSelectedId = selected?.id ?? null;
@@ -256,29 +262,45 @@ export function PermissionGroupsPanel({
                 </div>
               )}
 
-              <Tabs defaultValue="permissions" className="gap-0">
+              <Tabs value={detailTab} onValueChange={(value) => value && setDetailTab(value)} className="gap-0">
                 <div className="border-b p-3">
                   <AdminSectionTabsNav>
-                    <TabsTrigger
-                      value="permissions"
-                      className={cn(ADMIN_TAB_TRIGGER_BASE, tabToneClass("success"))}
-                    >
-                      <Shield className="size-3.5 shrink-0 sm:size-4" />
-                      Permissions
-                      <Badge variant="outline" className="ml-1 tabular-nums">
-                        {selected.grant_count}
-                      </Badge>
-                    </TabsTrigger>
-                    <TabsTrigger
-                      value="members"
-                      className={cn(ADMIN_TAB_TRIGGER_BASE, tabToneClass("info"))}
-                    >
-                      <Users className="size-3.5 shrink-0 sm:size-4" />
-                      Members
-                      <Badge variant="outline" className="ml-1 tabular-nums">
-                        {selected.member_count}
-                      </Badge>
-                    </TabsTrigger>
+                    <div className="inline-flex flex-none items-center gap-0.5">
+                      <TabsTrigger
+                        value="permissions"
+                        className={cn(ADMIN_TAB_TRIGGER_BASE, tabToneClass("success"))}
+                      >
+                        <Shield className="size-3.5 shrink-0 sm:size-4" />
+                        Permissions
+                        <Badge variant="outline" className="ml-1 tabular-nums">
+                          {selected.grant_count}
+                        </Badge>
+                      </TabsTrigger>
+                      {detailTab === "permissions" ? (
+                        <HelpTip
+                          content={PERMISSION_GROUPS_PERMISSIONS_TAB_TIP}
+                          label="About permissions tab"
+                        />
+                      ) : null}
+                    </div>
+                    <div className="inline-flex flex-none items-center gap-0.5">
+                      <TabsTrigger
+                        value="members"
+                        className={cn(ADMIN_TAB_TRIGGER_BASE, tabToneClass("info"))}
+                      >
+                        <Users className="size-3.5 shrink-0 sm:size-4" />
+                        Members
+                        <Badge variant="outline" className="ml-1 tabular-nums">
+                          {selected.member_count}
+                        </Badge>
+                      </TabsTrigger>
+                      {detailTab === "members" ? (
+                        <HelpTip
+                          content={PERMISSION_GROUPS_MEMBERS_TAB_TIP}
+                          label="About members tab"
+                        />
+                      ) : null}
+                    </div>
                   </AdminSectionTabsNav>
                 </div>
                 <TabsContent value="permissions" className="p-4">

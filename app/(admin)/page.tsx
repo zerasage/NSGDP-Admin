@@ -18,6 +18,7 @@ import type { LucideIcon } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { useDashboardStats, useDashboardActivity } from "@/lib/hooks/useDashboard";
 import { useNotifications } from "@/lib/hooks/useNotifications";
+import { useAdminAccess } from "@/lib/hooks/useAdminAccess";
 import { getAdminNotificationHref } from "@/lib/api/notifications";
 import { ActivityGraph } from "@/components/charts/activity-graph";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -29,6 +30,9 @@ import {
   Panel,
   type MetricTone,
 } from "@/components/admin/admin-analytics-ui";
+import { HelpTip } from "@/components/admin/help-tip";
+import { DASHBOARD_DATASET_OVERVIEW_TIP, DASHBOARD_PAGE_TIP } from "@/lib/constants/dashboard-tooltips";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 
 function getActivityIcon(type: string) {
@@ -51,6 +55,9 @@ const STATUS_TONE: Record<string, MetricTone> = {
 };
 
 export default function AdminDashboardPage() {
+  const { can, canAny } = useAdminAccess();
+  const canReviewQueue = canAny("approve:datasets", "publish:datasets");
+  const canUpload = can("create:datasets");
   const { data: stats, isLoading, isError, error, refetch, isFetching } = useDashboardStats();
   const { data: activity, isLoading: isActivityLoading } = useDashboardActivity();
   const { data: notifications } = useNotifications(1, 5);
@@ -139,32 +146,35 @@ export default function AdminDashboardPage() {
   }>;
 
   return (
+    <TooltipProvider delay={200}>
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Platform Dashboard</h1>
+          <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+            Platform Dashboard
+            <HelpTip content={DASHBOARD_PAGE_TIP} label="About the dashboard" />
+          </h1>
           <p className="mt-1 text-sm text-muted-foreground">Platform overview and key metrics</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Link href="/datasets" className={cn(buttonVariants({ variant: "outline", size: "sm" }), "h-9")}>
-            <FileCheck className="size-4" aria-hidden="true" />
-            Review queue
-            {pendingCount > 0 ? ` (${pendingCount})` : ""}
-          </Link>
+          {canReviewQueue && (
+            <Link href="/datasets" className={cn(buttonVariants({ variant: "outline", size: "sm" }), "h-9")}>
+              <FileCheck className="size-4" aria-hidden="true" />
+              Review queue
+              {pendingCount > 0 ? ` (${pendingCount})` : ""}
+            </Link>
+          )}
           <Link href="/analytics" className={cn(buttonVariants({ variant: "outline", size: "sm" }), "h-9")}>
             <BarChart3 className="size-4" aria-hidden="true" />
             Analytics
           </Link>
-          <Link href="/upload" className={cn(buttonVariants({ size: "sm" }), "h-9")}>
-            <Upload className="size-4" aria-hidden="true" />
-            Upload dataset
-          </Link>
+          {canUpload && (
+            <Link href="/upload" className={cn(buttonVariants({ size: "sm" }), "h-9")}>
+              <Upload className="size-4" aria-hidden="true" />
+              Upload dataset
+            </Link>
+          )}
         </div>
-      </div>
-
-      <div className="rounded-xl border border-info/25 bg-info/[0.06] px-4 py-3 text-sm text-muted-foreground">
-        Snapshot of catalogue health and platform activity. Pending datasets await review in the
-        queue; approved datasets still need publishing before they appear on the public portal.
       </div>
 
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
@@ -333,7 +343,7 @@ export default function AdminDashboardPage() {
           )}
         </Panel>
 
-        <Panel title="Dataset overview" description="Breakdown by workflow status and upload cadence." icon={Database} tone="info">
+        <Panel title="Dataset overview" titleTip={DASHBOARD_DATASET_OVERVIEW_TIP} description="Breakdown by workflow status and upload cadence." icon={Database} tone="info">
           {statusEntries.length === 0 ? (
             <p className="text-sm text-muted-foreground">No dataset statistics available</p>
           ) : (
@@ -392,5 +402,6 @@ export default function AdminDashboardPage() {
         </Panel>
       </div>
     </div>
+    </TooltipProvider>
   );
 }

@@ -8,13 +8,12 @@ import {
   Loader2,
   Lock,
   Mail,
-  Phone,
   RotateCcw,
   Search,
   X,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { EmptyState } from "@/components/feedback/empty-state";
 import { Pagination } from "@/components/data/pagination";
@@ -56,6 +55,22 @@ import {
   tabToneClass,
   type MetricTone,
 } from "@/components/admin/admin-analytics-ui";
+import { HelpTip } from "@/components/admin/help-tip";
+import {
+  ContactEmailRow,
+  ContactPhoneRow,
+} from "@/components/admin/contact-links";
+import {
+  CONTACT_MESSAGES_CLOSE_TIP,
+  CONTACT_MESSAGES_METRIC_TIPS,
+  CONTACT_MESSAGES_PAGE_TIP,
+  CONTACT_MESSAGES_PANEL_TIP,
+  CONTACT_MESSAGES_REOPEN_TIP,
+  CONTACT_MESSAGES_REPLY_TIP,
+  CONTACT_MESSAGES_STAFF_NOTES_TIP,
+  CONTACT_MESSAGES_TAB_TIPS,
+} from "@/lib/constants/contact-tooltips";
+import { TooltipProvider } from "@/components/ui/tooltip";
 
 const STATUS_CONFIG: Record<ContactMessageStatus, { label: string; tone: MetricTone }> = {
   new: { label: "New", tone: "warning" },
@@ -63,11 +78,16 @@ const STATUS_CONFIG: Record<ContactMessageStatus, { label: string; tone: MetricT
   closed: { label: "Closed", tone: "success" },
 };
 
-const TABS: Array<{ key: ContactMessageStatus | "all"; label: string; tone: MetricTone }> = [
-  { key: "new", label: "New", tone: "warning" },
-  { key: "open", label: "Open", tone: "info" },
-  { key: "closed", label: "Closed", tone: "success" },
-  { key: "all", label: "All messages", tone: "muted" },
+const TABS: Array<{
+  key: ContactMessageStatus | "all";
+  label: string;
+  tone: MetricTone;
+  tip: string;
+}> = [
+  { key: "new", label: "New", tone: "warning", tip: CONTACT_MESSAGES_TAB_TIPS.new },
+  { key: "open", label: "Open", tone: "info", tip: CONTACT_MESSAGES_TAB_TIPS.open },
+  { key: "closed", label: "Closed", tone: "success", tip: CONTACT_MESSAGES_TAB_TIPS.closed },
+  { key: "all", label: "All messages", tone: "muted", tip: CONTACT_MESSAGES_TAB_TIPS.all },
 ];
 
 function StatusBadge({ status }: { status: ContactMessageStatus }) {
@@ -180,10 +200,14 @@ export default function ContactMessagesPage() {
   };
 
   return (
+    <TooltipProvider delay={200}>
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Contact Messages</h1>
+          <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+            Contact Messages
+            <HelpTip content={CONTACT_MESSAGES_PAGE_TIP} label="About contact messages" />
+          </h1>
           <p className="mt-1 text-sm text-muted-foreground">
             Inbox for the public contact form. Replies are sent manually by email.
           </p>
@@ -191,14 +215,15 @@ export default function ContactMessagesPage() {
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <MetricCard label="Total" value={stats?.total ?? "—"} icon={Inbox} tone="muted" />
-        <MetricCard label="New" value={stats?.new ?? "—"} icon={Mail} tone="warning" />
-        <MetricCard label="Open" value={stats?.open ?? "—"} icon={Mail} tone="info" />
-        <MetricCard label="Closed" value={stats?.closed ?? "—"} icon={CheckCircle2} tone="success" />
+        <MetricCard label="Total" value={stats?.total ?? "—"} icon={Inbox} tone="muted" tip={CONTACT_MESSAGES_METRIC_TIPS.total} />
+        <MetricCard label="New" value={stats?.new ?? "—"} icon={Mail} tone="warning" tip={CONTACT_MESSAGES_METRIC_TIPS.new} />
+        <MetricCard label="Open" value={stats?.open ?? "—"} icon={Mail} tone="info" tip={CONTACT_MESSAGES_METRIC_TIPS.open} />
+        <MetricCard label="Closed" value={stats?.closed ?? "—"} icon={CheckCircle2} tone="success" tip={CONTACT_MESSAGES_METRIC_TIPS.closed} />
       </div>
 
       <Panel
         title="Inbox"
+        titleTip={CONTACT_MESSAGES_PANEL_TIP}
         description="Filter by status or search name, email, subject, and message text."
         icon={Mail}
         tone="info"
@@ -207,24 +232,28 @@ export default function ContactMessagesPage() {
           <div className="rounded-xl border bg-muted/30 p-1">
             <div className="flex flex-wrap gap-1" role="tablist" aria-label="Message status">
               {TABS.map((tab) => (
-                <button
-                  key={tab.key}
-                  type="button"
-                  role="tab"
-                  aria-selected={status === tab.key}
-                  onClick={() => {
-                    setStatus(tab.key);
-                    setPage(1);
-                  }}
-                  className={cn(
-                    "min-h-9 rounded-lg px-3 py-2 text-xs font-medium transition-colors sm:text-sm",
-                    status === tab.key
-                      ? cn("shadow-sm", tabToneClass(tab.tone))
-                      : "text-muted-foreground hover:bg-background/80 hover:text-foreground"
-                  )}
-                >
-                  {tab.label}
-                </button>
+                <div key={tab.key} className="inline-flex items-center gap-0.5">
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={status === tab.key}
+                    onClick={() => {
+                      setStatus(tab.key);
+                      setPage(1);
+                    }}
+                    className={cn(
+                      "min-h-9 rounded-lg px-3 py-2 text-xs font-medium transition-colors sm:text-sm",
+                      status === tab.key
+                        ? cn("shadow-sm", tabToneClass(tab.tone))
+                        : "text-muted-foreground hover:bg-background/80 hover:text-foreground"
+                    )}
+                  >
+                    {tab.label}
+                  </button>
+                  {status === tab.key ? (
+                    <HelpTip content={tab.tip} label={`About ${tab.label}`} />
+                  ) : null}
+                </div>
               ))}
             </div>
           </div>
@@ -339,10 +368,10 @@ export default function ContactMessagesPage() {
                       <TableRow key={message.id} className="hover:bg-muted/30">
                         <TableCell className="max-w-xs px-4 py-3.5">
                           <p className="font-semibold">{message.name}</p>
-                          <p className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
-                            <Mail className="size-3" />
-                            {message.email}
-                          </p>
+                          <ContactEmailRow email={message.email} className="mt-1" />
+                          {message.phone ? (
+                            <ContactPhoneRow phone={message.phone} className="mt-0.5" />
+                          ) : null}
                         </TableCell>
                         <TableCell className="max-w-md px-4 py-3.5">
                           <p className="line-clamp-1 text-sm font-medium">{message.subject}</p>
@@ -372,9 +401,13 @@ export default function ContactMessagesPage() {
               {messages.map((message) => (
                 <article key={message.id} className="space-y-3 rounded-xl border bg-card p-4">
                   <div className="flex items-start justify-between gap-3">
-                    <div>
+                    <div className="min-w-0">
                       <p className="font-semibold">{message.name}</p>
-                      <p className="mt-1 text-sm text-muted-foreground">{message.subject}</p>
+                      <p className="mt-1 text-sm font-medium">{message.subject}</p>
+                      <ContactEmailRow email={message.email} className="mt-1.5" />
+                      {message.phone ? (
+                        <ContactPhoneRow phone={message.phone} className="mt-0.5" />
+                      ) : null}
                     </div>
                     <StatusBadge status={message.status} />
                   </div>
@@ -417,24 +450,17 @@ export default function ContactMessagesPage() {
             <div className="space-y-4">
               <div className="space-y-2 rounded-lg border bg-muted/40 p-4">
                 <p className="font-semibold">{selected.name}</p>
-                <p className="flex items-center gap-1.5 text-sm text-muted-foreground">
-                  <Mail className="size-3.5" />
-                  <a className="underline" href={`mailto:${selected.email}`}>
-                    {selected.email}
-                  </a>
-                </p>
-                {selected.phone && (
-                  <p className="flex items-center gap-1.5 text-sm text-muted-foreground">
-                    <Phone className="size-3.5" />
-                    {selected.phone}
-                  </p>
-                )}
+                <ContactEmailRow email={selected.email} />
+                {selected.phone ? <ContactPhoneRow phone={selected.phone} /> : null}
                 <StatusBadge status={selected.status} />
               </div>
               <p className="whitespace-pre-wrap text-sm">{selected.message}</p>
               {canReview && (
                 <div>
-                  <Label htmlFor="staffNotes">Staff notes</Label>
+                  <Label htmlFor="staffNotes" className="flex items-center gap-1.5">
+                    Staff notes
+                    <HelpTip content={CONTACT_MESSAGES_STAFF_NOTES_TIP} label="About staff notes" />
+                  </Label>
                   <Textarea
                     id="staffNotes"
                     className="mt-1.5"
@@ -446,33 +472,56 @@ export default function ContactMessagesPage() {
               )}
             </div>
           )}
-          <DialogFooter className="flex-col gap-2 sm:flex-row">
+          <DialogFooter className="flex-col gap-2 sm:flex-row sm:justify-between">
+            {selected ? (
+              <div className="flex items-center gap-1 sm:mr-auto">
+                <a
+                  href={`mailto:${selected.email}?subject=${encodeURIComponent(`Re: ${selected.subject}`)}`}
+                  className={buttonVariants({ variant: "default" })}
+                >
+                  <Mail className="size-4 mr-2" />
+                  Reply by email
+                </a>
+                <HelpTip content={CONTACT_MESSAGES_REPLY_TIP} label="About reply by email" />
+              </div>
+            ) : (
+              <span className="hidden sm:block sm:mr-auto" />
+            )}
+            <div className="flex flex-wrap gap-2 sm:justify-end">
             {canReview && selected?.status !== "closed" && (
-              <Button
-                variant="outline"
-                disabled={updateMutation.isPending}
-                onClick={() => saveNotesAndStatus("closed")}
-              >
-                Close
-              </Button>
+              <div className="flex items-center gap-1">
+                <Button
+                  variant="outline"
+                  disabled={updateMutation.isPending}
+                  onClick={() => saveNotesAndStatus("closed")}
+                >
+                  Close
+                </Button>
+                <HelpTip content={CONTACT_MESSAGES_CLOSE_TIP} label="About close" />
+              </div>
             )}
             {canReview && selected?.status === "closed" && (
-              <Button
-                variant="outline"
-                disabled={updateMutation.isPending}
-                onClick={() => saveNotesAndStatus("open")}
-              >
-                Reopen
-              </Button>
+              <div className="flex items-center gap-1">
+                <Button
+                  variant="outline"
+                  disabled={updateMutation.isPending}
+                  onClick={() => saveNotesAndStatus("open")}
+                >
+                  Reopen
+                </Button>
+                <HelpTip content={CONTACT_MESSAGES_REOPEN_TIP} label="About reopen" />
+              </div>
             )}
             {canReview && (
               <Button disabled={updateMutation.isPending} onClick={() => saveNotesAndStatus()}>
                 {updateMutation.isPending ? "Saving…" : "Save notes"}
               </Button>
             )}
+            </div>
           </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
+    </TooltipProvider>
   );
 }

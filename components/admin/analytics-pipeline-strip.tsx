@@ -1,6 +1,8 @@
 "use client";
 
 import { CheckCircle2, Circle, Loader2, XCircle } from "lucide-react";
+import { HelpTip } from "@/components/admin/help-tip";
+import { ANALYTICS_PIPELINE_STEP_TIPS } from "@/lib/constants/dataset-tooltips";
 import { cn } from "@/lib/utils";
 import type {
   AnalyticsPipelineStepState,
@@ -8,10 +10,10 @@ import type {
 } from "@/lib/api/ingestion-review";
 
 const STEP_LABELS = [
-  { key: "ingested" as const, label: "Ingested" },
-  { key: "aliasesClear" as const, label: "Aliases clear" },
-  { key: "catalogueLive" as const, label: "Catalogue published" },
-  { key: "analyticsLoaded" as const, label: "Analytics loaded" },
+  { key: "ingested" as const, label: "Ingested", tip: ANALYTICS_PIPELINE_STEP_TIPS.ingested },
+  { key: "aliasesClear" as const, label: "Aliases clear", tip: ANALYTICS_PIPELINE_STEP_TIPS.aliasesClear },
+  { key: "catalogueLive" as const, label: "Catalogue published", tip: ANALYTICS_PIPELINE_STEP_TIPS.catalogueLive },
+  { key: "analyticsLoaded" as const, label: "Analytics loaded", tip: ANALYTICS_PIPELINE_STEP_TIPS.analyticsLoaded },
 ];
 
 function StepIcon({ state }: { state: AnalyticsPipelineStepState }) {
@@ -38,13 +40,16 @@ function phaseMessage(status: AnalyticsPublishStatus): string | null {
           : "Loading resolved rows into the analytics warehouse…";
     case "ready":
       return status.unpublishedRows > 0
-        ? `${status.unpublishedRows.toLocaleString()} rows ready to load — analytics will load automatically.`
+        ? `${status.unpublishedRows.toLocaleString()} rows ready to load into the analytics warehouse.`
         : "Ready to load into analytics.";
     case "failed":
       return status.lastError ?? "Analytics load failed.";
     case "blocked":
       if (status.blockReason === "pending_aliases") {
         return `${status.pendingAliases} alias${status.pendingAliases === 1 ? "" : "es"} still pending.`;
+      }
+      if (status.blockReason === "open_conflicts") {
+        return `${status.openConflicts.toLocaleString()} Stored vs Upload conflict${status.openConflicts === 1 ? "" : "s"} — resolve in Ingestion Ops → Conflicts before analytics can load.`;
       }
       if (status.blockReason === "catalogue_not_published") {
         return "Publish to the catalogue when ready — use the button below (not automatic).";
@@ -99,7 +104,7 @@ export function AnalyticsPipelineStrip({
       )}
     >
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-        {STEP_LABELS.map(({ key, label }, index) => {
+        {STEP_LABELS.map(({ key, label, tip }, index) => {
           const state = status.steps[key];
           return (
             <div key={key} className="flex items-center gap-2">
@@ -114,7 +119,7 @@ export function AnalyticsPipelineStrip({
               <StepIcon state={state} />
               <span
                 className={cn(
-                  "text-xs font-medium",
+                  "inline-flex items-center gap-0.5 text-xs font-medium",
                   state === "done" && "text-foreground",
                   state === "active" && "text-primary",
                   state === "blocked" && "text-destructive",
@@ -122,6 +127,7 @@ export function AnalyticsPipelineStrip({
                 )}
               >
                 {label}
+                <HelpTip content={tip} label={`About ${label}`} />
               </span>
             </div>
           );

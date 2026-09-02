@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
   AlertCircle,
-  Clock,
   Download,
   Loader2,
   Lock,
@@ -59,6 +58,18 @@ import {
   tabToneClass,
   type MetricTone,
 } from "@/components/admin/admin-analytics-ui";
+import { HelpTip } from "@/components/admin/help-tip";
+import {
+  USERS_EXPORT_TIP,
+  USERS_METRIC_TIPS,
+  USERS_PAGE_TIP,
+  USERS_PANEL_TIP,
+  USERS_REACTIVATE_TIP,
+  USERS_ROLE_FILTER_TIP,
+  USERS_SUSPEND_TIP,
+  USERS_TAB_TIPS,
+} from "@/lib/constants/users-tooltips";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { formatDate } from "@/lib/utils/date";
 import { toast } from "sonner";
@@ -66,18 +77,22 @@ import { toast } from "sonner";
 type UserStatus = AdminUser["status"];
 
 const STATUS_CONFIG: Record<UserStatus, { label: string; tone: MetricTone }> = {
-  pending: { label: "Pending", tone: "warning" },
+  pending: { label: "Signup incomplete", tone: "muted" },
   active: { label: "Active", tone: "success" },
   suspended: { label: "Suspended", tone: "destructive" },
   archived: { label: "Archived", tone: "muted" },
 };
 
-const TABS: Array<{ key: UserStatus | "all"; label: string; tone: MetricTone }> = [
-  { key: "all", label: "All users", tone: "muted" },
-  { key: "pending", label: "Pending", tone: "warning" },
-  { key: "active", label: "Active", tone: "success" },
-  { key: "suspended", label: "Suspended", tone: "destructive" },
-  { key: "archived", label: "Archived", tone: "muted" },
+const TABS: Array<{
+  key: UserStatus | "all";
+  label: string;
+  tone: MetricTone;
+  tip: string;
+}> = [
+  { key: "all", label: "All users", tone: "muted", tip: USERS_TAB_TIPS.all },
+  { key: "active", label: "Active", tone: "success", tip: USERS_TAB_TIPS.active },
+  { key: "suspended", label: "Suspended", tone: "destructive", tip: USERS_TAB_TIPS.suspended },
+  { key: "archived", label: "Archived", tone: "muted", tip: USERS_TAB_TIPS.archived },
 ];
 
 const roleOptions: Array<{ value: UserRole; label: string }> = [
@@ -203,8 +218,7 @@ export default function AdminUsersPage() {
       { userId: listedUser.id, data: { status: nextStatus } },
       {
         onSuccess: () => {
-          const verb =
-            nextStatus === "active" && listedUser.status === "pending" ? "Approved" : "Reactivated";
+          const verb = listedUser.status === "suspended" ? "Reactivated" : "Updated";
           toast.success(`${verb} ${listedUser.first_name} ${listedUser.last_name}`);
           setSuspendTarget(null);
         },
@@ -226,50 +240,18 @@ export default function AdminUsersPage() {
     );
   };
 
-  const renderActions = (listedUser: AdminUser, mobile = false) => {
-    if (!isSuperAdmin || listedUser.id === user?.id || listedUser.status === "archived") {
-      return <span className="text-xs text-muted-foreground">No actions</span>;
-    }
-
-    const className = mobile ? "h-11 w-full" : undefined;
-    if (listedUser.status === "pending") {
-      return (
-        <Button
-          className={className}
-          disabled={updateStatusMutation.isPending}
-          onClick={() => changeStatus(listedUser, "active")}
-        >
-          Approve user
-        </Button>
-      );
-    }
-    if (listedUser.status === "active") {
-      return (
-        <Button
-          variant="outline"
-          className={className}
-          disabled={deactivateMutation.isPending}
-          onClick={() => setSuspendTarget(listedUser)}
-        >
-          Suspend
-        </Button>
-      );
-    }
-    if (listedUser.status === "suspended") {
-      return (
-        <Button
-          variant="outline"
-          className={className}
-          disabled={updateStatusMutation.isPending}
-          onClick={() => changeStatus(listedUser, "active")}
-        >
-          Reactivate
-        </Button>
-      );
-    }
-
-    return <span className="text-xs text-muted-foreground">No actions</span>;
-  };
+  const renderActions = (listedUser: AdminUser, mobile = false) => (
+    <UserActions
+      listedUser={listedUser}
+      currentUserId={user?.id}
+      isSuperAdmin={isSuperAdmin}
+      mobile={mobile}
+      statusUpdatePending={updateStatusMutation.isPending}
+      suspendPending={deactivateMutation.isPending}
+      onSuspend={() => setSuspendTarget(listedUser)}
+      onReactivate={() => changeStatus(listedUser, "active")}
+    />
+  );
 
   if (!permissionsLoading && !canViewUsers) {
     return (
@@ -284,10 +266,14 @@ export default function AdminUsersPage() {
   }
 
   return (
+    <TooltipProvider delay={200}>
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Users</h1>
+          <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+            Users
+            <HelpTip content={USERS_PAGE_TIP} label="About users" />
+          </h1>
           <p className="mt-1 text-sm text-muted-foreground">
             Review platform accounts, access roles, and account status
           </p>
@@ -299,24 +285,19 @@ export default function AdminUsersPage() {
         )}
       </div>
 
-      <div className="rounded-xl border border-info/25 bg-info/[0.06] px-4 py-3 text-sm text-muted-foreground">
-        All portal accounts appear here — public registrants, partner contributors, org admins, and
-        agency staff. Super admins can approve pending accounts and suspend access; org-level role
-        changes are managed from each organisation&apos;s member list.
-      </div>
-
       {statsLoading ? (
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          {[...Array(4)].map((_, i) => (
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          {[...Array(3)].map((_, i) => (
             <Skeleton key={i} className="h-28 rounded-2xl" />
           ))}
         </div>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           <MetricCard
             label="Total users"
             value={stats?.total ?? 0}
             hint="All registered accounts"
+            tip={USERS_METRIC_TIPS.total}
             icon={Users}
             tone="primary"
           />
@@ -324,20 +305,15 @@ export default function AdminUsersPage() {
             label="Active"
             value={stats?.byStatus.active ?? 0}
             hint="Can sign in today"
+            tip={USERS_METRIC_TIPS.active}
             icon={UserCheck}
             tone="success"
-          />
-          <MetricCard
-            label="Pending approval"
-            value={stats?.byStatus.pending ?? 0}
-            hint="Awaiting super-admin review"
-            icon={Clock}
-            tone="warning"
           />
           <MetricCard
             label="Suspended"
             value={stats?.byStatus.suspended ?? 0}
             hint="Access revoked"
+            tip={USERS_METRIC_TIPS.suspended}
             icon={UserX}
             tone="destructive"
           />
@@ -346,43 +322,51 @@ export default function AdminUsersPage() {
 
       <Panel
         title="User directory"
+        titleTip={USERS_PANEL_TIP}
         description="Filter by status or role, or search by name or email."
         icon={Users}
         tone="info"
         action={
-          <Button
-            variant="outline"
-            className="h-9 w-full sm:w-auto"
-            onClick={exportCurrentPage}
-            disabled={users.length === 0}
-          >
-            <Download className="size-4" aria-hidden="true" />
-            Export page
-          </Button>
+          <div className="flex items-center gap-1">
+            <Button
+              variant="outline"
+              className="h-9 w-full sm:w-auto"
+              onClick={exportCurrentPage}
+              disabled={users.length === 0}
+            >
+              <Download className="size-4" aria-hidden="true" />
+              Export page
+            </Button>
+            <HelpTip content={USERS_EXPORT_TIP} label="About export page" />
+          </div>
         }
       >
         <div className="space-y-4">
-          <div className="rounded-xl border bg-muted/30 p-1">
-            <div className="flex flex-wrap gap-1" role="tablist" aria-label="User status">
+          <div className="scrollbar-hide overflow-x-auto rounded-xl border bg-muted/30 p-1">
+            <div className="flex w-max min-w-full flex-nowrap gap-1" role="tablist" aria-label="User status">
               {TABS.map((tab) => (
-                <button
-                  key={tab.key}
-                  type="button"
-                  role="tab"
-                  aria-selected={status === tab.key}
-                  onClick={() => {
-                    setStatus(tab.key);
-                    setPage(1);
-                  }}
-                  className={cn(
-                    "min-h-9 rounded-lg px-3 py-2 text-xs font-medium transition-colors sm:text-sm",
-                    status === tab.key
-                      ? cn("shadow-sm", tabToneClass(tab.tone))
-                      : "text-muted-foreground hover:bg-background/80 hover:text-foreground",
-                  )}
-                >
-                  {tab.label}
-                </button>
+                <div key={tab.key} className="inline-flex flex-none items-center gap-0.5">
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={status === tab.key}
+                    onClick={() => {
+                      setStatus(tab.key);
+                      setPage(1);
+                    }}
+                    className={cn(
+                      "min-h-9 flex-none rounded-lg px-3 py-2 text-xs font-medium transition-colors sm:text-sm",
+                      status === tab.key
+                        ? cn("shadow-sm", tabToneClass(tab.tone))
+                        : "text-muted-foreground hover:bg-background/80 hover:text-foreground",
+                    )}
+                  >
+                    {tab.label}
+                  </button>
+                  {status === tab.key ? (
+                    <HelpTip content={tab.tip} label={`About ${tab.label}`} />
+                  ) : null}
+                </div>
               ))}
             </div>
           </div>
@@ -413,31 +397,34 @@ export default function AdminUsersPage() {
                 )}
               </div>
 
-              <Select
-                value={role}
-                onValueChange={(value) => {
-                  setRole(value as UserRole | "all");
-                  setPage(1);
-                }}
-              >
-                <SelectTrigger className="h-10 w-full sm:w-52" aria-label="Filter users by role">
-                  <SelectValue>
-                    {(v: string) =>
-                      v === "all"
-                        ? "All roles"
-                        : (roleOptions.find((option) => option.value === v)?.label ?? v)
-                    }
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All roles</SelectItem>
-                  {roleOptions.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <div className="flex items-center gap-1">
+                <Select
+                  value={role}
+                  onValueChange={(value) => {
+                    setRole(value as UserRole | "all");
+                    setPage(1);
+                  }}
+                >
+                  <SelectTrigger className="h-10 w-full sm:w-52" aria-label="Filter users by role">
+                    <SelectValue>
+                      {(v: string) =>
+                        v === "all"
+                          ? "All roles"
+                          : (roleOptions.find((option) => option.value === v)?.label ?? v)
+                      }
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All roles</SelectItem>
+                    {roleOptions.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <HelpTip content={USERS_ROLE_FILTER_TIP} label="About role filter" className="hidden sm:inline-flex" />
+              </div>
 
               {hasFilters && (
                 <Button variant="ghost" className="h-10" onClick={clearFilters}>
@@ -536,7 +523,13 @@ export default function AdminUsersPage() {
                                 {listedUser.first_name} {listedUser.last_name}
                               </Link>
                               <p className="mt-0.5 truncate text-xs text-muted-foreground">
-                                {listedUser.email}
+                                <a
+                                  href={`mailto:${listedUser.email}`}
+                                  className="hover:underline"
+                                  onClick={(event) => event.stopPropagation()}
+                                >
+                                  {listedUser.email}
+                                </a>
                               </p>
                             </div>
                           </div>
@@ -580,7 +573,12 @@ export default function AdminUsersPage() {
                       >
                         {listedUser.first_name} {listedUser.last_name}
                       </Link>
-                      <p className="mt-1 truncate text-xs text-muted-foreground">{listedUser.email}</p>
+                      <a
+                        href={`mailto:${listedUser.email}`}
+                        className="mt-1 block truncate text-xs text-muted-foreground hover:underline"
+                      >
+                        {listedUser.email}
+                      </a>
                     </div>
                     <UserStatusBadge status={listedUser.status} />
                   </div>
@@ -644,7 +642,57 @@ export default function AdminUsersPage() {
         onConfirm={() => suspendTarget && suspendUser(suspendTarget)}
       />
     </div>
+    </TooltipProvider>
   );
+}
+
+function UserActions({
+  listedUser,
+  currentUserId,
+  isSuperAdmin,
+  mobile = false,
+  statusUpdatePending,
+  suspendPending,
+  onSuspend,
+  onReactivate,
+}: {
+  listedUser: AdminUser;
+  currentUserId?: string;
+  isSuperAdmin: boolean;
+  mobile?: boolean;
+  statusUpdatePending: boolean;
+  suspendPending: boolean;
+  onSuspend: () => void;
+  onReactivate: () => void;
+}) {
+  if (!isSuperAdmin || listedUser.id === currentUserId || listedUser.status === "archived" || listedUser.status === "pending") {
+    return <span className="text-xs text-muted-foreground">No actions</span>;
+  }
+
+  const className = mobile ? "h-11 w-full" : undefined;
+
+  if (listedUser.status === "active") {
+    return (
+      <div className={cn("flex items-center gap-1", mobile && "w-full")}>
+        <Button variant="outline" className={className} disabled={suspendPending} onClick={onSuspend}>
+          Suspend
+        </Button>
+        {!mobile ? <HelpTip content={USERS_SUSPEND_TIP} label="About suspend" /> : null}
+      </div>
+    );
+  }
+  if (listedUser.status === "suspended") {
+    return (
+      <div className={cn("flex items-center gap-1", mobile && "w-full")}>
+        <Button variant="outline" className={className} disabled={statusUpdatePending} onClick={onReactivate}>
+          Reactivate
+        </Button>
+        {!mobile ? <HelpTip content={USERS_REACTIVATE_TIP} label="About reactivate" /> : null}
+      </div>
+    );
+  }
+
+  return <span className="text-xs text-muted-foreground">No actions</span>;
 }
 
 function UserAvatar({ user, mobile = false }: { user: AdminUser; mobile?: boolean }) {

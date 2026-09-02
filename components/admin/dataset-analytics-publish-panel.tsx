@@ -6,6 +6,10 @@ import { Button } from "@/components/ui/button";
 import { AnalyticsPipelineStrip } from "@/components/admin/analytics-pipeline-strip";
 import { publishDataset, publishDatasetAnalytics, unpublishDataset } from "@/lib/api/admin";
 import { useAnalyticsPublishStatus } from "@/lib/hooks/useIngestionReview";
+import {
+  isAnalyticsLoadInFlight,
+  shouldShowLoadAnalyticsButton,
+} from "@/lib/utils/analytics-publish-ui";
 import { toast } from "sonner";
 
 interface DatasetAnalyticsPublishPanelProps {
@@ -81,12 +85,11 @@ export function DatasetAnalyticsPublishPanel({
   if (analyticsPublishStatus.phase === "not_applicable") return null;
 
   const analyticsPhase = analyticsPublishStatus.phase;
-  const showLoadAnalytics =
-    canPublish &&
-    (analyticsPhase === "ready" ||
-      analyticsPhase === "failed" ||
-      (analyticsPublishStatus.workerHint &&
-        (analyticsPhase === "loading" || analyticsPhase === "updating")));
+  const loadInFlight = isAnalyticsLoadInFlight(analyticsPublishStatus);
+  const showLoadAnalytics = shouldShowLoadAnalyticsButton(
+    analyticsPublishStatus,
+    canPublish,
+  );
   const showActionRow =
     canPublish &&
     status === "approved" &&
@@ -143,8 +146,7 @@ export function DatasetAnalyticsPublishPanel({
                 : "Load analytics"}
             </Button>
           ) : null}
-          {analyticsPublishedAt &&
-          (analyticsPhase === "loading" || analyticsPhase === "updating") ? (
+          {loadInFlight ? (
             <p className="self-center text-xs text-muted-foreground">
               Warehouse load in progress…
             </p>

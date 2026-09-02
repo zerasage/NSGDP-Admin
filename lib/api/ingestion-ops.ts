@@ -16,8 +16,15 @@ export interface ObservabilitySnapshot {
     p50Seconds: number;
     p95Seconds: number;
     pendingAliases: number;
+    pendingOrgunitAliases: number;
   };
-  conflictsPerDataset: Array<{ dataset_id: string; conflicts: number }>;
+  openConflictsTotal: number;
+  conflictsPerDataset: Array<{
+    datasetId: string;
+    slug: string;
+    title: string;
+    conflicts: number;
+  }>;
   speciesDistribution: Array<{ species: string; sheets: number }>;
   ai: {
     calls30d: number;
@@ -241,5 +248,136 @@ export async function runRelationMatch(): Promise<number> {
     '/admin/governance/ingestion/relations/match',
     {}
   );
+  return response.data.data;
+}
+
+export interface ConflictDatasetSummary {
+  datasetId: string;
+  slug: string;
+  title: string;
+  openConflicts: number;
+  ingestionStatus: string | null;
+  analyticsPublished: boolean;
+}
+
+export interface ObservationConflictRow {
+  id: string;
+  indicatorId: string;
+  indicatorName: string;
+  indicatorSlug: string;
+  periodYear: number;
+  periodMonth: number | null;
+  periodQuarter: number | null;
+  lgaId: string | null;
+  lgaName: string | null;
+  wardId: string | null;
+  wardName: string | null;
+  facilityId: string | null;
+  facilityName: string | null;
+  datasetAId: string;
+  datasetASlug: string;
+  datasetATitle: string;
+  datasetBId: string;
+  datasetBSlug: string;
+  datasetBTitle: string;
+  valueA: string | null;
+  valueB: string | null;
+  createdAt: string;
+}
+
+export interface PaginatedConflicts {
+  data: ObservationConflictRow[];
+  meta: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+    hasNextPage: boolean;
+    hasPrevPage: boolean;
+  };
+}
+
+export type ConflictPrecedence = 'warehouse' | 'incoming';
+
+export async function getConflictDatasetSummaries(): Promise<ConflictDatasetSummary[]> {
+  const response = await apiClient.get<ApiResponse<ConflictDatasetSummary[]>>(
+    '/admin/governance/ingestion/conflicts/summary'
+  );
+  return response.data.data;
+}
+
+export interface ConflictPeriodOption {
+  periodYear: number;
+  periodMonth: number | null;
+  periodQuarter: number | null;
+  label: string;
+  openConflicts: number;
+}
+
+export async function getConflictPeriodOptions(
+  datasetBId?: string
+): Promise<ConflictPeriodOption[]> {
+  const response = await apiClient.get<ApiResponse<ConflictPeriodOption[]>>(
+    '/admin/governance/ingestion/conflicts/periods',
+    { params: datasetBId ? { datasetBId } : undefined }
+  );
+  return response.data.data;
+}
+
+export async function getObservationConflicts(params: {
+  datasetBId?: string;
+  periodYear?: number;
+  periodMonth?: number;
+  periodQuarter?: number;
+  page?: number;
+  limit?: number;
+}): Promise<PaginatedConflicts> {
+  const response = await apiClient.get<ApiResponse<PaginatedConflicts>>(
+    '/admin/governance/ingestion/conflicts',
+    { params }
+  );
+  return response.data.data;
+}
+
+export async function resolveObservationConflicts(body: {
+  conflictIds?: string[];
+  datasetBId?: string;
+  periodYear?: number;
+  periodMonth?: number;
+  periodQuarter?: number;
+  precedence: ConflictPrecedence;
+}): Promise<{ resolved: number }> {
+  const response = await apiClient.post<ApiResponse<{ resolved: number }>>(
+    '/admin/governance/ingestion/conflicts/resolve',
+    body
+  );
+  return response.data.data;
+}
+
+export interface StaleResolvedConflictSummary {
+  staleResolvedCount: number;
+}
+
+export interface StaleResolvedConflictRow extends ObservationConflictRow {
+  resolvedAt: string;
+  precedenceDatasetId: string;
+  precedenceDatasetTitle: string;
+  staleReason: string;
+}
+
+export async function getStaleResolvedConflictSummary(): Promise<StaleResolvedConflictSummary> {
+  const response = await apiClient.get<ApiResponse<StaleResolvedConflictSummary>>(
+    '/admin/governance/ingestion/conflicts/stale/summary'
+  );
+  return response.data.data;
+}
+
+export async function getStaleResolvedConflicts(params: {
+  page?: number;
+  limit?: number;
+}): Promise<PaginatedConflicts & { data: StaleResolvedConflictRow[] }> {
+  const response = await apiClient.get<
+    ApiResponse<PaginatedConflicts & { data: StaleResolvedConflictRow[] }>
+  >('/admin/governance/ingestion/conflicts/stale', { params });
   return response.data.data;
 }

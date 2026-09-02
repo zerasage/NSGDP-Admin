@@ -12,10 +12,17 @@ import { Textarea } from "@/components/ui/textarea";
 import { EmptyState } from "@/components/feedback/empty-state";
 import { apiClient } from "@/lib/api/client";
 import { useToast } from "@/lib/hooks/use-toast";
-import { useAuth } from "@/lib/auth";
 import { useAdminAccess } from "@/lib/hooks/useAdminAccess";
 import { useDatasetReview } from "@/lib/hooks/useDatasetReview";
 import { ApprovalPipeline } from "@/components/admin/approval-pipeline";
+import { HelpTip } from "@/components/admin/help-tip";
+import {
+  APPROVE_DECISION_TIP,
+  APPROVE_PAGE_TIP,
+  APPROVE_PIPELINE_TIP,
+  APPROVE_REJECT_TIP,
+} from "@/lib/constants/review-tooltips";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { LifecycleBadge } from "@/components/data/lifecycle-badge";
 import type { DatasetStatus } from "@/lib/api/datasets";
 
@@ -34,7 +41,6 @@ export default function DatasetApproveScreenPage({
   const { slug } = use(params);
   const router = useRouter();
   const { toast } = useToast();
-  const { user } = useAuth();
   const { can } = useAdminAccess();
   const canApprove = can("approve:datasets");
   const [showReject, setShowReject] = useState(false);
@@ -123,13 +129,17 @@ export default function DatasetApproveScreenPage({
   }
 
   return (
+    <TooltipProvider delay={200}>
     <div className="space-y-6">
       <div className="flex items-center gap-3">
         <Button variant="ghost" size="icon" onClick={() => router.push(`/datasets/${slug}/review`)}>
           <ArrowLeft className="size-4" />
         </Button>
         <div>
-          <h1 className="text-2xl font-bold">Director Approval</h1>
+          <h1 className="flex items-center gap-2 text-2xl font-bold">
+            Director Approval
+            <HelpTip content={APPROVE_PAGE_TIP} label="About director approval" />
+          </h1>
           <p className="text-sm text-muted-foreground">{dataset.title}</p>
         </div>
         <div className="ml-auto">
@@ -138,7 +148,12 @@ export default function DatasetApproveScreenPage({
       </div>
 
       <Card>
-        <CardHeader><CardTitle className="text-base">Approval Pipeline</CardTitle></CardHeader>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            Approval Pipeline
+            <HelpTip content={APPROVE_PIPELINE_TIP} label="About approval pipeline" />
+          </CardTitle>
+        </CardHeader>
         <CardContent>
           <ApprovalPipeline currentStage="approved" />
         </CardContent>
@@ -179,20 +194,27 @@ export default function DatasetApproveScreenPage({
         </Card>
       )}
 
-      <div className="flex gap-3 border-t pt-4">
-        <Button variant="outline" onClick={() => setShowReject(true)} className="text-destructive">
-          <XCircle className="size-4 mr-1.5" />
-          Reject
-        </Button>
-        <Button className="ml-auto" onClick={handleApprove} disabled={approveMutation.isPending}>
-          {approveMutation.isPending ? (
-            <Loader2 className="size-4 animate-spin mr-1.5" />
-          ) : (
-            <Globe className="size-4 mr-1.5" />
-          )}
-          Approve
-        </Button>
+      <div className="flex flex-wrap items-center gap-2 border-t pt-4">
+        <div className="flex items-center gap-1">
+          <Button variant="outline" onClick={() => setShowReject(true)} className="text-destructive">
+            <XCircle className="size-4 mr-1.5" />
+            Reject
+          </Button>
+          <HelpTip content={APPROVE_REJECT_TIP} label="About reject" />
+        </div>
+        <div className="ml-auto flex items-center gap-1">
+          <Button onClick={handleApprove} disabled={approveMutation.isPending}>
+            {approveMutation.isPending ? (
+              <Loader2 className="size-4 animate-spin mr-1.5" />
+            ) : (
+              <Globe className="size-4 mr-1.5" />
+            )}
+            Approve
+          </Button>
+          <HelpTip content={APPROVE_DECISION_TIP} label="About approve" />
+        </div>
       </div>
     </div>
+    </TooltipProvider>
   );
 }

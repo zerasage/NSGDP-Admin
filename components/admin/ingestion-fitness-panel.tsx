@@ -3,6 +3,7 @@
 import { AlertTriangle, Ban, CheckCircle2, Info } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { MetricCard, Panel, type MetricTone } from "@/components/admin/admin-analytics-ui";
+import { INGESTION_FITNESS_TIPS } from "@/lib/constants/dataset-tooltips";
 import { cn } from "@/lib/utils";
 import { formatDate } from "@/lib/utils/date";
 import {
@@ -145,6 +146,7 @@ export function IngestionFitnessPanel({ fitness }: { fitness: IngestionFitness |
   return (
     <Panel
       title="Analytics fitness"
+      titleTip={INGESTION_FITNESS_TIPS.panel}
       description="Whether this workbook yielded indicator rows for the warehouse — not a judgement on catalogue value."
       icon={panelIcon}
       tone={tone}
@@ -190,18 +192,21 @@ export function IngestionFitnessPanel({ fitness }: { fitness: IngestionFitness |
           <MetricCard
             label="Observations"
             value={metrics.observations.toLocaleString()}
+            tip={INGESTION_FITNESS_TIPS.observations}
             tone="info"
           />
           <MetricCard
             label="Usable"
             value={`${metrics.usablePct}%`}
             hint={`${metrics.usable.toLocaleString()} rows`}
+            tip={INGESTION_FITNESS_TIPS.usable}
             tone={metrics.usablePct >= 25 ? "success" : metrics.usablePct >= 5 ? "warning" : "destructive"}
           />
           <MetricCard
             label="Out of scope"
             value={`${metrics.outOfScopePct}%`}
             hint={`${metrics.outOfScope.toLocaleString()} rows`}
+            tip={INGESTION_FITNESS_TIPS.out_of_scope}
             tone={metrics.outOfScopePct >= 20 ? "warning" : "muted"}
           />
           <MetricCard
@@ -212,6 +217,7 @@ export function IngestionFitnessPanel({ fitness }: { fitness: IngestionFitness |
                 ? `${metrics.unknownSheets} unknown, ${metrics.archivedSheets} archived`
                 : "All sheets handled"
             }
+            tip={INGESTION_FITNESS_TIPS.sheets}
             tone={metrics.unknownSheets > 0 ? "warning" : "muted"}
           />
         </div>

@@ -27,6 +27,11 @@ import {
   AdminSectionTabsNav,
   ADMIN_TAB_TRIGGER_BASE,
 } from "@/components/admin/admin-section-tabs-nav";
+import { HelpTip } from "@/components/admin/help-tip";
+import {
+  ORG_GROUPS_CAPABILITIES_TAB_TIP,
+  ORG_GROUPS_MEMBERS_TAB_TIP,
+} from "@/lib/constants/organisation-groups-tooltips";
 import { useToast } from "@/lib/hooks/use-toast";
 import { formatDate } from "@/lib/utils/date";
 import { cn } from "@/lib/utils";
@@ -49,6 +54,7 @@ function GroupStatusBadge({ active }: { active: boolean }) {
 export function OrganisationGroupsPanel({ createOpen, onCreateOpenChange }: OrganisationGroupsPanelProps) {
   const { data: groups, isLoading } = useOrganisationGroups();
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [detailTab, setDetailTab] = useState("members");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [deactivatingId, setDeactivatingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -299,22 +305,32 @@ export function OrganisationGroupsPanel({ createOpen, onCreateOpenChange }: Orga
           </div>
         </div>
 
-        <Tabs defaultValue="members" className="w-full">
+        <Tabs value={detailTab} onValueChange={(value) => value && setDetailTab(value)} className="w-full">
           <AdminSectionTabsNav>
-            <TabsTrigger
-              value="members"
-              className={cn(ADMIN_TAB_TRIGGER_BASE, tabToneClass("info"))}
-            >
-              <Users className="size-3.5 shrink-0 sm:size-4" />
-              Members
-            </TabsTrigger>
-            <TabsTrigger
-              value="capabilities"
-              className={cn(ADMIN_TAB_TRIGGER_BASE, tabToneClass("success"))}
-            >
-              <Shield className="size-3.5 shrink-0 sm:size-4" />
-              Capabilities
-            </TabsTrigger>
+            <div className="inline-flex flex-none items-center gap-0.5">
+              <TabsTrigger
+                value="members"
+                className={cn(ADMIN_TAB_TRIGGER_BASE, tabToneClass("info"))}
+              >
+                <Users className="size-3.5 shrink-0 sm:size-4" />
+                Members
+              </TabsTrigger>
+              {detailTab === "members" ? (
+                <HelpTip content={ORG_GROUPS_MEMBERS_TAB_TIP} label="About members tab" />
+              ) : null}
+            </div>
+            <div className="inline-flex flex-none items-center gap-0.5">
+              <TabsTrigger
+                value="capabilities"
+                className={cn(ADMIN_TAB_TRIGGER_BASE, tabToneClass("success"))}
+              >
+                <Shield className="size-3.5 shrink-0 sm:size-4" />
+                Capabilities
+              </TabsTrigger>
+              {detailTab === "capabilities" ? (
+                <HelpTip content={ORG_GROUPS_CAPABILITIES_TAB_TIP} label="About capabilities tab" />
+              ) : null}
+            </div>
           </AdminSectionTabsNav>
           <TabsContent value="members" className="mt-4 space-y-4">
             <OrganisationGroupMemberManager

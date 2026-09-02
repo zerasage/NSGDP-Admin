@@ -54,6 +54,16 @@ import {
   tabToneClass,
   type MetricTone,
 } from "@/components/admin/admin-analytics-ui";
+import { HelpTip } from "@/components/admin/help-tip";
+import {
+  ACCESS_REQUESTS_APPROVE_TIP,
+  ACCESS_REQUESTS_DENY_REASON_TIP,
+  ACCESS_REQUESTS_DENY_TIP,
+  ACCESS_REQUESTS_PAGE_TIP,
+  ACCESS_REQUESTS_PANEL_TIP,
+  ACCESS_REQUESTS_TAB_TIPS,
+} from "@/lib/constants/access-requests-tooltips";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { formatDate } from "@/lib/utils/date";
 
@@ -63,11 +73,16 @@ const STATUS_CONFIG: Record<AccessRequestStatus, { label: string; tone: MetricTo
   denied: { label: "Denied", tone: "destructive" },
 };
 
-const TABS: Array<{ key: AccessRequestStatus | "all"; label: string; tone: MetricTone }> = [
-  { key: "pending", label: "Pending", tone: "warning" },
-  { key: "approved", label: "Approved", tone: "success" },
-  { key: "denied", label: "Denied", tone: "destructive" },
-  { key: "all", label: "All requests", tone: "muted" },
+const TABS: Array<{
+  key: AccessRequestStatus | "all";
+  label: string;
+  tone: MetricTone;
+  tip: string;
+}> = [
+  { key: "pending", label: "Pending", tone: "warning", tip: ACCESS_REQUESTS_TAB_TIPS.pending },
+  { key: "approved", label: "Approved", tone: "success", tip: ACCESS_REQUESTS_TAB_TIPS.approved },
+  { key: "denied", label: "Denied", tone: "destructive", tip: ACCESS_REQUESTS_TAB_TIPS.denied },
+  { key: "all", label: "All requests", tone: "muted", tip: ACCESS_REQUESTS_TAB_TIPS.all },
 ];
 
 function StatusBadge({ status }: { status: AccessRequestStatus }) {
@@ -178,10 +193,14 @@ export default function AccessRequestsPage() {
   };
 
   return (
+    <TooltipProvider delay={200}>
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Access Requests</h1>
+          <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+            Access Requests
+            <HelpTip content={ACCESS_REQUESTS_PAGE_TIP} label="About access requests" />
+          </h1>
           <p className="mt-1 text-sm text-muted-foreground">
             Review user requests for restricted dataset access
           </p>
@@ -193,13 +212,9 @@ export default function AccessRequestsPage() {
         )}
       </div>
 
-      <div className="rounded-xl border border-info/25 bg-info/[0.06] px-4 py-3 text-sm text-muted-foreground">
-        Users request access to restricted datasets from the public portal. Approving grants download
-        rights for that dataset; denying requires a reason shown to the requester.
-      </div>
-
       <Panel
         title="Requests"
+        titleTip={ACCESS_REQUESTS_PANEL_TIP}
         description="Filter by status or search requester name, email, or dataset title."
         icon={KeyRound}
         tone="info"
@@ -208,24 +223,28 @@ export default function AccessRequestsPage() {
           <div className="rounded-xl border bg-muted/30 p-1">
             <div className="flex flex-wrap gap-1" role="tablist" aria-label="Request status">
               {TABS.map((tab) => (
-                <button
-                  key={tab.key}
-                  type="button"
-                  role="tab"
-                  aria-selected={status === tab.key}
-                  onClick={() => {
-                    setStatus(tab.key);
-                    setPage(1);
-                  }}
-                  className={cn(
-                    "min-h-9 rounded-lg px-3 py-2 text-xs font-medium transition-colors sm:text-sm",
-                    status === tab.key
-                      ? cn("shadow-sm", tabToneClass(tab.tone))
-                      : "text-muted-foreground hover:bg-background/80 hover:text-foreground",
-                  )}
-                >
-                  {tab.label}
-                </button>
+                <div key={tab.key} className="inline-flex items-center gap-0.5">
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={status === tab.key}
+                    onClick={() => {
+                      setStatus(tab.key);
+                      setPage(1);
+                    }}
+                    className={cn(
+                      "min-h-9 rounded-lg px-3 py-2 text-xs font-medium transition-colors sm:text-sm",
+                      status === tab.key
+                        ? cn("shadow-sm", tabToneClass(tab.tone))
+                        : "text-muted-foreground hover:bg-background/80 hover:text-foreground",
+                    )}
+                  >
+                    {tab.label}
+                  </button>
+                  {status === tab.key ? (
+                    <HelpTip content={tab.tip} label={`About ${tab.label}`} />
+                  ) : null}
+                </div>
               ))}
             </div>
           </div>
@@ -488,9 +507,12 @@ export default function AccessRequestsPage() {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-2 py-2">
-            <Label htmlFor="deny-comment">
-              Denial reason <span className="font-normal text-destructive">Required</span>
-            </Label>
+            <div className="flex items-center gap-1.5">
+              <Label htmlFor="deny-comment">
+                Denial reason <span className="font-normal text-destructive">Required</span>
+              </Label>
+              <HelpTip content={ACCESS_REQUESTS_DENY_REASON_TIP} label="About denial reason" />
+            </div>
             <Textarea
               id="deny-comment"
               value={comment}
@@ -537,6 +559,7 @@ export default function AccessRequestsPage() {
         </DialogContent>
       </Dialog>
     </div>
+    </TooltipProvider>
   );
 }
 
@@ -567,29 +590,35 @@ function Actions({
   }
   return (
     <div className={cn("flex items-center justify-end gap-1.5", mobile && "w-full")}>
-      <Button
-        size="sm"
-        className={cn(
-          mobile && "h-11 flex-1",
-          !mobile && "text-success hover:bg-success/10 hover:text-success",
-        )}
-        variant={mobile ? "default" : "ghost"}
-        onClick={() => approve(request.id)}
-        disabled={busy}
-      >
-        <CheckCircle2 className="size-3.5" />
-        Approve
-      </Button>
-      <Button
-        size="sm"
-        variant="destructive"
-        className={cn(mobile && "h-11 flex-1")}
-        onClick={() => deny(request)}
-        disabled={busy}
-      >
-        <XCircle className="size-3.5" />
-        Deny
-      </Button>
+      <div className={cn("flex items-center gap-1", mobile && "flex-1")}>
+        <Button
+          size="sm"
+          className={cn(
+            mobile && "h-11 flex-1",
+            !mobile && "text-success hover:bg-success/10 hover:text-success",
+          )}
+          variant={mobile ? "default" : "ghost"}
+          onClick={() => approve(request.id)}
+          disabled={busy}
+        >
+          <CheckCircle2 className="size-3.5" />
+          Approve
+        </Button>
+        {!mobile ? <HelpTip content={ACCESS_REQUESTS_APPROVE_TIP} label="About approve" /> : null}
+      </div>
+      <div className={cn("flex items-center gap-1", mobile && "flex-1")}>
+        <Button
+          size="sm"
+          variant="destructive"
+          className={cn(mobile && "h-11 flex-1")}
+          onClick={() => deny(request)}
+          disabled={busy}
+        >
+          <XCircle className="size-3.5" />
+          Deny
+        </Button>
+        {!mobile ? <HelpTip content={ACCESS_REQUESTS_DENY_TIP} label="About deny" /> : null}
+      </div>
     </div>
   );
 }

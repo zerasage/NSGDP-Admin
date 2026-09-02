@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/feedback/empty-state";
 import { MetricCard, Panel } from "@/components/admin/admin-analytics-ui";
+import { RELATED_DATASETS_TIPS } from "@/lib/constants/dataset-tooltips";
 import { useRelations, useConfirmRelation, useRejectRelation } from "@/lib/hooks/useIngestionReview";
 import type { RelationView } from "@/lib/api/ingestion-review";
 import { toast } from "sonner";
@@ -49,13 +50,14 @@ export function RelatedDatasetsTab({ datasetId }: { datasetId: string }) {
   return (
     <div className="space-y-4">
       <div className="grid gap-3 sm:grid-cols-3">
-        <MetricCard label="Candidates" value={relations.length} icon={GitBranch} tone="info" />
-        <MetricCard label="Pending review" value={pendingCount} icon={Link2} tone="warning" />
-        <MetricCard label="Confirmed" value={confirmedCount} icon={CheckCircle2} tone="success" />
+        <MetricCard label="Candidates" value={relations.length} tip={RELATED_DATASETS_TIPS.candidates} icon={GitBranch} tone="info" />
+        <MetricCard label="Pending review" value={pendingCount} tip={RELATED_DATASETS_TIPS.pending} icon={Link2} tone="warning" />
+        <MetricCard label="Confirmed" value={confirmedCount} tip={RELATED_DATASETS_TIPS.confirmed} icon={CheckCircle2} tone="success" />
       </div>
 
       <Panel
         title="Related dataset candidates"
+        titleTip={RELATED_DATASETS_TIPS.panel}
         description="Confirm when two uploads describe the same underlying study."
         icon={GitBranch}
         tone="info"

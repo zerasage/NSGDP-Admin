@@ -11,6 +11,15 @@ import {
   MetricCard,
   tabToneClass,
 } from "@/components/admin/admin-analytics-ui";
+import { HelpTip } from "@/components/admin/help-tip";
+import {
+  PERMISSION_GROUPS_METRIC_TIPS,
+  PERMISSION_GROUPS_NEW_GROUP_TIP,
+  PERMISSION_GROUPS_PAGE_TIP,
+  PERMISSION_GROUPS_TAB_TIPS,
+  PERMISSION_GROUPS_WORKSPACE_TIP,
+} from "@/lib/constants/permission-groups-tooltips";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import {
   AdminSectionTabsNav,
   ADMIN_TAB_TRIGGER_BASE,
@@ -54,17 +63,16 @@ function PermissionWorkspace() {
   }, [groups]);
 
   return (
+    <TooltipProvider delay={200}>
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Permission Groups</h1>
+        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+          Permission Groups
+          <HelpTip content={PERMISSION_GROUPS_PAGE_TIP} label="About permission groups" />
+        </h1>
         <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
           Manage groups of staff users, their membership, and the delegated permissions granted to them.
         </p>
-      </div>
-
-      <div className="rounded-xl border border-warning/30 bg-warning/[0.08] px-4 py-3 text-sm text-muted-foreground">
-        Staff permission groups delegate admin actions (approve datasets, review access requests, etc.).
-        This page is super-admin only — delegating group management would create a privilege-escalation path.
       </div>
 
       {isLoading ? (
@@ -79,6 +87,7 @@ function PermissionWorkspace() {
             label="Total groups"
             value={stats.total}
             hint="Active and inactive"
+            tip={PERMISSION_GROUPS_METRIC_TIPS.total}
             icon={ShieldCheck}
             tone="primary"
           />
@@ -86,6 +95,7 @@ function PermissionWorkspace() {
             label="Active groups"
             value={stats.active}
             hint="Currently delegating permissions"
+            tip={PERMISSION_GROUPS_METRIC_TIPS.active}
             icon={Users}
             tone="success"
           />
@@ -93,6 +103,7 @@ function PermissionWorkspace() {
             label="Staff members"
             value={stats.members}
             hint="Across all groups"
+            tip={PERMISSION_GROUPS_METRIC_TIPS.members}
             icon={Users}
             tone="info"
           />
@@ -100,6 +111,7 @@ function PermissionWorkspace() {
             label="Delegated grants"
             value={stats.grants}
             hint="Permission assignments total"
+            tip={PERMISSION_GROUPS_METRIC_TIPS.grants}
             icon={KeyRound}
             tone="warning"
           />
@@ -110,34 +122,50 @@ function PermissionWorkspace() {
         <div className="border-b p-4 sm:p-5">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div>
-              <h2 className="text-base font-semibold">Access-control workspace</h2>
+              <h2 className="flex items-center gap-2 text-base font-semibold">
+                Access-control workspace
+                <HelpTip content={PERMISSION_GROUPS_WORKSPACE_TIP} label="About workspace" />
+              </h2>
               <p className="mt-0.5 text-sm text-muted-foreground">
                 Configure staff groups or compare effective delegated access.
               </p>
             </div>
             {activeTab === "groups" && (
-              <Button className="h-9 w-full sm:w-auto" onClick={() => setCreateOpen(true)}>
-                <Plus className="size-4" />
-                New group
-              </Button>
+              <div className="flex items-center gap-1">
+                <Button className="h-9 w-full sm:w-auto" onClick={() => setCreateOpen(true)}>
+                  <Plus className="size-4" />
+                  New group
+                </Button>
+                <HelpTip content={PERMISSION_GROUPS_NEW_GROUP_TIP} label="About new group" />
+              </div>
             )}
           </div>
 
           <AdminSectionTabsNav className="mt-4">
-            <TabsTrigger
-              value="groups"
-              className={cn(ADMIN_TAB_TRIGGER_BASE, tabToneClass("primary"))}
-            >
-              <Users className="size-3.5 shrink-0 sm:size-4" />
-              Groups
-            </TabsTrigger>
-            <TabsTrigger
-              value="matrix"
-              className={cn(ADMIN_TAB_TRIGGER_BASE, tabToneClass("info"))}
-            >
-              <Grid3X3 className="size-3.5 shrink-0 sm:size-4" />
-              Permission matrix
-            </TabsTrigger>
+            <div className="inline-flex flex-none items-center gap-0.5">
+              <TabsTrigger
+                value="groups"
+                className={cn(ADMIN_TAB_TRIGGER_BASE, tabToneClass("primary"))}
+              >
+                <Users className="size-3.5 shrink-0 sm:size-4" />
+                Groups
+              </TabsTrigger>
+              {activeTab === "groups" ? (
+                <HelpTip content={PERMISSION_GROUPS_TAB_TIPS.groups} label="About groups tab" />
+              ) : null}
+            </div>
+            <div className="inline-flex flex-none items-center gap-0.5">
+              <TabsTrigger
+                value="matrix"
+                className={cn(ADMIN_TAB_TRIGGER_BASE, tabToneClass("info"))}
+              >
+                <Grid3X3 className="size-3.5 shrink-0 sm:size-4" />
+                Permission matrix
+              </TabsTrigger>
+              {activeTab === "matrix" ? (
+                <HelpTip content={PERMISSION_GROUPS_TAB_TIPS.matrix} label="About permission matrix tab" />
+              ) : null}
+            </div>
           </AdminSectionTabsNav>
         </div>
 
@@ -149,5 +177,6 @@ function PermissionWorkspace() {
         </TabsContent>
       </Tabs>
     </div>
+    </TooltipProvider>
   );
 }

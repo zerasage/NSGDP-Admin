@@ -14,11 +14,11 @@ export function AdminSectionTabsNav({ children, className }: AdminSectionTabsNav
   return (
     <div
       className={cn(
-        "rounded-xl border bg-muted/30 p-1",
+        "scrollbar-hide overflow-x-auto rounded-xl border bg-muted/30 p-1",
         className
       )}
     >
-      <TabsList className="h-auto w-full flex-wrap justify-start gap-1 bg-transparent p-0">
+      <TabsList className="h-auto w-max min-w-full flex-nowrap justify-start gap-1 bg-transparent p-0">
         {children}
       </TabsList>
     </div>

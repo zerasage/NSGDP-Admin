@@ -14,8 +14,9 @@ import {
   TrendingUp,
   Upload,
   Users,
+  RotateCcw,
 } from "lucide-react";
-import { useAdminAnalytics, downloadAnalyticsCsv } from "@/lib/hooks/useAnalytics";
+import { useAdminAnalytics, downloadAnalyticsCsv, useRefreshAnalyticsCache } from "@/lib/hooks/useAnalytics";
 import { useDashboardActivity } from "@/lib/hooks/useDashboard";
 import {
   useDatasetPipelineStats,
@@ -52,8 +53,20 @@ import {
   Panel,
   type MetricTone,
 } from "@/components/admin/admin-analytics-ui";
+import { HelpTip } from "@/components/admin/help-tip";
+import {
+  ANALYTICS_EXPORT_TIP,
+  ANALYTICS_METRIC_TIPS,
+  ANALYTICS_PAGE_TIP,
+  ANALYTICS_PANEL_TIPS,
+  ANALYTICS_RANGE_TIP,
+  ANALYTICS_REFRESH_TIP,
+} from "@/lib/constants/analytics-tooltips";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import { useAdminAccess } from "@/lib/hooks/useAdminAccess";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/lib/auth";
 
 const RANGE_TO_MONTHS: Record<string, number> = {
   "1m": 1,
@@ -107,17 +120,22 @@ export default function AdminAnalyticsPage() {
   const [range, setRange] = useState("6m");
   const [exporting, setExporting] = useState(false);
   const months = RANGE_TO_MONTHS[range] ?? 6;
+  const { user } = useAuth();
+  const isSuperAdmin = user?.role === "super_admin";
+  const { can } = useAdminAccess();
+  const canRefresh = can("manage:analytics");
 
   const analytics = useAdminAnalytics(months);
   const activity = useDashboardActivity();
   const pipeline = useDatasetPipelineStats();
-  const governance = useGovernanceAnalytics();
+  const governance = useGovernanceAnalytics({ enabled: isSuperAdmin });
+  const refreshCache = useRefreshAnalyticsCache();
 
   const loading =
     analytics.isLoading ||
     activity.isLoading ||
     pipeline.isLoading ||
-    governance.isLoading;
+    (isSuperAdmin && governance.isLoading);
 
   const data = analytics.data;
   const stats = pipeline.data;
@@ -169,31 +187,59 @@ export default function AdminAnalyticsPage() {
   }));
 
   return (
+    <TooltipProvider delay={200}>
     <div className="space-y-8">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Analytics & Reports</h1>
+          <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+            Analytics & Reports
+            <HelpTip content={ANALYTICS_PAGE_TIP} label="About analytics and reports" />
+          </h1>
           <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
             Platform growth, catalogue usage, partner contributions, and ingestion health —
             scoped to the {RANGE_LABEL[range] ?? "selected period"} where noted.
           </p>
         </div>
-        <div className="flex shrink-0 gap-2">
-          <Select value={range} onValueChange={(v) => v && setRange(v)}>
-            <SelectTrigger className="w-36">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="1m">Last month</SelectItem>
-              <SelectItem value="3m">Last 3 months</SelectItem>
-              <SelectItem value="6m">Last 6 months</SelectItem>
-              <SelectItem value="1y">Last year</SelectItem>
-            </SelectContent>
-          </Select>
-          <Button variant="outline" onClick={handleExport} disabled={exporting}>
-            <Download className="size-4" />
-            {exporting ? "Exporting..." : "Export CSV"}
-          </Button>
+        <div className="flex shrink-0 items-center gap-2">
+          <div className="flex items-center gap-1.5">
+            <Select value={range} onValueChange={(v) => v && setRange(v)}>
+              <SelectTrigger className="w-36" aria-label="Analytics date range">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="1m">Last month</SelectItem>
+                <SelectItem value="3m">Last 3 months</SelectItem>
+                <SelectItem value="6m">Last 6 months</SelectItem>
+                <SelectItem value="1y">Last year</SelectItem>
+              </SelectContent>
+            </Select>
+            <HelpTip content={ANALYTICS_RANGE_TIP} label="About date range" />
+          </div>
+          <div className="flex items-center gap-1.5">
+            <Button variant="outline" onClick={handleExport} disabled={exporting}>
+              <Download className="size-4" />
+              {exporting ? "Exporting..." : "Export CSV"}
+            </Button>
+            <HelpTip content={ANALYTICS_EXPORT_TIP} label="About export CSV" />
+          </div>
+          {canRefresh ? (
+            <div className="flex items-center gap-1.5">
+              <Button
+                variant="outline"
+                onClick={() =>
+                  refreshCache.mutate(undefined, {
+                    onSuccess: () => toast.success("Analytics cache refreshed"),
+                    onError: () => toast.error("Failed to refresh analytics cache"),
+                  })
+                }
+                disabled={refreshCache.isPending}
+              >
+                <RotateCcw className={cn("size-4", refreshCache.isPending && "animate-spin")} />
+                {refreshCache.isPending ? "Refreshing…" : "Refresh cache"}
+              </Button>
+              <HelpTip content={ANALYTICS_REFRESH_TIP} label="About refresh cache" />
+            </div>
+          ) : null}
         </div>
       </div>
 
@@ -202,6 +248,7 @@ export default function AdminAnalyticsPage() {
           label="Total users"
           value={data?.headline.totalUsers ?? 0}
           hint="Registered accounts"
+          tip={ANALYTICS_METRIC_TIPS.totalUsers}
           icon={Users}
           tone="primary"
         />
@@ -209,6 +256,7 @@ export default function AdminAnalyticsPage() {
           label="Total datasets"
           value={data?.headline.totalDatasets ?? 0}
           hint="All statuses"
+          tip={ANALYTICS_METRIC_TIPS.totalDatasets}
           icon={Database}
           tone="info"
         />
@@ -216,6 +264,7 @@ export default function AdminAnalyticsPage() {
           label="Total downloads"
           value={(data?.headline.totalDownloads ?? 0).toLocaleString()}
           hint="All-time catalogue downloads"
+          tip={ANALYTICS_METRIC_TIPS.totalDownloads}
           icon={Download}
           tone="success"
         />
@@ -223,6 +272,7 @@ export default function AdminAnalyticsPage() {
           label="Downloads this month"
           value={(data?.headline.downloadsThisMonth ?? 0).toLocaleString()}
           hint="Current calendar month"
+          tip={ANALYTICS_METRIC_TIPS.downloadsThisMonth}
           icon={TrendingUp}
           tone="success"
         />
@@ -233,6 +283,7 @@ export default function AdminAnalyticsPage() {
           label="Pending review"
           value={data?.headline.pendingReview ?? 0}
           hint="Awaiting approval"
+          tip={ANALYTICS_METRIC_TIPS.pendingReview}
           icon={Clock}
           tone="warning"
         />
@@ -240,6 +291,7 @@ export default function AdminAnalyticsPage() {
           label={`Uploads (${RANGE_LABEL[range]})`}
           value={uploadsInPeriod}
           hint="New datasets created in range"
+          tip={ANALYTICS_METRIC_TIPS.uploadsInRange}
           icon={Upload}
           tone="info"
         />
@@ -247,20 +299,29 @@ export default function AdminAnalyticsPage() {
           label={`New users (${RANGE_LABEL[range]})`}
           value={newUsersInPeriod}
           hint="Accounts created in range"
+          tip={ANALYTICS_METRIC_TIPS.newUsersInRange}
           icon={Users}
           tone="primary"
         />
-        <MetricCard
-          label="Open conflicts"
-          value={gov?.openConflicts ?? 0}
-          hint="Ingestion observation conflicts — see Governance"
-          icon={ShieldAlert}
-          tone="destructive"
-        />
+        {isSuperAdmin ? (
+          <MetricCard
+            label="Datasets with conflicts"
+            value={gov?.datasetsWithOpenConflicts ?? 0}
+            hint={
+              (gov?.openConflicts ?? 0) > 0
+                ? `${(gov?.openConflicts ?? 0).toLocaleString()} clashing keys (Stored vs Upload)`
+                : "No stored vs upload disagreements"
+            }
+            tip={ANALYTICS_METRIC_TIPS.openConflicts}
+            icon={ShieldAlert}
+            tone={(gov?.datasetsWithOpenConflicts ?? 0) > 0 ? "destructive" : "muted"}
+          />
+        ) : null}
       </div>
 
       <Panel
         title="Daily platform activity"
+        titleTip={ANALYTICS_PANEL_TIPS.dailyActivity}
         description="Dataset views and downloads over the last 7 or 30 days."
         icon={BarChart3}
         tone="primary"
@@ -274,6 +335,7 @@ export default function AdminAnalyticsPage() {
       <div className="grid gap-6 lg:grid-cols-2">
         <Panel
           title="Uploads over time"
+          titleTip={ANALYTICS_PANEL_TIPS.uploadsOverTime}
           description={`Monthly dataset creations — ${RANGE_LABEL[range]}.`}
           icon={Upload}
           tone="info"
@@ -282,6 +344,7 @@ export default function AdminAnalyticsPage() {
         </Panel>
         <Panel
           title="New users over time"
+          titleTip={ANALYTICS_PANEL_TIPS.newUsersOverTime}
           description={`Monthly account registrations — ${RANGE_LABEL[range]}.`}
           icon={Users}
           tone="primary"
@@ -293,6 +356,7 @@ export default function AdminAnalyticsPage() {
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]">
         <Panel
           title="Top downloads by dataset"
+          titleTip={ANALYTICS_PANEL_TIPS.topDownloads}
           description="Most downloaded catalogue entries (all time)."
           icon={Download}
           tone="success"
@@ -307,6 +371,7 @@ export default function AdminAnalyticsPage() {
 
         <Panel
           title="Download leaderboard"
+          titleTip={ANALYTICS_PANEL_TIPS.downloadLeaderboard}
           description="Ranked list with exact counts."
           icon={TrendingUp}
           tone="success"
@@ -349,6 +414,7 @@ export default function AdminAnalyticsPage() {
       <div className="grid gap-6 lg:grid-cols-2">
         <Panel
           title="Datasets by organisation"
+          titleTip={ANALYTICS_PANEL_TIPS.byOrganisation}
           description="Partner and agency contributions to the catalogue."
           icon={Building2}
           tone="info"
@@ -379,6 +445,7 @@ export default function AdminAnalyticsPage() {
 
         <Panel
           title="Datasets by category"
+          titleTip={ANALYTICS_PANEL_TIPS.byCategory}
           description="Catalogue spread across health domains."
           icon={Tags}
           tone="warning"
@@ -411,6 +478,7 @@ export default function AdminAnalyticsPage() {
       <div className="grid gap-6 lg:grid-cols-2">
         <Panel
           title="Pipeline by status"
+          titleTip={ANALYTICS_PANEL_TIPS.pipelineByStatus}
           description="Where datasets sit in the review workflow."
           icon={Layers}
           tone="primary"
@@ -432,6 +500,7 @@ export default function AdminAnalyticsPage() {
 
         <Panel
           title="Published freshness"
+          titleTip={ANALYTICS_PANEL_TIPS.publishedFreshness}
           description="Update schedule health for live catalogue entries."
           icon={Clock}
           tone="warning"
@@ -449,22 +518,27 @@ export default function AdminAnalyticsPage() {
               tone="warning"
             />
             <StatRow label="No update schedule" value={stats?.staleness.noSchedule ?? 0} />
-            <StatRow
-              label="Auto-resolution rate"
-              value={`${Math.round((gov?.aliasResolution.autoResolutionRate ?? 0) * 100)}%`}
-              tone={
-                (gov?.aliasResolution.autoResolutionRate ?? 0) >= 0.8
-                  ? "success"
-                  : "warning"
-              }
-            />
-            <StatRow
-              label="Pending indicator aliases"
-              value={gov?.aliasResolution.pendingIndicatorAliases ?? 0}
-            />
+            {isSuperAdmin ? (
+              <>
+                <StatRow
+                  label="Auto-resolution rate"
+                  value={`${Math.round((gov?.aliasResolution.autoResolutionRate ?? 0) * 100)}%`}
+                  tone={
+                    (gov?.aliasResolution.autoResolutionRate ?? 0) >= 0.8
+                      ? "success"
+                      : "warning"
+                  }
+                />
+                <StatRow
+                  label="Pending indicator aliases"
+                  value={gov?.aliasResolution.pendingIndicatorAliases ?? 0}
+                />
+              </>
+            ) : null}
           </div>
         </Panel>
       </div>
     </div>
+    </TooltipProvider>
   );
 }

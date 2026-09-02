@@ -3,7 +3,6 @@
 import { use, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, History, Lock, Pencil, ShieldAlert } from "lucide-react";
-import { useAuth } from "@/lib/auth";
 import { useAdminAccess } from "@/lib/hooks/useAdminAccess";
 import {
   useIndicators,
@@ -16,6 +15,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/feedback/empty-state";
 import { IndicatorForm } from "@/components/admin/indicator-form";
+import { HelpTip } from "@/components/admin/help-tip";
+import {
+  INDICATOR_DETAIL_PAGE_TIP,
+  INDICATOR_DETAIL_REVISIONS_TIP,
+} from "@/lib/constants/ingestion-ops-tooltips";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { formatDate } from "@/lib/utils/date";
 import { toast } from "sonner";
 
@@ -26,7 +31,6 @@ export default function IndicatorDetailPage({
 }) {
   const { id } = use(params);
   const router = useRouter();
-  const { user } = useAuth();
   const { can } = useAdminAccess();
   const canManage = can("manage:indicators");
 
@@ -73,6 +77,7 @@ export default function IndicatorDetailPage({
   }
 
   return (
+    <TooltipProvider delay={200}>
     <div className="space-y-6">
       <div>
         <Button variant="ghost" size="sm" className="mb-3 -ml-3 gap-1.5" onClick={() => router.push("/ingestion-ops?tab=indicators")}>
@@ -81,7 +86,10 @@ export default function IndicatorDetailPage({
         </Button>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <h1 className="text-2xl font-bold">{indicator.name}</h1>
+            <h1 className="flex items-center gap-2 text-2xl font-bold">
+              {indicator.name}
+              <HelpTip content={INDICATOR_DETAIL_PAGE_TIP} label="About this indicator" />
+            </h1>
             <p className="mt-1 text-sm text-muted-foreground">{indicator.slug}</p>
           </div>
           <div className="flex items-center gap-2">
@@ -149,6 +157,7 @@ export default function IndicatorDetailPage({
           <CardTitle className="flex items-center gap-2">
             <History className="size-4 text-muted-foreground" />
             Revision History
+            <HelpTip content={INDICATOR_DETAIL_REVISIONS_TIP} label="About revision history" />
           </CardTitle>
         </CardHeader>
         <CardContent className="p-0">
@@ -176,5 +185,6 @@ export default function IndicatorDetailPage({
         </CardContent>
       </Card>
     </div>
+    </TooltipProvider>
   );
 }

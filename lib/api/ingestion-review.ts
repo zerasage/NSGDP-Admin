@@ -172,6 +172,7 @@ export interface AnalyticsPublishStatus {
   blockReason: string | null;
   unpublishedRows: number;
   pendingAliases: number;
+  openConflicts: number;
   cataloguePublished: boolean;
   analyticsPublishedAt: string | null;
   lastError: string | null;
@@ -191,6 +192,63 @@ export async function getAnalyticsPublishStatus(
 ): Promise<AnalyticsPublishStatus> {
   const response = await apiClient.get<ApiResponse<AnalyticsPublishStatus>>(
     `/admin/governance/ingestion/datasets/${datasetId}/analytics-publish-status`,
+  );
+  return response.data.data;
+}
+
+export type AnalyticsWarehouseFilter =
+  | 'in_warehouse'
+  | 'ready'
+  | 'loading'
+  | 'all';
+
+export interface AnalyticsWarehouseSourceRow {
+  datasetId: string;
+  slug: string;
+  title: string;
+  format: string;
+  status: string;
+  ingestionStatus: string;
+  cataloguePublishedAt: string | null;
+  analyticsPublishedAt: string | null;
+  organisationId: string | null;
+  organisationName: string | null;
+  organisationAcronym: string | null;
+  burdenRowCount: number;
+  indicatorCount: number;
+  phase: AnalyticsPublishPhase;
+  lastError: string | null;
+  publishingSince: string | null;
+  publicationStatus: string | null;
+  canRetract: boolean;
+  canLoad: boolean;
+  pendingAliases: number;
+  publishableRows: number;
+  blockReason: string | null;
+}
+
+export interface AnalyticsWarehouseSummary {
+  inWarehouse: number;
+  readyToLoad: number;
+  loading: number;
+  failed: number;
+}
+
+export interface AnalyticsWarehouseListResult {
+  items: AnalyticsWarehouseSourceRow[];
+  total: number;
+  summary: AnalyticsWarehouseSummary;
+}
+
+export async function listAnalyticsWarehouse(params?: {
+  filter?: AnalyticsWarehouseFilter;
+  organisationId?: string;
+  limit?: number;
+  offset?: number;
+}): Promise<AnalyticsWarehouseListResult> {
+  const response = await apiClient.get<ApiResponse<AnalyticsWarehouseListResult>>(
+    '/admin/governance/ingestion/analytics-warehouse',
+    { params },
   );
   return response.data.data;
 }
@@ -332,6 +390,57 @@ export async function listInFlightIngestionJobs(
   const response = await apiClient.get<ApiResponse<InFlightIngestionJob[]>>(
     "/admin/governance/ingestion/jobs/in-flight",
     { params: { limit } }
+  );
+  return response.data.data;
+}
+
+export type PipelineAttentionFilter = 'failed' | 'incomplete' | 'all';
+
+export type PipelineAttentionKind =
+  | 'failed'
+  | 'not_started'
+  | 'stuck'
+  | 'queued';
+
+export interface PipelineAttentionRow {
+  datasetId: string;
+  slug: string;
+  title: string;
+  catalogueStatus: string;
+  ingestionStatus: string;
+  attentionKind: PipelineAttentionKind;
+  organisationId: string | null;
+  organisationName: string | null;
+  organisationAcronym: string | null;
+  lastJobStatus: string | null;
+  lastJobError: string | null;
+  lastJobStage: string | null;
+  lastJobProgress: number | null;
+  lastJobAt: string | null;
+  canRetry: boolean;
+  canForceRetry: boolean;
+  blockReason: string | null;
+}
+
+export interface PipelineAttentionResult {
+  items: PipelineAttentionRow[];
+  total: number;
+  summary: {
+    failed: number;
+    notStarted: number;
+    stuck: number;
+    queued: number;
+  };
+}
+
+export async function listPipelineAttention(params?: {
+  filter?: PipelineAttentionFilter;
+  limit?: number;
+  offset?: number;
+}): Promise<PipelineAttentionResult> {
+  const response = await apiClient.get<ApiResponse<PipelineAttentionResult>>(
+    '/admin/governance/ingestion/pipeline-attention',
+    { params },
   );
   return response.data.data;
 }

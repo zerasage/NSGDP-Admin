@@ -12,6 +12,8 @@ import { OrgunitConfirmDialog } from "@/components/admin/orgunit-confirm-dialog"
 import { AliasReviewContextPanel } from "@/components/admin/alias-review-context-panel";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { MetricCard, Panel } from "@/components/admin/admin-analytics-ui";
+import { ALIASES_TAB_TIP } from "@/lib/constants/ingestion-ops-tooltips";
+import { DATASET_ALIASES_TIP } from "@/lib/constants/dataset-tooltips";
 import {
   useReviewQueue,
   useConfirmIndicatorAlias,
@@ -211,6 +213,9 @@ export function DataReviewQueueTab({
               : global
                 ? "Platform alias queue"
                 : "Dataset alias queue"
+          }
+          titleTip={
+            global ? ALIASES_TAB_TIP : datasetId ? DATASET_ALIASES_TIP : undefined
           }
           description={
             queueMode === "auto"

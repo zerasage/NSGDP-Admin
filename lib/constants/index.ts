@@ -8,7 +8,6 @@ export { NIGER_STATE_LGAS, FILE_FORMATS, SECTORS } from "./core";
 export { BRAND } from "./brand";
 
 // Re-export other constants
-export * from "./analytics-sources";
 export * from "./dataset-filters";
 export * from "./dataset-lifecycle";
 export * from "./health";

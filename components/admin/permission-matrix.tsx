@@ -23,6 +23,8 @@ import { EmptyState } from "@/components/feedback/empty-state";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { statusSurface } from "@/lib/constants/status-surfaces";
+import { HelpTip } from "@/components/admin/help-tip";
+import { PERMISSION_GROUPS_MATRIX_TIP } from "@/lib/constants/permission-groups-tooltips";
 import { cn } from "@/lib/utils";
 
 const SECTION_ICONS: Record<string, typeof Database> = {
@@ -82,7 +84,11 @@ export function PermissionMatrix() {
     <div className="space-y-5">
       {/* Overview table — every group vs every action, at a glance */}
       <div className="space-y-3">
-        <div className="flex items-center gap-4 text-xs text-muted-foreground flex-wrap">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-muted-foreground">
+          <span className="flex items-center gap-1.5 font-medium text-foreground">
+            Legend
+            <HelpTip content={PERMISSION_GROUPS_MATRIX_TIP} label="About permission matrix" />
+          </span>
           <span className="flex items-center gap-1.5">
             <Check className="size-3.5 text-emerald-600" /> Granted
           </span>

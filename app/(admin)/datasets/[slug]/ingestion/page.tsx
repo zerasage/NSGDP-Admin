@@ -9,12 +9,18 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Tabs, TabsContent, TabsTrigger } from "@/components/ui/tabs";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import {
   AdminSectionTabsNav,
   ADMIN_TAB_TRIGGER_BASE,
   AdminTabCount,
 } from "@/components/admin/admin-section-tabs-nav";
 import { tabToneClass } from "@/components/admin/admin-analytics-ui";
+import { HelpTip } from "@/components/admin/help-tip";
+import {
+  DATASET_INGESTION_ACTION_TIPS,
+  DATASET_INGESTION_PAGE_TIP,
+} from "@/lib/constants/dataset-tooltips";
 import { cn } from "@/lib/utils";
 import { EmptyState } from "@/components/feedback/empty-state";
 import { IngestionReportTab } from "@/components/admin/ingestion-report-tab";
@@ -278,6 +284,7 @@ export default function DatasetIngestionPage({
       displayStatus === "processed_pending_approval");
 
   return (
+    <TooltipProvider delay={200}>
     <div className="space-y-6">
       <div>
         <Button
@@ -291,7 +298,10 @@ export default function DatasetIngestionPage({
         </Button>
         <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
           <div className="min-w-0 space-y-1">
-            <h1 className="text-2xl font-bold leading-8">Ingestion</h1>
+            <h1 className="flex items-center gap-2 text-2xl font-bold leading-8">
+              Ingestion
+              <HelpTip content={DATASET_INGESTION_PAGE_TIP} label="About ingestion" />
+            </h1>
             <p className="max-w-2xl text-sm text-muted-foreground">{description}</p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -303,22 +313,29 @@ export default function DatasetIngestionPage({
               {INGESTION_STATUS_LABEL[displayStatus]}
             </Badge>
             {showStop && (
-              <Button
-                size="sm"
-                variant="outline"
-                className="gap-1.5 border-destructive/40 text-destructive hover:bg-destructive/10"
-                disabled={cancelMutation.isPending}
-                onClick={handleStop}
-              >
-                {cancelMutation.isPending ? (
-                  <Loader2 className="size-3.5 animate-spin" aria-hidden />
-                ) : (
-                  <Square className="size-3.5" aria-hidden />
-                )}
-                Stop ingestion
-              </Button>
+              <div className="inline-flex items-center gap-1">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="gap-1.5 border-destructive/40 text-destructive hover:bg-destructive/10"
+                  disabled={cancelMutation.isPending}
+                  onClick={handleStop}
+                >
+                  {cancelMutation.isPending ? (
+                    <Loader2 className="size-3.5 animate-spin" aria-hidden />
+                  ) : (
+                    <Square className="size-3.5" aria-hidden />
+                  )}
+                  Stop ingestion
+                </Button>
+                <HelpTip
+                  content={DATASET_INGESTION_ACTION_TIPS.stop}
+                  label="About stop ingestion"
+                />
+              </div>
             )}
             {showRun && (
+              <div className="inline-flex items-center gap-1">
                 <Button
                   size="sm"
                   variant="outline"
@@ -342,7 +359,17 @@ export default function DatasetIngestionPage({
                       ? "Retry ingestion"
                       : "Run ingestion"}
                 </Button>
-              )}
+                <HelpTip
+                  content={
+                    displayStatus === "failed" ||
+                    displayStatus === "processed_pending_approval"
+                      ? DATASET_INGESTION_ACTION_TIPS.retry
+                      : DATASET_INGESTION_ACTION_TIPS.run
+                  }
+                  label="About run ingestion"
+                />
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -422,5 +449,6 @@ export default function DatasetIngestionPage({
         </TabsContent>
       </Tabs>
     </div>
+    </TooltipProvider>
   );
 }

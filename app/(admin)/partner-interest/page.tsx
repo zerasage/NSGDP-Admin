@@ -1,22 +1,22 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { 
+import {
   AlertCircle,
   Building2,
-  CheckCircle2, 
-  Handshake, 
-  Loader2, 
-  Lock, 
+  CheckCircle2,
+  Handshake,
+  Info,
+  Loader2,
+  Lock,
   Mail,
-  Phone,
   RotateCcw,
-  Search, 
-  X, 
-  XCircle 
+  Search,
+  X,
+  XCircle,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { EmptyState } from "@/components/feedback/empty-state";
 import { Pagination } from "@/components/data/pagination";
@@ -59,6 +59,23 @@ import {
   tabToneClass,
   type MetricTone,
 } from "@/components/admin/admin-analytics-ui";
+import { HelpTip } from "@/components/admin/help-tip";
+import {
+  ContactEmailRow,
+  ContactPhoneRow,
+  MailtoLink,
+  TelLink,
+} from "@/components/admin/contact-links";
+import {
+  PARTNER_INTEREST_APPROVE_TIP,
+  PARTNER_INTEREST_COMMENT_TIP,
+  PARTNER_INTEREST_DECLINE_TIP,
+  PARTNER_INTEREST_INFO_TIP,
+  PARTNER_INTEREST_PAGE_TIP,
+  PARTNER_INTEREST_PANEL_TIP,
+  PARTNER_INTEREST_TAB_TIPS,
+} from "@/lib/constants/partner-interest-tooltips";
+import { TooltipProvider } from "@/components/ui/tooltip";
 
 const STATUS_CONFIG: Record<
   PartnerInterestStatus,
@@ -69,11 +86,16 @@ const STATUS_CONFIG: Record<
   declined: { label: "Declined", tone: "destructive" },
 };
 
-const TABS: Array<{ key: PartnerInterestStatus | "all"; label: string; tone: MetricTone }> = [
-  { key: "pending", label: "Pending", tone: "warning" },
-  { key: "approved", label: "Approved", tone: "success" },
-  { key: "declined", label: "Declined", tone: "destructive" },
-  { key: "all", label: "All submissions", tone: "muted" },
+const TABS: Array<{
+  key: PartnerInterestStatus | "all";
+  label: string;
+  tone: MetricTone;
+  tip: string;
+}> = [
+  { key: "pending", label: "Pending", tone: "warning", tip: PARTNER_INTEREST_TAB_TIPS.pending },
+  { key: "approved", label: "Approved", tone: "success", tip: PARTNER_INTEREST_TAB_TIPS.approved },
+  { key: "declined", label: "Declined", tone: "destructive", tip: PARTNER_INTEREST_TAB_TIPS.declined },
+  { key: "all", label: "All submissions", tone: "muted", tip: PARTNER_INTEREST_TAB_TIPS.all },
 ];
 
 function StatusBadge({ status }: { status: PartnerInterestStatus }) {
@@ -202,10 +224,14 @@ export default function PartnerInterestPage() {
   };
 
   return (
+    <TooltipProvider delay={200}>
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Partner Interest</h1>
+          <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+            Partner Interest
+            <HelpTip content={PARTNER_INTEREST_PAGE_TIP} label="About partner interest" />
+          </h1>
           <p className="mt-1 text-sm text-muted-foreground">
             Review organisations interested in contributing data to the portal
           </p>
@@ -217,13 +243,22 @@ export default function PartnerInterestPage() {
         )}
       </div>
 
-      <div className="rounded-xl border border-info/25 bg-info/[0.06] px-4 py-3 text-sm text-muted-foreground">
-        Organisations submit interest via the public portal. Review pending entries here — approval
-        does not create an org automatically; follow up manually with an invite after vetting.
+      <div className="flex items-start gap-2 rounded-xl border border-info/25 bg-info/[0.06] px-4 py-3 text-sm text-muted-foreground">
+        <Info className="mt-0.5 size-4 shrink-0 text-info" aria-hidden />
+        <p>
+          After approval, create the organisation and send an invite manually — the platform does not
+          do this for you.
+          <HelpTip
+            content={PARTNER_INTEREST_INFO_TIP}
+            label="About follow-up after approval"
+            className="ml-1 align-middle"
+          />
+        </p>
       </div>
 
       <Panel
         title="Submissions"
+        titleTip={PARTNER_INTEREST_PANEL_TIP}
         description="Filter by status or search organisation, contact, and message text."
         icon={Handshake}
         tone="info"
@@ -232,24 +267,28 @@ export default function PartnerInterestPage() {
           <div className="rounded-xl border bg-muted/30 p-1">
             <div className="flex flex-wrap gap-1" role="tablist" aria-label="Submission status">
               {TABS.map((tab) => (
-                <button
-                  key={tab.key}
-                  type="button"
-                  role="tab"
-                  aria-selected={status === tab.key}
-                  onClick={() => {
-                    setStatus(tab.key);
-                    setPage(1);
-                  }}
-                  className={cn(
-                    "min-h-9 rounded-lg px-3 py-2 text-xs font-medium transition-colors sm:text-sm",
-                    status === tab.key
-                      ? cn("shadow-sm", tabToneClass(tab.tone))
-                      : "text-muted-foreground hover:bg-background/80 hover:text-foreground",
-                  )}
-                >
-                  {tab.label}
-                </button>
+                <div key={tab.key} className="inline-flex items-center gap-0.5">
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={status === tab.key}
+                    onClick={() => {
+                      setStatus(tab.key);
+                      setPage(1);
+                    }}
+                    className={cn(
+                      "min-h-9 rounded-lg px-3 py-2 text-xs font-medium transition-colors sm:text-sm",
+                      status === tab.key
+                        ? cn("shadow-sm", tabToneClass(tab.tone))
+                        : "text-muted-foreground hover:bg-background/80 hover:text-foreground",
+                    )}
+                  >
+                    {tab.label}
+                  </button>
+                  {status === tab.key ? (
+                    <HelpTip content={tab.tip} label={`About ${tab.label}`} />
+                  ) : null}
+                </div>
               ))}
             </div>
           </div>
@@ -379,16 +418,10 @@ export default function PartnerInterestPage() {
                       <TableCell className="max-w-xs px-4 py-3.5">
                         <div className="space-y-1">
                           <p className="text-sm font-medium">{interest.contact_name}</p>
-                          <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                            <Mail className="size-3" />
-                            {interest.contact_email}
-                          </p>
-                          {interest.contact_phone && (
-                            <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                              <Phone className="size-3" />
-                              {interest.contact_phone}
-                            </p>
-                          )}
+                          <ContactEmailRow email={interest.contact_email} />
+                          {interest.contact_phone ? (
+                            <ContactPhoneRow phone={interest.contact_phone} />
+                          ) : null}
                         </div>
                       </TableCell>
                       <TableCell className="max-w-md px-4 py-3.5">
@@ -403,30 +436,12 @@ export default function PartnerInterestPage() {
                         {formatDate(interest.created_at)}
                       </TableCell>
                       <TableCell className="px-4 py-3.5 text-right">
-                        {interest.status === "pending" && canReview ? (
-                          <div className="flex justify-end gap-1">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-8 text-green-600 hover:text-green-700 hover:bg-green-50 dark:hover:bg-green-950"
-                              onClick={() => openReviewDialog(interest, "approve")}
-                            >
-                              <CheckCircle2 className="size-4 mr-1" />
-                              Approve
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-8 text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950"
-                              onClick={() => openReviewDialog(interest, "decline")}
-                            >
-                              <XCircle className="size-4 mr-1" />
-                              Decline
-                            </Button>
-                          </div>
-                        ) : (
-                          <span className="text-xs text-muted-foreground">—</span>
-                        )}
+                        <ReviewActions
+                          interest={interest}
+                          canReview={canReview}
+                          busy={reviewMutation.isPending}
+                          onReview={openReviewDialog}
+                        />
                       </TableCell>
                     </TableRow>
                   ))}
@@ -453,16 +468,10 @@ export default function PartnerInterestPage() {
                   </div>
 
                   <div className="space-y-2 text-sm">
-                    <div className="flex items-center gap-2 text-muted-foreground">
-                      <Mail className="size-3.5 shrink-0" />
-                      <span className="truncate">{interest.contact_email}</span>
-                    </div>
-                    {interest.contact_phone && (
-                      <div className="flex items-center gap-2 text-muted-foreground">
-                        <Phone className="size-3.5 shrink-0" />
-                        <span>{interest.contact_phone}</span>
-                      </div>
-                    )}
+                    <ContactEmailRow email={interest.contact_email} />
+                    {interest.contact_phone ? (
+                      <ContactPhoneRow phone={interest.contact_phone} />
+                    ) : null}
                   </div>
 
                   <div className="rounded-lg bg-muted/40 p-3">
@@ -476,24 +485,13 @@ export default function PartnerInterestPage() {
                   </div>
 
                   {interest.status === "pending" && canReview && (
-                    <div className="flex gap-2 border-t pt-3">
-                      <Button
-                        variant="outline"
-                        className="flex-1 h-11 text-green-600 hover:text-green-700 border-green-200 hover:bg-green-50 dark:border-green-900 dark:hover:bg-green-950"
-                        onClick={() => openReviewDialog(interest, "approve")}
-                      >
-                        <CheckCircle2 className="size-4 mr-1.5" />
-                        Approve
-                      </Button>
-                      <Button
-                        variant="outline"
-                        className="flex-1 h-11 text-red-600 hover:text-red-700 border-red-200 hover:bg-red-50 dark:border-red-900 dark:hover:bg-red-950"
-                        onClick={() => openReviewDialog(interest, "decline")}
-                      >
-                        <XCircle className="size-4 mr-1.5" />
-                        Decline
-                      </Button>
-                    </div>
+                    <ReviewActions
+                      interest={interest}
+                      canReview={canReview}
+                      busy={reviewMutation.isPending}
+                      onReview={openReviewDialog}
+                      mobile
+                    />
                   )}
                 </article>
               ))}
@@ -543,10 +541,14 @@ export default function PartnerInterestPage() {
                     Contact
                   </p>
                   <p className="mt-1 text-sm">{reviewTarget.contact_name}</p>
-                  <p className="text-sm text-muted-foreground">{reviewTarget.contact_email}</p>
-                  {reviewTarget.contact_phone && (
-                    <p className="text-sm text-muted-foreground">{reviewTarget.contact_phone}</p>
-                  )}
+                  <p className="text-sm text-muted-foreground">
+                    <MailtoLink email={reviewTarget.contact_email} />
+                  </p>
+                  {reviewTarget.contact_phone ? (
+                    <p className="text-sm text-muted-foreground">
+                      <TelLink phone={reviewTarget.contact_phone} />
+                    </p>
+                  ) : null}
                 </div>
                 <div>
                   <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
@@ -557,8 +559,9 @@ export default function PartnerInterestPage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="review-comment">
+                <Label htmlFor="review-comment" className="flex items-center gap-1.5">
                   Comment {reviewAction === "decline" ? "(required)" : "(optional)"}
+                  <HelpTip content={PARTNER_INTEREST_COMMENT_TIP} label="About review comment" />
                 </Label>
                 <Textarea
                   id="review-comment"
@@ -582,7 +585,19 @@ export default function PartnerInterestPage() {
             </div>
           )}
 
-          <DialogFooter>
+          <DialogFooter className="flex-col gap-2 sm:flex-row sm:justify-between">
+            {reviewTarget ? (
+              <a
+                href={`mailto:${reviewTarget.contact_email}`}
+                className={cn(buttonVariants({ variant: "outline" }), "sm:mr-auto")}
+              >
+                <Mail className="size-4 mr-2" />
+                Email contact
+              </a>
+            ) : (
+              <span className="hidden sm:block sm:mr-auto" />
+            )}
+            <div className="flex flex-col gap-2 sm:flex-row">
             <Button variant="outline" onClick={closeDialog} disabled={reviewMutation.isPending}>
               Cancel
             </Button>
@@ -610,9 +625,70 @@ export default function PartnerInterestPage() {
                 </>
               )}
             </Button>
+            </div>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+    </div>
+    </TooltipProvider>
+  );
+}
+
+function ReviewActions({
+  interest,
+  canReview,
+  busy,
+  onReview,
+  mobile = false,
+}: {
+  interest: PartnerInterest;
+  canReview: boolean;
+  busy: boolean;
+  onReview: (interest: PartnerInterest, action: ReviewAction) => void;
+  mobile?: boolean;
+}) {
+  if (interest.status !== "pending") {
+    return <span className="text-xs text-muted-foreground">—</span>;
+  }
+  if (!canReview) {
+    return (
+      <p className="text-xs text-muted-foreground">Read only · review permission required</p>
+    );
+  }
+  return (
+    <div className={cn("flex items-center justify-end gap-1.5", mobile && "w-full border-t pt-3")}>
+      <div className={cn("flex items-center gap-1", mobile && "flex-1")}>
+        <Button
+          variant={mobile ? "outline" : "ghost"}
+          size="sm"
+          className={cn(
+            mobile && "h-11 flex-1 text-green-600 hover:text-green-700 border-green-200 hover:bg-green-50 dark:border-green-900 dark:hover:bg-green-950",
+            !mobile && "h-8 text-green-600 hover:text-green-700 hover:bg-green-50 dark:hover:bg-green-950",
+          )}
+          onClick={() => onReview(interest, "approve")}
+          disabled={busy}
+        >
+          <CheckCircle2 className={cn("size-4", mobile ? "mr-1.5" : "mr-1")} />
+          Approve
+        </Button>
+        {!mobile ? <HelpTip content={PARTNER_INTEREST_APPROVE_TIP} label="About approve" /> : null}
+      </div>
+      <div className={cn("flex items-center gap-1", mobile && "flex-1")}>
+        <Button
+          variant={mobile ? "outline" : "ghost"}
+          size="sm"
+          className={cn(
+            mobile && "h-11 flex-1 text-red-600 hover:text-red-700 border-red-200 hover:bg-red-50 dark:border-red-900 dark:hover:bg-red-950",
+            !mobile && "h-8 text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950",
+          )}
+          onClick={() => onReview(interest, "decline")}
+          disabled={busy}
+        >
+          <XCircle className={cn("size-4", mobile ? "mr-1.5" : "mr-1")} />
+          Decline
+        </Button>
+        {!mobile ? <HelpTip content={PARTNER_INTEREST_DECLINE_TIP} label="About decline" /> : null}
+      </div>
     </div>
   );
 }

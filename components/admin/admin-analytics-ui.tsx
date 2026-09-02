@@ -1,5 +1,6 @@
 import type { LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
+import { HelpTip } from "@/components/admin/help-tip";
 import { cn } from "@/lib/utils";
 
 export type MetricTone =
@@ -72,6 +73,7 @@ export function MetricCard({
   label,
   value,
   hint,
+  tip,
   icon: Icon,
   tone = "primary",
   className,
@@ -79,6 +81,7 @@ export function MetricCard({
   label: string;
   value: ReactNode;
   hint?: string;
+  tip?: string;
   icon?: LucideIcon;
   tone?: MetricTone;
   className?: string;
@@ -87,8 +90,9 @@ export function MetricCard({
   return (
     <div className={cn("rounded-2xl border p-4", t.card, className)}>
       <div className="flex items-start justify-between gap-3">
-        <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+        <p className="flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
           {label}
+          {tip ? <HelpTip content={tip} label={`Help: ${label}`} /> : null}
         </p>
         {Icon ? (
           <div
@@ -136,6 +140,7 @@ export function PanelIcon({
 
 export function Panel({
   title,
+  titleTip,
   description,
   action,
   children,
@@ -144,6 +149,7 @@ export function Panel({
   icon: Icon,
 }: {
   title: ReactNode;
+  titleTip?: string;
   description?: string;
   action?: ReactNode;
   children: ReactNode;
@@ -158,6 +164,14 @@ export function Panel({
           <h2 className="flex items-center gap-2 text-base font-semibold leading-6">
             {Icon ? <PanelIcon icon={Icon} tone={tone} /> : null}
             {title}
+            {titleTip ? (
+              <HelpTip
+                content={titleTip}
+                label={
+                  typeof title === "string" ? `Help: ${title}` : "Section help"
+                }
+              />
+            ) : null}
           </h2>
           {description ? (
             <p className="text-[13px] text-muted-foreground">{description}</p>

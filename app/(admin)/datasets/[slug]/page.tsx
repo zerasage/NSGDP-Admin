@@ -31,11 +31,12 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { EmptyState } from "@/components/feedback/empty-state";
 import { StatusBadge } from "@/components/data/status-badge";
-import { VisibilityBadge } from "@/components/data/visibility-badge";
 import { apiClient } from "@/lib/api/client";
-import { adminApi, archiveDataset, getUserById, publishDataset, publishDatasetAnalytics, unarchiveDataset, unpublishDataset, retractDataset } from "@/lib/api/admin";
+import { adminApi, archiveDataset, getUserById, publishDataset, publishDatasetAnalytics, unarchiveDataset, unpublishDataset, retractDataset, type ArchiveDatasetPayload } from "@/lib/api/admin";
+import { ArchiveDatasetDialog } from "@/components/admin/archive-dataset-dialog";
 import { IngestionSummaryCard } from "@/components/admin/ingestion-summary-card";
 import { AnalyticsPipelineStrip } from "@/components/admin/analytics-pipeline-strip";
 import { getCategories } from "@/lib/api/categories";
@@ -48,7 +49,11 @@ import { useToast } from "@/lib/hooks/use-toast";
 import { useAuth } from "@/lib/auth";
 import { useAdminAccess } from "@/lib/hooks/useAdminAccess";
 import { DatasetPreviewCard, DatasetPreviewDialog } from "@/components/data/dataset-preview-card";
+import { DatasetVisibilityControl } from "@/components/admin/dataset-visibility-control";
+import { HelpTip } from "@/components/admin/help-tip";
+import { DATASET_PAGE_TIPS } from "@/lib/constants/dataset-tooltips";
 import { formatDate } from "@/lib/utils/date";
+import { shouldShowLoadAnalyticsButton } from "@/lib/utils/analytics-publish-ui";
 import {
   INGESTION_STATUS_LABEL,
   hasIngestionActivity,
@@ -123,14 +128,27 @@ interface Organisation {
   name: string;
 }
 
-function InfoRow({ icon: Icon, label, value }: { icon: LucideIcon; label: string; value: string }) {
+function InfoRow({
+  icon: Icon,
+  label,
+  value,
+  tip,
+}: {
+  icon: LucideIcon;
+  label: string;
+  value: string;
+  tip?: string;
+}) {
   return (
     <div className="flex gap-3 py-3 first:pt-0 last:pb-0">
       <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-muted">
         <Icon className="size-4 text-muted-foreground" aria-hidden="true" />
       </div>
       <div className="min-w-0">
-        <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{label}</p>
+        <p className="flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+          {label}
+          {tip ? <HelpTip content={tip} label={`Help: ${label}`} /> : null}
+        </p>
         <p className="mt-0.5 break-words text-sm font-medium">{value}</p>
       </div>
     </div>
@@ -247,7 +265,7 @@ export default function DatasetDetailPage({
   });
 
   const archiveMutation = useMutation({
-    mutationFn: () => archiveDataset(slug),
+    mutationFn: (payload?: ArchiveDatasetPayload) => archiveDataset(slug, payload),
     onSuccess: () => {
       toast({ title: "Success", description: "Dataset archived" });
       setArchiveOpen(false);
@@ -481,13 +499,10 @@ export default function DatasetDetailPage({
     pendingAliases > 0;
   const ingestionInFlight = isIngestionInFlight(displayIngestionStatus);
   const analyticsPhase = analyticsPublishStatus?.phase;
-  const showLoadAnalytics =
-    canPublish &&
-    isTabular &&
-    (analyticsPhase === "ready" ||
-      analyticsPhase === "failed" ||
-      (analyticsPublishStatus?.workerHint &&
-        (analyticsPhase === "loading" || analyticsPhase === "updating")));
+  const showLoadAnalytics = shouldShowLoadAnalyticsButton(
+    analyticsPublishStatus,
+    canPublish && isTabular,
+  );
   const ingestionBadgeLabel =
     analyticsPhase === "loading" || analyticsPhase === "updating"
       ? "Loading analytics"
@@ -495,7 +510,13 @@ export default function DatasetDetailPage({
         ? "Published to warehouse"
         : INGESTION_STATUS_LABEL[displayIngestionStatus];
 
+  const canEditVisibility =
+    canAny("approve:datasets", "publish:datasets") &&
+    dataset.status !== "rejected" &&
+    dataset.status !== "archived";
+
   return (
+    <TooltipProvider delay={200}>
     <div className="space-y-6">
       <div>
         <Button variant="ghost" size="sm" className="mb-3 -ml-3 gap-1.5" onClick={() => router.back()}>
@@ -511,7 +532,12 @@ export default function DatasetDetailPage({
           </div>
           <div className="flex shrink-0 flex-wrap items-center gap-2">
             <StatusBadge status={dataset.status} publishedAt={dataset.published_at} />
-            <VisibilityBadge visibility={dataset.visibility} />
+            <DatasetVisibilityControl
+              slug={slug}
+              visibility={dataset.visibility}
+              canEdit={canEditVisibility}
+              compact
+            />
             <Badge variant="outline" className="rounded-full text-[11px] font-semibold uppercase">
               {dataset.format}
             </Badge>
@@ -563,48 +589,67 @@ export default function DatasetDetailPage({
             </Button>
           )}
           {canPublish && dataset.status === 'approved' && !dataset.published_at && (
-            <Button
-              size="sm"
-              onClick={() => publishMutation.mutate()}
-              disabled={publishMutation.isPending}
-              title={
-                isTabular && pendingAliases > 0
-                  ? `${pendingAliases} alias${pendingAliases === 1 ? "" : "es"} still pending — catalogue publish is allowed; analytics waits until they are resolved`
-                  : undefined
-              }
-            >
-              <Globe className="size-4" aria-hidden="true" />
-              Publish to catalogue
-            </Button>
+            <div className="inline-flex items-center gap-1">
+              <Button
+                size="sm"
+                onClick={() => publishMutation.mutate()}
+                disabled={publishMutation.isPending}
+                title={
+                  isTabular && pendingAliases > 0
+                    ? `${pendingAliases} alias${pendingAliases === 1 ? "" : "es"} still pending — catalogue publish is allowed; analytics waits until they are resolved`
+                    : undefined
+                }
+              >
+                <Globe className="size-4" aria-hidden="true" />
+                Publish to catalogue
+              </Button>
+              <HelpTip
+                content={DATASET_PAGE_TIPS.publish_catalogue}
+                label="About publish to catalogue"
+              />
+            </div>
           )}
           {canPublish && dataset.status === 'approved' && dataset.published_at && (
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => unpublishMutation.mutate()}
-              disabled={unpublishMutation.isPending}
-            >
-              <Globe className="size-4" aria-hidden="true" />
-              Unpublish
-            </Button>
+            <div className="inline-flex items-center gap-1">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => unpublishMutation.mutate()}
+                disabled={unpublishMutation.isPending}
+              >
+                <Globe className="size-4" aria-hidden="true" />
+                Unpublish
+              </Button>
+              <HelpTip
+                content={DATASET_PAGE_TIPS.unpublish_catalogue}
+                label="About unpublish"
+              />
+            </div>
           )}
           {showLoadAnalytics && (
-            <Button
-              size="sm"
-              onClick={() => loadAnalyticsMutation.mutate()}
-              disabled={loadAnalyticsMutation.isPending}
-            >
-              {loadAnalyticsMutation.isPending ? (
-                <Loader2 className="size-4 animate-spin" aria-hidden="true" />
-              ) : (
-                <Activity className="size-4" aria-hidden="true" />
-              )}
-              {analyticsPhase === "failed" ? "Retry analytics load" : "Load analytics"}
-            </Button>
+            <div className="inline-flex items-center gap-1">
+              <Button
+                size="sm"
+                onClick={() => loadAnalyticsMutation.mutate()}
+                disabled={loadAnalyticsMutation.isPending}
+              >
+                {loadAnalyticsMutation.isPending ? (
+                  <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+                ) : (
+                  <Activity className="size-4" aria-hidden="true" />
+                )}
+                {analyticsPhase === "failed" ? "Retry analytics load" : "Load analytics"}
+              </Button>
+              <HelpTip
+                content={DATASET_PAGE_TIPS.load_analytics}
+                label="About load analytics"
+              />
+            </div>
           )}
           {canPublish &&
             (displayIngestionStatus === "published" ||
               !!dataset.analytics_published_at) && (
+            <div className="inline-flex items-center gap-1">
             <Button
               size="sm"
               variant="destructive"
@@ -613,6 +658,11 @@ export default function DatasetDetailPage({
               <Undo2 className="size-4" aria-hidden="true" />
               Retract analytics
             </Button>
+            <HelpTip
+              content={DATASET_PAGE_TIPS.retract_analytics}
+              label="About retract analytics"
+            />
+            </div>
           )}
           {displayIngestionStatus === 'retracting' && (
             <Badge variant="outline" className="gap-1.5">
@@ -903,6 +953,7 @@ export default function DatasetDetailPage({
                   icon={Globe}
                   label="Catalogue"
                   value={dataset.published_at ? formatDate(dataset.published_at) : "Not yet published"}
+                  tip={DATASET_PAGE_TIPS.catalogue}
                 />
               )}
               {isTabular && dataset.status === "approved" && (
@@ -914,6 +965,7 @@ export default function DatasetDetailPage({
                       ? formatDate(dataset.analytics_published_at)
                       : "Not loaded"
                   }
+                  tip={DATASET_PAGE_TIPS.analytics}
                 />
               )}
             </CardContent>
@@ -968,24 +1020,23 @@ export default function DatasetDetailPage({
       </div>
 
       <ConfirmDialog
-        open={archiveOpen}
+        open={archiveOpen && dataset.status === "archived"}
         onOpenChange={setArchiveOpen}
-        title={dataset.status === "archived" ? "Restore dataset?" : "Archive dataset?"}
-        description={
-          dataset.status === "archived"
-            ? `"${dataset.title}" will be restored to its previous workflow status.`
-            : `"${dataset.title}" will be removed from the public catalogue but remains accessible to admins.`
-        }
-        confirmLabel={dataset.status === "archived" ? "Restore" : "Archive"}
-        variant={dataset.status === "archived" ? "default" : "destructive"}
-        loading={archiveMutation.isPending || unarchiveMutation.isPending}
-        onConfirm={() => {
-          if (dataset.status === "archived") {
-            unarchiveMutation.mutate();
-          } else {
-            archiveMutation.mutate();
-          }
-        }}
+        title="Restore dataset?"
+        description={`"${dataset.title}" will be restored to its previous workflow status.`}
+        confirmLabel="Restore"
+        loading={unarchiveMutation.isPending}
+        onConfirm={() => unarchiveMutation.mutate()}
+      />
+
+      <ArchiveDatasetDialog
+        open={archiveOpen && dataset.status !== "archived"}
+        onOpenChange={setArchiveOpen}
+        title="Archive dataset?"
+        datasetTitle={dataset.title}
+        analyticsPublished={Boolean(dataset.analytics_published_at)}
+        loading={archiveMutation.isPending}
+        onConfirm={(payload) => archiveMutation.mutate(payload)}
       />
       <DatasetPreviewDialog
         slug={slug}
@@ -1005,5 +1056,6 @@ export default function DatasetDetailPage({
         onConfirm={() => retractMutation.mutate()}
       />
     </div>
+    </TooltipProvider>
   );
 }

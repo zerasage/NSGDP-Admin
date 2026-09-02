@@ -22,6 +22,7 @@ import {
   Mail,
   Network,
   Activity,
+  HeartPulse,
   ShieldAlert,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -51,6 +52,7 @@ export const adminNavItems: Array<{
   { href: "/datasets", label: "Review Queue", icon: FileCheck, anyPermission: ["approve:datasets", "publish:datasets"] },
   { href: "/upload?agency=1", label: "Upload to Agency", icon: Upload, anyPermission: ["create:datasets"] },
   { href: "/ingestion-ops", label: "Ingestion Ops", icon: Activity, anyPermission: ["manage:indicators"] },
+  { href: "/system-health", label: "System Health", icon: HeartPulse, superAdminOnly: true },
   { href: "/access-requests", label: "Access Requests", icon: KeyRound, anyPermission: ["view:access-requests", "approve:access-requests"] },
   { href: "/organisations", label: "Organisations", icon: Building2 },
   // Blanket-staff-readable, same as Organisations/Audit Log: everyone in the

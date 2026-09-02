@@ -33,10 +33,21 @@ import { LifecycleBadge } from "@/components/data/lifecycle-badge";
 import { QAChecklistItem, type QAResult } from "@/components/data/qa-checklist-item";
 import { formatDate } from "@/lib/utils/date";
 import { DatasetPreviewCard } from "@/components/data/dataset-preview-card";
+import { DatasetVisibilityControl } from "@/components/admin/dataset-visibility-control";
+import { HelpTip } from "@/components/admin/help-tip";
 import { QA_DIMENSIONS, isQAChecklistPassed } from "@/lib/constants/qa-checklist";
+import {
+  REVIEW_DECISION_TIP,
+  REVIEW_PAGE_TIP,
+  REVIEW_REVISION_TIP,
+  REVIEW_SEND_APPROVAL_TIP,
+  REVIEW_SUBMISSION_SUMMARY_TIP,
+} from "@/lib/constants/review-tooltips";
+import { UPLOAD_FIELD_TOOLTIPS } from "@/lib/constants/upload-tooltips";
 import { HelpTooltip } from "@/components/feedback/help-tooltip";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { toLifecycleStage } from "@/lib/utils/lifecycle-stage";
-import type { LifecycleStage } from "@/types";
+import type { LifecycleStage, Visibility } from "@/types";
 import type { DatasetStatus } from "@/lib/api/datasets";
 
 interface Dataset {
@@ -77,8 +88,9 @@ export default function DatasetReviewScreenPage({
   const router = useRouter();
   const { toast } = useToast();
   const { user } = useAuth();
-  const { can } = useAdminAccess();
+  const { can, canAny } = useAdminAccess();
   const canApprove = can("approve:datasets");
+  const canEditVisibility = canAny("approve:datasets", "publish:datasets");
   const canArchive = can("archive:datasets");
 
   const [stageOverride, setStageOverride] = useState<LifecycleStage | null>(null);
@@ -181,7 +193,9 @@ export default function DatasetReviewScreenPage({
   };
 
   const handleArchive = () => {
-    archiveDataset(slug, archiveReason.trim() || undefined)
+    archiveDataset(slug, {
+      reason: archiveReason.trim() || undefined,
+    })
       .then(() => {
         toast({ title: "Success", description: "Dataset archived" });
         router.push("/datasets");
@@ -237,6 +251,7 @@ export default function DatasetReviewScreenPage({
   }
 
   return (
+    <TooltipProvider delay={200}>
     <div className="space-y-6">
       <div>
         <Button variant="ghost" size="sm" className="mb-3 -ml-3 gap-1.5" onClick={() => router.push("/datasets")}>
@@ -245,7 +260,10 @@ export default function DatasetReviewScreenPage({
         </Button>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div className="min-w-0">
-            <h1 className="text-2xl font-bold leading-8">Review dataset</h1>
+            <h1 className="flex items-center gap-2 text-2xl font-bold leading-8">
+              Review dataset
+              <HelpTip content={REVIEW_PAGE_TIP} label="About dataset review" />
+            </h1>
             <p className="mt-1 text-sm text-muted-foreground">{dataset.title}</p>
           </div>
           <LifecycleBadge stage={stage} />
@@ -307,7 +325,13 @@ export default function DatasetReviewScreenPage({
         <div className="space-y-6 xl:sticky xl:top-6">
           <Card>
             <CardHeader className="border-b">
-              <CardTitle>Submission summary</CardTitle>
+              <CardTitle className="flex items-center gap-2 text-base">
+                Submission summary
+                <HelpTip
+                  content={REVIEW_SUBMISSION_SUMMARY_TIP}
+                  label="About submission summary"
+                />
+              </CardTitle>
             </CardHeader>
             <CardContent>
               <dl className="divide-y text-sm">
@@ -315,7 +339,6 @@ export default function DatasetReviewScreenPage({
                   ["Organisation", organisation?.name ?? "Not provided"],
                   ["Category", category?.name ?? "Not provided"],
                   ["Format", dataset.format?.toUpperCase()],
-                  ["Visibility", dataset.visibility],
                   ["License", dataset.license ?? "Not provided"],
                   ["Submitted", dataset.submitted_at ? formatDate(dataset.submitted_at) : formatDate(dataset.created_at)],
                   ["Coverage", dataset.geographic_coverage?.length ? `${dataset.geographic_coverage.length} location(s)` : "Not provided"],
@@ -325,13 +348,34 @@ export default function DatasetReviewScreenPage({
                     <dd className="text-right text-sm font-medium capitalize">{value}</dd>
                   </div>
                 ))}
+                <div className="flex flex-col gap-2 py-3 last:pb-0">
+                  <dt className="flex items-center gap-1 text-xs font-medium text-muted-foreground">
+                    Visibility
+                    <HelpTip
+                      content={UPLOAD_FIELD_TOOLTIPS.visibility}
+                      label="About dataset visibility"
+                    />
+                  </dt>
+                  <dd>
+                    <DatasetVisibilityControl
+                      slug={slug}
+                      visibility={dataset.visibility as Visibility}
+                      canEdit={canEditVisibility}
+                      stacked
+                      showHelpTip={false}
+                    />
+                  </dd>
+                </div>
               </dl>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="border-b">
-              <CardTitle>Review decision</CardTitle>
+              <CardTitle className="flex items-center gap-2 text-base">
+                Review decision
+                <HelpTip content={REVIEW_DECISION_TIP} label="About review decision" />
+              </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
@@ -351,23 +395,35 @@ export default function DatasetReviewScreenPage({
                   ? "All required checks passed. The dataset is ready for the director's decision."
                   : "Complete every check with no failures before sending this dataset for director approval."}
               </p>
-              <Button
-                className="h-11 w-full gap-1.5 sm:h-9"
-                onClick={handleSendForApproval}
-                disabled={!canSendForApproval || saveChecklistMutation.isPending}
-              >
-                <CheckCircle2 className="size-4" aria-hidden="true" />
-                Send for director approval
-                <Send className="size-4" aria-hidden="true" />
-              </Button>
-              <Button
-                variant="outline"
-                className="h-11 w-full gap-1.5 text-destructive hover:text-destructive sm:h-9"
-                onClick={() => setRevisionOpen(true)}
-              >
-                <XCircle className="size-4" aria-hidden="true" />
-                Request revision
-              </Button>
+              <div className="flex items-center gap-1.5">
+                <Button
+                  className="h-11 min-w-0 flex-1 gap-1.5 sm:h-9"
+                  onClick={handleSendForApproval}
+                  disabled={!canSendForApproval || saveChecklistMutation.isPending}
+                >
+                  <CheckCircle2 className="size-4" aria-hidden="true" />
+                  Send for director approval
+                  <Send className="size-4" aria-hidden="true" />
+                </Button>
+                <HelpTip
+                  content={REVIEW_SEND_APPROVAL_TIP}
+                  label="About send for director approval"
+                />
+              </div>
+              <div className="flex items-center gap-1.5">
+                <Button
+                  variant="outline"
+                  className="h-11 min-w-0 flex-1 gap-1.5 text-destructive hover:text-destructive sm:h-9"
+                  onClick={() => setRevisionOpen(true)}
+                >
+                  <XCircle className="size-4" aria-hidden="true" />
+                  Request revision
+                </Button>
+                <HelpTip
+                  content={REVIEW_REVISION_TIP}
+                  label="About request revision"
+                />
+              </div>
               {canArchive && (
                 <Button variant="ghost" className="h-11 w-full gap-1.5 sm:h-9" onClick={() => setArchiveOpen(true)}>
                   <Archive className="size-4" aria-hidden="true" />
@@ -435,5 +491,6 @@ export default function DatasetReviewScreenPage({
         </DialogContent>
       </Dialog>
     </div>
+    </TooltipProvider>
   );
 }

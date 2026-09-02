@@ -3,6 +3,8 @@
 import { useSyncExternalStore } from "react";
 import { Check, Circle, Loader2, X } from "lucide-react";
 import type { IngestionProgress, IngestionStep } from "@/lib/api/ingestion-review";
+import { HelpTip } from "@/components/admin/help-tip";
+import { INGESTION_PROGRESS_TIP } from "@/lib/constants/dataset-tooltips";
 import { cn } from "@/lib/utils";
 
 /** One shared second-ticker so live elapsed labels stay pure during render. */
@@ -185,8 +187,9 @@ export function IngestionProgressPanel({
     >
       <div className="flex flex-wrap items-end justify-between gap-2">
         <div className="min-w-0 space-y-0.5">
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+          <p className="flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
             Pipeline progress
+            <HelpTip content={INGESTION_PROGRESS_TIP} label="About pipeline progress" />
           </p>
           <p className="text-sm text-foreground">{stageCaption(progress)}</p>
           {totalElapsed ? (

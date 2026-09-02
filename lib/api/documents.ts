@@ -209,10 +209,25 @@ export async function unpublishDocument(slug: string): Promise<AdminDocument> {
 }
 
 export async function downloadDocument(
-  slug: string
+  slug: string,
+  mode: 'view' | 'download' = 'download',
 ): Promise<{ downloadUrl: string; fileName: string }> {
+  const query = new URLSearchParams({ mode });
   const response = await apiClient.post<
     ApiResponse<{ downloadUrl: string; fileName: string }>
-  >(`/documents/${slug}/download`);
+  >(`/documents/${slug}/download?${query.toString()}`);
+  return response.data.data;
+}
+
+export interface DocumentTextPreview {
+  content: string;
+  truncated: boolean;
+  kind: 'text' | 'json';
+}
+
+export async function getDocumentTextPreview(slug: string): Promise<DocumentTextPreview> {
+  const response = await apiClient.get<ApiResponse<DocumentTextPreview>>(
+    `/documents/${slug}/preview-text`,
+  );
   return response.data.data;
 }

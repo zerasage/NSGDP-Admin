@@ -15,7 +15,9 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useUploadAgreement } from "@/lib/hooks/useOrganisations";
+import { HelpTip } from "@/components/admin/help-tip";
 import { getOrganisationAgreementUrl, type Organisation } from "@/lib/api/organisations";
+import { ORGANISATION_AGREEMENT_TIP } from "@/lib/constants/organisations-tooltips";
 import { formatDate } from "@/lib/utils/date";
 import { toast } from "sonner";
 
@@ -73,7 +75,10 @@ export function OrganisationAgreementCard({ org, orgId, slug, canManage }: Organ
   return (
     <Card size="sm">
       <CardHeader>
-        <CardTitle className="text-base">Data-Sharing Agreement</CardTitle>
+        <CardTitle className="flex items-center gap-2 text-base">
+          Data-Sharing Agreement
+          <HelpTip content={ORGANISATION_AGREEMENT_TIP} label="About data-sharing agreement" />
+        </CardTitle>
       </CardHeader>
       <CardContent>
         {hasAgreement ? (

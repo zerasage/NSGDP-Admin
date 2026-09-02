@@ -6,6 +6,7 @@ import {
   updateDocument,
   archiveDocument,
   submitDocumentForReview,
+  downloadDocument,
   type CreateDocumentPayload,
   type UpdateDocumentPayload,
   type GetDocumentsParams,
@@ -66,6 +67,26 @@ export function useArchiveDocument() {
     mutationFn: (slug: string) => archiveDocument(slug),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['documents'] });
+    },
+  });
+}
+
+export function useDownloadDocument() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      slug,
+      mode,
+    }: {
+      slug: string;
+      mode?: 'view' | 'download';
+    }) => downloadDocument(slug, mode),
+    onSuccess: (_, { slug, mode }) => {
+      if (mode !== 'view') {
+        queryClient.invalidateQueries({ queryKey: ['documents'] });
+        queryClient.invalidateQueries({ queryKey: ['document', slug] });
+      }
     },
   });
 }

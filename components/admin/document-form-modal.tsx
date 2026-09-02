@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useForm, Controller } from "react-hook-form";
+import { useQueryClient } from "@tanstack/react-query";
 import { FileText, Loader2, Upload } from "lucide-react";
 import {
   Dialog,
@@ -24,6 +25,7 @@ import {
 } from "@/components/ui/select";
 import { FormError } from "@/components/forms/form-error";
 import { useCreateDocument, useUpdateDocument } from "@/lib/hooks/useDocuments";
+import { archiveDocument } from "@/lib/api/documents";
 import { uploadFile } from "@/lib/api/uploads";
 import type { AdminDocument, DocumentType } from "@/lib/api/documents";
 import { toast } from "sonner";
@@ -56,7 +58,9 @@ interface DocumentFormModalProps {
 
 export function DocumentFormModal({ open, onClose, document }: DocumentFormModalProps) {
   const isEditing = !!document;
+  const queryClient = useQueryClient();
   const [file, setFile] = useState<File | null>(null);
+  const [fileError, setFileError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const createMutation = useCreateDocument();
   const updateMutation = useUpdateDocument();
@@ -88,11 +92,19 @@ export function DocumentFormModal({ open, onClose, document }: DocumentFormModal
       });
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setFile(null);
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setFileError(null);
     }
   }, [open, document, reset]);
 
   const onSubmit = async (data: DocumentFormData) => {
+    if (!isEditing && !file) {
+      setFileError("Select a file before creating the document");
+      return;
+    }
+
     setSubmitting(true);
+    setFileError(null);
     try {
       if (isEditing) {
         await updateMutation.mutateAsync({
@@ -107,14 +119,11 @@ export function DocumentFormModal({ open, onClose, document }: DocumentFormModal
         });
         if (file) {
           await uploadFile(file, undefined, document.id);
+          await queryClient.invalidateQueries({ queryKey: ["documents"] });
+          await queryClient.invalidateQueries({ queryKey: ["document", document.slug] });
         }
         toast.success("Document updated");
       } else {
-        if (!file) {
-          toast.error("Attach a file before creating the document");
-          setSubmitting(false);
-          return;
-        }
         const created = await createMutation.mutateAsync({
           title: data.title,
           description: data.description,
@@ -122,7 +131,18 @@ export function DocumentFormModal({ open, onClose, document }: DocumentFormModal
           version: data.version || undefined,
           author: data.author || undefined,
         });
-        await uploadFile(file, undefined, created.id);
+        try {
+          await uploadFile(file!, undefined, created.id);
+          await queryClient.invalidateQueries({ queryKey: ["documents"] });
+          await queryClient.invalidateQueries({ queryKey: ["document", created.slug] });
+        } catch (uploadError) {
+          try {
+            await archiveDocument(created.slug);
+          } catch {
+            // Best-effort cleanup if upload fails after metadata create.
+          }
+          throw uploadError;
+        }
         toast.success(`Document "${created.title}" created`);
       }
       onClose();
@@ -149,7 +169,7 @@ export function DocumentFormModal({ open, onClose, document }: DocumentFormModal
           <DialogDescription>
             {isEditing
               ? "Update this document's metadata, or replace its file."
-              : "Upload a new SOP, policy, guideline, report, or other document. Starts as Draft until published."}
+              : "Upload a file and register metadata in one step. Supported formats include PDF and Office documents."}
           </DialogDescription>
         </DialogHeader>
 
@@ -227,8 +247,14 @@ export function DocumentFormModal({ open, onClose, document }: DocumentFormModal
               type="file"
               accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.csv,.txt,.rtf,.md,.png,.jpg,.jpeg,.gif,.webp,.svg,.tif,.tiff,.json,.geojson,.gpkg,.kml,.kmz,.zip"
               className="mt-1.5"
-              onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+              aria-invalid={!!fileError}
+              onChange={(e) => {
+                const next = e.target.files?.[0] ?? null;
+                setFile(next);
+                if (next) setFileError(null);
+              }}
             />
+            <FormError message={fileError ?? undefined} />
             <p className="mt-1 text-xs text-muted-foreground">
               PDF, Office, images, GeoJSON/JSON, GeoPackage, KML/KMZ, or ZIP. Warehouse data files still go through Datasets.
             </p>
@@ -246,7 +272,7 @@ export function DocumentFormModal({ open, onClose, document }: DocumentFormModal
             <Button type="button" variant="outline" onClick={handleClose} disabled={submitting}>
               Cancel
             </Button>
-            <Button type="submit" disabled={submitting}>
+            <Button type="submit" disabled={submitting || (!isEditing && !file)}>
               {submitting ? (
                 <>
                   <Loader2 className="size-4 mr-2 animate-spin" />

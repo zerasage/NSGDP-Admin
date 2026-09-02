@@ -1,16 +1,16 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { AlertTriangle, Activity, BarChart3, CheckCircle2, Clock, Database, GitBranch, Link2, Loader2, RotateCcw, ShieldAlert, Sparkles, TrendingUp, Trash2, XCircle, Zap } from "lucide-react";
+import { AlertTriangle, Activity, BarChart3, CheckCircle2, Database, GitBranch, Link2, Loader2, ShieldAlert, Sparkles, TrendingUp, XCircle, Zap } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { useAdminAccess } from "@/lib/hooks/useAdminAccess";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
-import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { EmptyState } from "@/components/feedback/empty-state";
 import {
   Table,
@@ -21,11 +21,6 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import {
-  useObservability,
-  useQueueHealth,
-  useDeadLetterJobs,
-  useRetryDeadLetterJob,
-  useDiscardDeadLetterJob,
   useAiSpend,
   useRunCalibration,
   useRunShiftDetection,
@@ -37,387 +32,62 @@ import {
   useChangepoints,
   useConfirmChangepoint,
   useRejectChangepoint,
+  useConflictDatasetSummaries,
 } from "@/lib/hooks/useIngestionOps";
 import {
   useBackfillIngestion,
-  useInFlightIngestionJobs,
   useReviewQueue,
 } from "@/lib/hooks/useIngestionReview";
 import { DataReviewQueueTab } from "@/components/admin/data-review-queue-tab";
 import { IndicatorsRegistryTab } from "@/components/admin/indicators-registry-tab";
 import { DatasetCompareTab } from "@/components/admin/dataset-compare-tab";
+import { ConflictsTab } from "@/components/admin/conflicts-tab";
+import { AnalyticsWarehouseTab } from "@/components/admin/analytics-warehouse-tab";
+import { PipelineTab } from "@/components/admin/pipeline-tab";
+import { IngestionMetricsTab } from "@/components/admin/ingestion-metrics-tab";
 import { IngestionOpsTabsNav } from "@/components/admin/ingestion-ops-tabs-nav";
+import {
+  IngestionOpsGuideButton,
+} from "@/components/admin/ingestion-ops-help-panel";
+import {
+  IngestionOpsHelpFab,
+  IngestionOpsTabHelpDialog,
+} from "@/components/admin/ingestion-ops-tab-help-dialog";
+import { IngestionOpsHelpDialog } from "@/components/admin/ingestion-ops-help-dialog";
+import type { IngestionOpsTabId } from "@/lib/constants/ingestion-ops-help";
+import { HelpTip } from "@/components/admin/help-tip";
+import {
+  AI_SPEND_TIPS,
+  INGESTION_OPS_BACKFILL_TIP,
+  INGESTION_OPS_PAGE_TIP,
+  METRICS_CARD_TIPS,
+  STAGE8_TIPS,
+} from "@/lib/constants/ingestion-ops-tooltips";
 import { MetricCard, Panel, DataTableShell, type MetricTone } from "@/components/admin/admin-analytics-ui";
-import { SpeciesDistributionChart } from "@/components/charts/ingestion-charts";
-import { formatDate } from "@/lib/utils/date";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
 const OPS_TABS = [
   "observability",
-  "active",
+  "pipeline",
   "aliases",
+  "conflicts",
   "indicators",
+  "warehouse",
   "compare",
   "ai-spend",
-  "calibration",
   "stage8",
-  "queue-health",
-  "dead-letter",
 ] as const;
 
 type OpsTab = (typeof OPS_TABS)[number];
 
 function parseOpsTab(value: string | null): OpsTab {
+  if (value === "active") return "pipeline";
+  if (value === "calibration") return "stage8";
   if (value && (OPS_TABS as readonly string[]).includes(value)) {
     return value as OpsTab;
   }
   return "observability";
-}
-
-function jobStatusLabel(status: string): string {
-  if (status === "pending") return "Queued";
-  if (status === "validating") return "Validating";
-  if (status === "processing") return "Running";
-  return status;
-}
-
-function ActiveJobsTab() {
-  const { data, isLoading } = useInFlightIngestionJobs();
-
-  if (isLoading) return <Skeleton className="h-64 rounded-2xl" />;
-
-  if (!data || data.length === 0) {
-    return (
-      <EmptyState
-        title="Nothing queued or running"
-        description="When datasets are submitted for review or catch-up is run, active ingestion jobs appear here."
-      />
-    );
-  }
-
-  return (
-    <Panel
-      title="Active ingestion jobs"
-      description="Queued and running dataset uploads across the platform."
-      icon={Loader2}
-      tone="info"
-    >
-      <DataTableShell>
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Dataset</TableHead>
-            <TableHead>Status</TableHead>
-            <TableHead>Stage</TableHead>
-            <TableHead className="text-right">Progress</TableHead>
-            <TableHead>Queued</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {data.map((job) => {
-            const pct = Math.min(100, Math.max(0, job.progress ?? 0));
-            const stage =
-              job.steps.find((s) => s.status === "running")?.label ??
-              (job.status === "pending" ? "Waiting for worker" : "—");
-            const href = job.datasetSlug
-              ? `/datasets/${job.datasetSlug}/ingestion`
-              : null;
-
-            return (
-              <TableRow key={job.jobId}>
-                <TableCell className="max-w-70">
-                  {href ? (
-                    <Link
-                      href={href}
-                      className="font-medium text-primary underline-offset-4 hover:underline"
-                    >
-                      {job.datasetTitle ?? job.datasetId ?? "Unknown dataset"}
-                    </Link>
-                  ) : (
-                    <span className="font-medium">
-                      {job.datasetTitle ?? job.datasetId ?? "Unknown dataset"}
-                    </span>
-                  )}
-                </TableCell>
-                <TableCell>
-                  <Badge
-                    variant="outline"
-                    className={cn(
-                      "gap-1.5 text-[10px] uppercase",
-                      job.status === "processing" && "border-info/30 bg-info/10 text-info",
-                      job.status === "pending" && "border-warning/30 bg-warning/10 text-amber-700 dark:text-warning"
-                    )}
-                  >
-                    {(job.status === "processing" || job.status === "validating") && (
-                      <Loader2 className="size-3 animate-spin" aria-hidden />
-                    )}
-                    {jobStatusLabel(job.status)}
-                  </Badge>
-                </TableCell>
-                <TableCell className="text-[13px] text-muted-foreground">{stage}</TableCell>
-                <TableCell className="text-right">
-                  <div className="ml-auto flex w-28 flex-col items-end gap-1">
-                    <span className="text-xs font-semibold tabular-nums">{pct}%</span>
-                    <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
-                      <div
-                        className={cn(
-                          "h-full rounded-full transition-[width] duration-500",
-                          job.status === "processing" ? "bg-info" : "bg-primary",
-                          job.status === "pending" && pct === 0 && "min-w-1"
-                        )}
-                        style={{ width: `${job.status === "pending" && pct === 0 ? 4 : pct}%` }}
-                      />
-                    </div>
-                  </div>
-                </TableCell>
-                <TableCell className="text-[13px] text-muted-foreground">
-                  {formatDate(job.createdAt)}
-                </TableCell>
-              </TableRow>
-            );
-          })}
-        </TableBody>
-      </Table>
-      </DataTableShell>
-    </Panel>
-  );
-}
-
-function ObservabilityTab() {
-  const { data, isLoading } = useObservability();
-
-  if (isLoading) return <Skeleton className="h-64 rounded-2xl" />;
-  if (!data) return <EmptyState title="No observability data available" />;
-
-  return (
-    <div className="space-y-4">
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <MetricCard
-          label="Auto-resolution rate"
-          value={`${Math.round(data.autoResolutionRate * 100)}%`}
-          icon={Zap}
-          tone="success"
-        />
-        <MetricCard
-          label="Staging total"
-          value={data.stagingTotal.toLocaleString()}
-          icon={Database}
-          tone="info"
-        />
-        <MetricCard
-          label="Indicator pending"
-          value={data.indicatorPending}
-          icon={BarChart3}
-          tone="warning"
-        />
-        <MetricCard
-          label="Pending aliases"
-          value={data.reviewQueueAge.pendingAliases}
-          icon={Link2}
-          tone="destructive"
-        />
-      </div>
-
-      <div className="grid gap-4 sm:grid-cols-2">
-        <MetricCard
-          label="Review queue p50"
-          value={`${Math.round(data.reviewQueueAge.p50Seconds)}s`}
-          hint={`p95 ${Math.round(data.reviewQueueAge.p95Seconds)}s`}
-          icon={Clock}
-          tone="muted"
-        />
-        <MetricCard
-          label="Auto-resolution target"
-          value={`>${Math.round(data.targets.month1AutoResolution * 100)}%`}
-          hint={`Month 3 target >${Math.round(data.targets.month3AutoResolution * 100)}%`}
-          icon={TrendingUp}
-          tone="primary"
-        />
-      </div>
-
-      {data.speciesDistribution.length > 0 && (
-        <Panel
-          title="Species distribution"
-          description="Workbook layout types seen during ingestion."
-          icon={BarChart3}
-          tone="info"
-        >
-          <SpeciesDistributionChart data={data.speciesDistribution} />
-        </Panel>
-      )}
-    </div>
-  );
-}
-
-function QueueHealthTab() {
-  const { data, isLoading } = useQueueHealth();
-
-  if (isLoading) return <Skeleton className="h-64 rounded-2xl" />;
-  if (!data) return <EmptyState title="No queue health data available" />;
-
-  const totalWaiting = data.queues.reduce((s, q) => s + q.waiting, 0);
-  const totalActive = data.queues.reduce((s, q) => s + q.active, 0);
-  const totalFailed = data.queues.reduce((s, q) => s + q.failed, 0);
-
-  return (
-    <div className="space-y-4">
-      <div className="grid gap-3 sm:grid-cols-3">
-        <MetricCard
-          label="Queue status"
-          value={data.status === "healthy" ? "Healthy" : "Degraded"}
-          hint={`Checked ${formatDate(data.checkedAt)}`}
-          icon={CheckCircle2}
-          tone={data.status === "healthy" ? "success" : "warning"}
-        />
-        <MetricCard label="Waiting jobs" value={totalWaiting} icon={Clock} tone="warning" />
-        <MetricCard label="Failed jobs" value={totalFailed} icon={AlertTriangle} tone="destructive" />
-      </div>
-
-      {data.warnings.length > 0 && (
-        <div className="rounded-2xl border border-warning/30 bg-warning/[0.08] p-4 text-sm">
-          <div className="flex items-start gap-2">
-            <AlertTriangle className="mt-0.5 size-4 shrink-0 text-amber-700 dark:text-warning" />
-            <ul className="space-y-1">
-              {data.warnings.map((w, i) => (
-                <li key={i}>{w}</li>
-              ))}
-            </ul>
-          </div>
-        </div>
-      )}
-
-      <Panel
-        title="Queue breakdown"
-        description={`${totalActive} job(s) active across ${data.queues.length} queue(s).`}
-        icon={Activity}
-        tone="success"
-      >
-        <DataTableShell>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Queue</TableHead>
-                <TableHead className="text-right">Waiting</TableHead>
-                <TableHead className="text-right">Active</TableHead>
-                <TableHead className="text-right">Failed</TableHead>
-                <TableHead className="text-right">Oldest waiting</TableHead>
-                <TableHead>Status</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {data.queues.map((q) => (
-                <TableRow key={q.queue}>
-                  <TableCell className="font-medium">{q.queue}</TableCell>
-                  <TableCell className="text-right tabular-nums">{q.waiting}</TableCell>
-                  <TableCell className="text-right tabular-nums">{q.active}</TableCell>
-                  <TableCell className={cn("text-right tabular-nums", q.failed > 0 && "font-semibold text-destructive")}>
-                    {q.failed}
-                  </TableCell>
-                  <TableCell className="text-right tabular-nums">
-                    {q.oldestWaitingAgeMs != null ? `${Math.round(q.oldestWaitingAgeMs / 1000)}s` : "—"}
-                  </TableCell>
-                  <TableCell>
-                    {q.paused ? (
-                      <Badge variant="outline" className="border-warning/30 bg-warning/10 text-amber-700 dark:text-warning">
-                        Paused
-                      </Badge>
-                    ) : (
-                      <Badge variant="outline" className="border-success/30 bg-success/10 text-success">
-                        Running
-                      </Badge>
-                    )}
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </DataTableShell>
-      </Panel>
-    </div>
-  );
-}
-
-function DeadLetterTab() {
-  const { data: jobs, isLoading } = useDeadLetterJobs();
-  const retryMutation = useRetryDeadLetterJob();
-  const discardMutation = useDiscardDeadLetterJob();
-  const [discardTarget, setDiscardTarget] = useState<string | null>(null);
-
-  if (isLoading) return <Skeleton className="h-64 rounded-2xl" />;
-
-  if (!jobs || jobs.length === 0) {
-    return <EmptyState title="No dead-lettered jobs" description="Everything is draining normally." />;
-  }
-
-  return (
-    <div className="space-y-3">
-      {jobs.map((job) => (
-        <div
-          key={job.id}
-          className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-destructive/20 bg-destructive/[0.03] p-4 sm:p-5"
-        >
-            <div className="min-w-0">
-              <div className="flex items-center gap-2">
-                <p className="text-sm font-medium">{job.payload.jobName}</p>
-                <Badge variant="outline" className="text-[10px]">{job.payload.queue}</Badge>
-                <Badge variant="secondary" className="text-[10px]">
-                  {job.payload.attemptsMade} attempt(s)
-                </Badge>
-              </div>
-              <p className="mt-0.5 truncate text-xs text-muted-foreground">
-                {job.payload.failedReason}
-              </p>
-              <p className="mt-0.5 text-xs text-muted-foreground">{formatDate(job.createdAt)}</p>
-            </div>
-            <div className="flex shrink-0 items-center gap-2">
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() =>
-                  retryMutation.mutate(job.id, {
-                    onSuccess: () => toast.success("Job re-enqueued"),
-                    onError: (error: unknown) =>
-                      toast.error(error instanceof Error ? error.message : "Failed to retry job"),
-                  })
-                }
-                disabled={retryMutation.isPending}
-              >
-                <RotateCcw className="size-4" />
-                Retry
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                className="text-destructive hover:text-destructive"
-                onClick={() => setDiscardTarget(job.id)}
-              >
-                <Trash2 className="size-4" />
-                Discard
-              </Button>
-            </div>
-          </div>
-      ))}
-
-      <ConfirmDialog
-        open={!!discardTarget}
-        onOpenChange={(open) => !open && setDiscardTarget(null)}
-        title="Discard dead-lettered job?"
-        description="This job will not be replayed. This cannot be undone."
-        confirmLabel="Discard"
-        variant="destructive"
-        loading={discardMutation.isPending}
-        onConfirm={() => {
-          if (!discardTarget) return;
-          discardMutation.mutate(discardTarget, {
-            onSuccess: () => toast.success("Job discarded"),
-            onError: (error: unknown) =>
-              toast.error(error instanceof Error ? error.message : "Failed to discard job"),
-          });
-        }}
-      />
-    </div>
-  );
 }
 
 function AiSpendTab() {
@@ -432,24 +102,28 @@ function AiSpendTab() {
         <MetricCard
           label="Cost (7d)"
           value={`$${data.totalCostUsd.toFixed(2)}`}
+          tip={AI_SPEND_TIPS.cost}
           icon={Sparkles}
           tone="destructive"
         />
         <MetricCard
           label="Tokens (7d)"
           value={data.totalTokens.toLocaleString()}
+          tip={AI_SPEND_TIPS.tokens}
           icon={Database}
           tone="info"
         />
         <MetricCard
           label="Cache hit rate"
           value={`${Math.round(data.cacheHitRate * 100)}%`}
+          tip={METRICS_CARD_TIPS.cache_hit_rate}
           icon={Zap}
           tone="success"
         />
         <MetricCard
           label="Circuit breaker"
           value={data.circuit.open ? "Open" : "Closed"}
+          tip={METRICS_CARD_TIPS.circuit_breaker}
           icon={Activity}
           tone={data.circuit.open ? "warning" : "muted"}
         />
@@ -489,45 +163,6 @@ function AiSpendTab() {
           </DataTableShell>
         )}
       </Panel>
-    </div>
-  );
-}
-
-function CalibrationTab() {
-  const runMutation = useRunCalibration();
-
-  return (
-    <div className="space-y-4">
-      <Panel
-        title="Embedding threshold calibration"
-        description="Sweeps auto-accept/review thresholds against confirmed alias pairs. Safe to re-run any time — results only take effect once reviewed."
-        icon={TrendingUp}
-        tone="primary"
-        action={
-          <Button onClick={() => runMutation.mutate()} disabled={runMutation.isPending}>
-            <Sparkles className="size-4" />
-            {runMutation.isPending ? "Running..." : "Run Calibration"}
-          </Button>
-        }
-      >
-        <p className="text-sm text-muted-foreground">
-          Latest sweep results appear below after each run.
-        </p>
-      </Panel>
-
-      {runMutation.data && (
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <MetricCard label="Auto threshold" value={runMutation.data.autoThreshold} icon={Zap} tone="success" />
-          <MetricCard
-            label="Auto precision"
-            value={`${Math.round(runMutation.data.autoPrecision * 100)}%`}
-            icon={CheckCircle2}
-            tone="info"
-          />
-          <MetricCard label="Review threshold" value={runMutation.data.reviewThreshold} icon={TrendingUp} tone="warning" />
-          <MetricCard label="Pairs evaluated" value={runMutation.data.pairs} icon={Database} tone="muted" />
-        </div>
-      )}
     </div>
   );
 }
@@ -660,11 +295,13 @@ function Stage8ToolsTab() {
   const shiftMutation = useRunShiftDetection();
   const changepointMutation = useRunChangepointScan();
   const relationMutation = useRunRelationMatch();
+  const calibrationMutation = useRunCalibration();
 
   const tools: {
     icon: typeof TrendingUp;
     title: string;
     description: string;
+    titleTip: string;
     mutation: ReturnType<typeof useRunShiftDetection>;
     label: string;
     list: React.ReactNode;
@@ -674,6 +311,7 @@ function Stage8ToolsTab() {
       icon: TrendingUp,
       title: "Alias succession scan",
       description: "Finds an indicator likely replaced by another (name changed, form revised).",
+      titleTip: STAGE8_TIPS.succession,
       mutation: shiftMutation,
       label: "Run Shift Detection",
       list: <SuccessionCandidatesList />,
@@ -683,6 +321,7 @@ function Stage8ToolsTab() {
       icon: GitBranch,
       title: "Changepoint scan",
       description: "Flags a reporting-regime shift shared across most LGAs, so it reads as a form change, not an outbreak.",
+      titleTip: STAGE8_TIPS.changepoint,
       mutation: changepointMutation,
       label: "Run Changepoint Scan",
       list: <ChangepointsList />,
@@ -692,6 +331,7 @@ function Stage8ToolsTab() {
       icon: Link2,
       title: "Cross-dataset relation matching",
       description: "Finds the same study reported by a different organisation under different naming. Confirm/reject from each dataset's Related Datasets tab.",
+      titleTip: STAGE8_TIPS.relations,
       mutation: relationMutation,
       label: "Run Relation Matching",
       list: null,
@@ -701,15 +341,20 @@ function Stage8ToolsTab() {
 
   return (
     <div className="space-y-4">
-      <p className="text-sm text-muted-foreground">
-        These run nightly/weekly on a schedule — use these buttons to run one immediately.
-        Pending succession and changepoint candidates surface below each scan; relation
-        candidates are actioned from each dataset&apos;s own Related Datasets tab.
+      <p className="flex items-start gap-1.5 text-sm text-muted-foreground">
+        <span>
+          Scans run on a schedule (succession nightly, changepoint weekly, calibration
+          quarterly). Use the buttons to run one immediately. Pending succession and
+          changepoint candidates appear below each scan; relation candidates are actioned
+          from each dataset&apos;s Related Datasets tab.
+        </span>
+        <HelpTip content={STAGE8_TIPS.intro} label="About Stage 8 scans" className="mt-0.5" />
       </p>
       {tools.map((tool) => (
         <Panel
           key={tool.title}
           title={tool.title}
+          titleTip={tool.titleTip}
           description={tool.description}
           icon={tool.icon}
           tone={tool.tone}
@@ -737,6 +382,64 @@ function Stage8ToolsTab() {
           {tool.list}
         </Panel>
       ))}
+
+      <Panel
+        title="Embedding calibration"
+        titleTip={STAGE8_TIPS.calibration}
+        description="Sweeps auto-accept/review thresholds against confirmed alias pairs. Runs quarterly on a schedule — safe to re-run; updated bands apply after review."
+        icon={TrendingUp}
+        tone="primary"
+        action={
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() =>
+              calibrationMutation.mutate(undefined, {
+                onError: (error: unknown) =>
+                  toast.error(error instanceof Error ? error.message : "Calibration failed"),
+              })
+            }
+            disabled={calibrationMutation.isPending}
+          >
+            <Sparkles className="size-4" />
+            {calibrationMutation.isPending ? "Running..." : "Run calibration"}
+          </Button>
+        }
+      >
+        <p className="text-sm text-muted-foreground">
+          Tunes how strict indicator name matching is (auto-accept vs send to alias review).
+        </p>
+        {calibrationMutation.data ? (
+          <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <MetricCard
+              label="Auto threshold"
+              value={calibrationMutation.data.autoThreshold}
+              tip={STAGE8_TIPS.auto_threshold}
+              icon={Zap}
+              tone="success"
+            />
+            <MetricCard
+              label="Auto precision"
+              value={`${Math.round(calibrationMutation.data.autoPrecision * 100)}%`}
+              icon={CheckCircle2}
+              tone="info"
+            />
+            <MetricCard
+              label="Review threshold"
+              value={calibrationMutation.data.reviewThreshold}
+              tip={STAGE8_TIPS.review_threshold}
+              icon={TrendingUp}
+              tone="warning"
+            />
+            <MetricCard
+              label="Pairs evaluated"
+              value={calibrationMutation.data.pairs}
+              icon={Database}
+              tone="muted"
+            />
+          </div>
+        ) : null}
+      </Panel>
     </div>
   );
 }
@@ -749,6 +452,18 @@ export default function IngestionOpsPage() {
   const canView = can("manage:indicators");
   const backfillMutation = useBackfillIngestion();
   const tab = parseOpsTab(searchParams.get("tab"));
+
+  useEffect(() => {
+    const raw = searchParams.get("tab");
+    if (raw === "queue-health") {
+      router.replace("/system-health?tab=queues");
+      return;
+    }
+    if (raw === "dead-letter") {
+      router.replace("/system-health?tab=dead-letter");
+    }
+  }, [router, searchParams]);
+
   const setTab = (value: string) => {
     const next = parseOpsTab(value);
     const params = new URLSearchParams(searchParams.toString());
@@ -762,7 +477,26 @@ export default function IngestionOpsPage() {
     limit: 200,
     enabled: canView,
   });
+  const { data: conflictSummaries } = useConflictDatasetSummaries({
+    enabled: canView,
+  });
   const pendingAliasCount = globalAliases?.length ?? 0;
+  const openConflictCount =
+    conflictSummaries?.reduce((sum, row) => sum + row.openConflicts, 0) ?? 0;
+  const [guideOpen, setGuideOpen] = useState(false);
+  const [tabHelpOpen, setTabHelpOpen] = useState(false);
+
+  const visibleGuideTabs: IngestionOpsTabId[] = [
+    "observability",
+    "pipeline",
+    "aliases",
+    "conflicts",
+    "indicators",
+    "warehouse",
+    ...(isSuperAdmin
+      ? (["compare", "ai-spend", "stage8"] as IngestionOpsTabId[])
+      : (["ai-spend"] as IngestionOpsTabId[])),
+  ];
 
   if (!canView) {
     return (
@@ -775,52 +509,79 @@ export default function IngestionOpsPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Ingestion Ops</h1>
-          <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-            Pipeline health, alias review, indicator registry, and published-dataset compare.
-          </p>
+    <TooltipProvider delay={200}>
+      <div className="space-y-6">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+              Ingestion Ops
+              <HelpTip content={INGESTION_OPS_PAGE_TIP} label="About Ingestion Ops" />
+            </h1>
+            <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
+              Pipeline health, alias review, indicator registry, analytics warehouse, and published-dataset compare.
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <IngestionOpsGuideButton onClick={() => setGuideOpen(true)} />
+            {isSuperAdmin && (
+              <div className="flex items-center gap-1.5">
+                <Button
+                size="sm"
+                variant="outline"
+                className="gap-1.5"
+                disabled={backfillMutation.isPending}
+                onClick={() =>
+                  backfillMutation.mutate(50, {
+                    onSuccess: (result) =>
+                      toast.success(
+                        `Catch-up: ${result.enqueued} enqueued, ${result.alreadyQueued} already queued, ${result.skipped} skipped (${result.scanned} scanned)`
+                      ),
+                    onError: (error: unknown) =>
+                      toast.error(
+                        error instanceof Error ? error.message : "Backfill failed"
+                      ),
+                  })
+                }
+              >
+                {backfillMutation.isPending ? "Backfilling…" : "Backfill catch-up"}
+                </Button>
+                <HelpTip
+                  content={INGESTION_OPS_BACKFILL_TIP}
+                  label="About backfill catch-up"
+                />
+              </div>
+            )}
+          </div>
         </div>
-        {isSuperAdmin && (
-          <Button
-            size="sm"
-            variant="outline"
-            className="gap-1.5"
-            disabled={backfillMutation.isPending}
-            onClick={() =>
-              backfillMutation.mutate(50, {
-                onSuccess: (result) =>
-                  toast.success(
-                    `Catch-up: ${result.enqueued} enqueued, ${result.alreadyQueued} already queued, ${result.skipped} skipped (${result.scanned} scanned)`
-                  ),
-                onError: (error: unknown) =>
-                  toast.error(
-                    error instanceof Error ? error.message : "Backfill failed"
-                  ),
-              })
-            }
-          >
-            {backfillMutation.isPending ? "Backfilling…" : "Backfill catch-up"}
-          </Button>
-        )}
-      </div>
 
-      <Tabs value={tab} onValueChange={setTab} className="space-y-4">
+        <IngestionOpsHelpDialog
+          open={guideOpen}
+          onOpenChange={setGuideOpen}
+          initialTab={tab}
+          visibleTabs={visibleGuideTabs}
+        />
+
+        <Tabs value={tab} onValueChange={setTab} className="space-y-4">
         <IngestionOpsTabsNav
           isSuperAdmin={isSuperAdmin}
           pendingAliasCount={pendingAliasCount}
+          openConflictCount={openConflictCount}
           activeTab={tab}
         />
-        <TabsContent value="active" className="mt-0">
-          <ActiveJobsTab />
+        <TabsContent value="pipeline" className="mt-0">
+          <PipelineTab />
         </TabsContent>
         <TabsContent value="aliases" className="mt-0">
           <DataReviewQueueTab global />
         </TabsContent>
+        <TabsContent value="conflicts" className="mt-0">
+          <ConflictsTab />
+        </TabsContent>
         <TabsContent value="indicators" className="mt-0">
           <IndicatorsRegistryTab />
+        </TabsContent>
+        <TabsContent value="warehouse" className="mt-0">
+          <AnalyticsWarehouseTab />
         </TabsContent>
         {isSuperAdmin && (
           <TabsContent value="compare" className="mt-0">
@@ -828,32 +589,25 @@ export default function IngestionOpsPage() {
           </TabsContent>
         )}
         <TabsContent value="observability" className="mt-0">
-          <ObservabilityTab />
+          <IngestionMetricsTab />
         </TabsContent>
         <TabsContent value="ai-spend" className="mt-0">
           <AiSpendTab />
         </TabsContent>
         {isSuperAdmin && (
-          <TabsContent value="calibration" className="mt-0">
-            <CalibrationTab />
-          </TabsContent>
-        )}
-        {isSuperAdmin && (
           <TabsContent value="stage8" className="mt-0">
             <Stage8ToolsTab />
           </TabsContent>
         )}
-        {isSuperAdmin && (
-          <TabsContent value="queue-health" className="mt-0">
-            <QueueHealthTab />
-          </TabsContent>
-        )}
-        {isSuperAdmin && (
-          <TabsContent value="dead-letter" className="mt-0">
-            <DeadLetterTab />
-          </TabsContent>
-        )}
       </Tabs>
-    </div>
+
+        <IngestionOpsTabHelpDialog
+          open={tabHelpOpen}
+          onOpenChange={setTabHelpOpen}
+          tab={tab}
+        />
+        <IngestionOpsHelpFab tab={tab} onClick={() => setTabHelpOpen(true)} />
+      </div>
+    </TooltipProvider>
   );
 }

@@ -4,18 +4,16 @@ import { Fragment } from "react";
 import type { LucideIcon } from "lucide-react";
 import {
   Activity,
-  AlertTriangle,
-  CheckCircle2,
+  Database,
   GitBranch,
   GitCompare,
   Link2,
-  Loader2,
   Network,
+  ShieldAlert,
   Sparkles,
-  TrendingUp,
 } from "lucide-react";
 import { TabsTrigger } from "@/components/ui/tabs";
-import { useInFlightIngestionJobs } from "@/lib/hooks/useIngestionReview";
+import { usePipelineAttention } from "@/lib/hooks/useIngestionReview";
 import {
   AdminSectionTabsNav,
   ADMIN_TAB_TRIGGER_BASE,
@@ -30,30 +28,29 @@ type TabDef = {
   icon: LucideIcon;
   tone: MetricTone;
   superAdminOnly?: boolean;
-  countKey?: "active" | "aliases";
+  countKey?: "pipeline" | "aliases" | "conflicts";
 };
 
 const OPS_TAB_GROUPS: { tabs: TabDef[] }[] = [
   {
     tabs: [
       { value: "observability", label: "Metrics", icon: Activity, tone: "primary" },
-      { value: "active", label: "Active", icon: Loader2, tone: "info", countKey: "active" },
+      { value: "pipeline", label: "Pipeline", icon: GitBranch, tone: "info", countKey: "pipeline" },
       { value: "aliases", label: "Aliases", icon: Link2, tone: "warning", countKey: "aliases" },
+      { value: "conflicts", label: "Conflicts", icon: ShieldAlert, tone: "destructive", countKey: "conflicts" },
       { value: "ai-spend", label: "AI spend", icon: Sparkles, tone: "destructive" },
     ],
   },
   {
     tabs: [
       { value: "indicators", label: "Indicators", icon: Network, tone: "success" },
+      { value: "warehouse", label: "Warehouse", icon: Database, tone: "primary" },
       { value: "compare", label: "Compare", icon: GitCompare, tone: "info", superAdminOnly: true },
     ],
   },
   {
     tabs: [
-      { value: "calibration", label: "Calibration", icon: TrendingUp, tone: "primary", superAdminOnly: true },
       { value: "stage8", label: "Stage 8", icon: GitBranch, tone: "info", superAdminOnly: true },
-      { value: "queue-health", label: "Queues", icon: CheckCircle2, tone: "success", superAdminOnly: true },
-      { value: "dead-letter", label: "Dead letter", icon: AlertTriangle, tone: "destructive", superAdminOnly: true },
     ],
   },
 ];
@@ -61,20 +58,23 @@ const OPS_TAB_GROUPS: { tabs: TabDef[] }[] = [
 type IngestionOpsTabsNavProps = {
   isSuperAdmin: boolean;
   pendingAliasCount: number;
+  openConflictCount: number;
   activeTab: string;
 };
 
 export function IngestionOpsTabsNav({
   isSuperAdmin,
   pendingAliasCount,
+  openConflictCount,
   activeTab,
 }: IngestionOpsTabsNavProps) {
-  const { data: activeJobs } = useInFlightIngestionJobs();
-  const activeJobCount = activeJobs?.length ?? 0;
+  const { data: pipelineAttention } = usePipelineAttention("all");
+  const pipelineAttentionCount = pipelineAttention?.total ?? 0;
 
   const counts: Record<NonNullable<TabDef["countKey"]>, number> = {
-    active: activeJobCount,
+    pipeline: pipelineAttentionCount,
     aliases: pendingAliasCount,
+    conflicts: openConflictCount,
   };
 
   const visibleGroups = OPS_TAB_GROUPS.map((group) => ({

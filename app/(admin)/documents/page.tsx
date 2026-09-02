@@ -49,6 +49,15 @@ import {
   tabToneClass,
   type MetricTone,
 } from "@/components/admin/admin-analytics-ui";
+import { HelpTip } from "@/components/admin/help-tip";
+import {
+  DOCUMENTS_CREATE_TIP,
+  DOCUMENTS_METRIC_TIPS,
+  DOCUMENTS_PAGE_TIP,
+  DOCUMENTS_PANEL_TIP,
+  DOCUMENTS_TAB_TIPS,
+} from "@/lib/constants/documents-tooltips";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { formatDate } from "@/lib/utils/date";
 import { DocumentFormModal } from "@/components/admin/document-form-modal";
@@ -76,15 +85,20 @@ const STATUS_CONFIG: Record<DocumentStatus, { label: string; tone: MetricTone }>
   archived: { label: "Archived", tone: "muted" },
 };
 
-const TABS: Array<{ key: DocumentStatus | "all"; label: string; tone: MetricTone }> = [
-  { key: "all", label: "All documents", tone: "muted" },
-  { key: "draft", label: "Draft", tone: "warning" },
-  { key: "pending", label: "Pending review", tone: "warning" },
-  { key: "under_review", label: "Under review", tone: "info" },
-  { key: "approved", label: "Approved", tone: "success" },
-  { key: "published", label: "Published", tone: "success" },
-  { key: "rejected", label: "Rejected", tone: "warning" },
-  { key: "archived", label: "Archived", tone: "muted" },
+const TABS: Array<{
+  key: DocumentStatus | "all";
+  label: string;
+  tone: MetricTone;
+  tip: string;
+}> = [
+  { key: "all", label: "All documents", tone: "muted", tip: DOCUMENTS_TAB_TIPS.all },
+  { key: "draft", label: "Draft", tone: "warning", tip: DOCUMENTS_TAB_TIPS.draft },
+  { key: "pending", label: "Pending review", tone: "warning", tip: DOCUMENTS_TAB_TIPS.pending },
+  { key: "under_review", label: "Under review", tone: "info", tip: DOCUMENTS_TAB_TIPS.under_review },
+  { key: "approved", label: "Approved", tone: "success", tip: DOCUMENTS_TAB_TIPS.approved },
+  { key: "published", label: "Published", tone: "success", tip: DOCUMENTS_TAB_TIPS.published },
+  { key: "rejected", label: "Rejected", tone: "warning", tip: DOCUMENTS_TAB_TIPS.rejected },
+  { key: "archived", label: "Archived", tone: "muted", tip: DOCUMENTS_TAB_TIPS.archived },
 ];
 
 function fileSizeLabel(bytes: number | null) {
@@ -188,10 +202,14 @@ export default function AdminDocumentsPage() {
   };
 
   return (
+    <TooltipProvider delay={200}>
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Documents</h1>
+          <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+            Documents
+            <HelpTip content={DOCUMENTS_PAGE_TIP} label="About documents" />
+          </h1>
           <p className="mt-1 text-sm text-muted-foreground">
             SOPs, policies, guidelines, reports, and research — the platform&apos;s document repository
           </p>
@@ -201,11 +219,6 @@ export default function AdminDocumentsPage() {
             {total} {total === 1 ? "document" : "documents"}
           </Badge>
         )}
-      </div>
-
-      <div className="rounded-xl border border-info/25 bg-info/[0.06] px-4 py-3 text-sm text-muted-foreground">
-        Documents are standalone files in the repository — SOPs, policies, guidelines, and reports.
-        Publish when ready for the public catalogue; attach files from each document&apos;s detail page.
       </div>
 
       {statsLoading ? (
@@ -220,6 +233,7 @@ export default function AdminDocumentsPage() {
             label="Total documents"
             value={totalSummary.data ?? 0}
             hint="All statuses"
+            tip={DOCUMENTS_METRIC_TIPS.total}
             icon={FileText}
             tone="primary"
           />
@@ -227,6 +241,7 @@ export default function AdminDocumentsPage() {
             label="Published"
             value={publishedSummary.data ?? 0}
             hint="On the public catalogue"
+            tip={DOCUMENTS_METRIC_TIPS.published}
             icon={FileText}
             tone="success"
           />
@@ -234,6 +249,7 @@ export default function AdminDocumentsPage() {
             label="Drafts"
             value={draftSummary.data ?? 0}
             hint="Not yet published"
+            tip={DOCUMENTS_METRIC_TIPS.draft}
             icon={FileText}
             tone="warning"
           />
@@ -241,6 +257,7 @@ export default function AdminDocumentsPage() {
             label="Archived"
             value={archivedSummary.data ?? 0}
             hint="Removed from catalogue"
+            tip={DOCUMENTS_METRIC_TIPS.archived}
             icon={FileText}
             tone="muted"
           />
@@ -249,15 +266,19 @@ export default function AdminDocumentsPage() {
 
       <Panel
         title="Document directory"
+        titleTip={DOCUMENTS_PANEL_TIP}
         description="Filter by status or type, or search by title or description."
         icon={FileText}
         tone="info"
         action={
           canManage ? (
-            <Button className="h-9 w-full sm:w-auto" onClick={openCreate}>
-              <Plus className="size-4" aria-hidden="true" />
-              Create document
-            </Button>
+            <div className="flex w-full items-center gap-1.5 sm:w-auto">
+              <Button className="h-9 flex-1 sm:flex-none" onClick={openCreate}>
+                <Plus className="size-4" aria-hidden="true" />
+                Create document
+              </Button>
+              <HelpTip content={DOCUMENTS_CREATE_TIP} label="About create document" />
+            </div>
           ) : undefined
         }
       >
@@ -265,24 +286,28 @@ export default function AdminDocumentsPage() {
           <div className="rounded-xl border bg-muted/30 p-1">
             <div className="flex flex-wrap gap-1" role="tablist" aria-label="Document status">
               {TABS.map((tab) => (
-                <button
-                  key={tab.key}
-                  type="button"
-                  role="tab"
-                  aria-selected={status === tab.key}
-                  onClick={() => {
-                    setStatus(tab.key);
-                    setPage(1);
-                  }}
-                  className={cn(
-                    "min-h-9 rounded-lg px-3 py-2 text-xs font-medium transition-colors sm:text-sm",
-                    status === tab.key
-                      ? cn("shadow-sm", tabToneClass(tab.tone))
-                      : "text-muted-foreground hover:bg-background/80 hover:text-foreground",
-                  )}
-                >
-                  {tab.label}
-                </button>
+                <div key={tab.key} className="inline-flex items-center gap-0.5">
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={status === tab.key}
+                    onClick={() => {
+                      setStatus(tab.key);
+                      setPage(1);
+                    }}
+                    className={cn(
+                      "min-h-9 rounded-lg px-3 py-2 text-xs font-medium transition-colors sm:text-sm",
+                      status === tab.key
+                        ? cn("shadow-sm", tabToneClass(tab.tone))
+                        : "text-muted-foreground hover:bg-background/80 hover:text-foreground",
+                    )}
+                  >
+                    {tab.label}
+                  </button>
+                  {status === tab.key ? (
+                    <HelpTip content={tab.tip} label={`About ${tab.label}`} />
+                  ) : null}
+                </div>
               ))}
             </div>
           </div>
@@ -493,20 +518,6 @@ export default function AdminDocumentsPage() {
                                 Submit
                               </Button>
                             )}
-                            {canManage &&
-                              (doc.status === "pending" ||
-                                doc.status === "under_review" ||
-                                doc.status === "approved") && (
-                              <Link
-                                href={`/documents/${doc.slug}/review`}
-                                className={cn(
-                                  buttonVariants({ variant: "outline", size: "sm" }),
-                                  "h-8"
-                                )}
-                              >
-                                Review
-                              </Link>
-                            )}
                             <Link
                               href={`/documents/${doc.slug}`}
                               className={cn(buttonVariants({ variant: "ghost", size: "icon-sm" }))}
@@ -594,17 +605,6 @@ export default function AdminDocumentsPage() {
                         Submit for review
                       </Button>
                     )}
-                    {canManage &&
-                      (doc.status === "pending" ||
-                        doc.status === "under_review" ||
-                        doc.status === "approved") && (
-                      <Link
-                        href={`/documents/${doc.slug}/review`}
-                        className={cn(buttonVariants({ variant: "default" }), "h-11 flex-1")}
-                      >
-                        Review
-                      </Link>
-                    )}
                     <Link
                       href={`/documents/${doc.slug}`}
                       className={cn(buttonVariants({ variant: "outline" }), "h-11 flex-1")}
@@ -657,6 +657,7 @@ export default function AdminDocumentsPage() {
         onConfirm={confirmArchive}
       />
     </div>
+    </TooltipProvider>
   );
 }
 

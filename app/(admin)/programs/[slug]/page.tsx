@@ -4,7 +4,7 @@ import { use, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
-  ArrowLeft, Calendar, Edit, MapPin, MoreVertical, RefreshCw, Target,
+  ArrowLeft, Calendar, Edit, Lock, MapPin, MoreVertical, RefreshCw, Target,
   Trash2, TrendingUp,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -12,6 +12,7 @@ import { useProgramBySlug, useArchiveProgram } from "@/lib/hooks/usePrograms";
 import { useAdminAccess } from "@/lib/hooks/useAdminAccess";
 import { ProgramFormModal } from "@/components/admin/program-form-modal";
 import { ProgramProgressModal } from "@/components/admin/program-progress-modal";
+import { HelpTip } from "@/components/admin/help-tip";
 import { RichHtmlContent } from "@/components/admin/rich-html-content";
 import { objectivesToEditorHtml } from "@/lib/objectives-html";
 import {
@@ -32,6 +33,18 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { formatDate, daysActiveSince, daysUntilStart, daysUntilEnd } from "@/lib/utils/date";
 import type { ProgrammeStatus } from "@/lib/api/programs";
+import {
+  PROGRAM_COVERAGE_PANEL_TIP,
+  PROGRAM_DETAIL_METRIC_TIPS,
+  PROGRAM_DETAIL_PAGE_TIP,
+  PROGRAM_INFO_PANEL_TIP,
+  PROGRAM_OBJECTIVES_PANEL_TIP,
+  PROGRAM_PROGRESS_PANEL_TIP,
+  PROGRAM_TIMELINE_PANEL_TIP,
+  PROGRAM_UPDATE_PROGRESS_TIP,
+} from "@/lib/constants/programs-tooltips";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import { EmptyState } from "@/components/feedback/empty-state";
 
 const statusColors: Record<ProgrammeStatus, string> = {
   active: "bg-green-500/10 text-green-700 dark:text-green-400",
@@ -43,7 +56,8 @@ const statusColors: Record<ProgrammeStatus, string> = {
 export default function ProgramDetailPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = use(params);
   const router = useRouter();
-  const { can } = useAdminAccess();
+  const { isLoading: permissionsLoading, can, canAny } = useAdminAccess();
+  const canView = canAny("create:programs", "edit:programs", "upload:programs", "delete:programs");
   const canEdit = can("edit:programs");
   const canEditProgress = can("edit:programs");
   const canDelete = can("delete:programs");
@@ -73,7 +87,19 @@ export default function ProgramDetailPage({ params }: { params: Promise<{ slug: 
     });
   };
 
-  if (isLoading) {
+  if (!permissionsLoading && !canView) {
+    return (
+      <div className="flex min-h-[60vh] items-center justify-center">
+        <EmptyState
+          icon={Lock}
+          title="Access restricted"
+          description="Managing programmes requires create:programs, edit:programs, upload:programs, or delete:programs. Ask a super admin to grant your group one of these permissions."
+        />
+      </div>
+    );
+  }
+
+  if (isLoading || permissionsLoading) {
     return (
       <div className="space-y-5">
         <Skeleton className="h-32 rounded-2xl" />
@@ -161,6 +187,7 @@ export default function ProgramDetailPage({ params }: { params: Promise<{ slug: 
   }
 
   return (
+    <TooltipProvider delay={200}>
     <div className="space-y-5">
       <ProgramFormModal
         open={editOpen}
@@ -200,7 +227,10 @@ export default function ProgramDetailPage({ params }: { params: Promise<{ slug: 
             </div>
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-2">
-                <h1 className="text-2xl font-bold leading-8">{program.name}</h1>
+                <h1 className="flex items-center gap-2 text-2xl font-bold leading-8">
+                  {program.name}
+                  <HelpTip content={PROGRAM_DETAIL_PAGE_TIP} label="About this programme" />
+                </h1>
                 {program.code && <Badge variant="outline">{program.code}</Badge>}
                 {program.type && (
                   <Badge variant="secondary" className="capitalize">
@@ -220,13 +250,16 @@ export default function ProgramDetailPage({ params }: { params: Promise<{ slug: 
           {(canEdit || canDelete || canEditProgress) && (
             <div className="flex flex-wrap gap-2">
               {canEditProgress && (
-                <Button
-                  className="h-11 flex-1 sm:h-9 sm:flex-none"
-                  onClick={() => setProgressOpen(true)}
-                >
-                  <TrendingUp className="size-4" />
-                  Update progress
-                </Button>
+                <div className="flex items-center gap-1.5">
+                  <Button
+                    className="h-11 flex-1 sm:h-9 sm:flex-none"
+                    onClick={() => setProgressOpen(true)}
+                  >
+                    <TrendingUp className="size-4" />
+                    Update progress
+                  </Button>
+                  <HelpTip content={PROGRAM_UPDATE_PROGRESS_TIP} label="About update progress" />
+                </div>
               )}
               {canEdit && (
                 <Button
@@ -268,6 +301,7 @@ export default function ProgramDetailPage({ params }: { params: Promise<{ slug: 
             value={program.target_count.toLocaleString()}
             icon={Target}
             description={program.primary_metric || "Outcome metric"}
+            tip={PROGRAM_DETAIL_METRIC_TIPS.outcomeTarget}
           />
         )}
         {tracksOutcomeMetric(mode) && program.reach_count !== null && (
@@ -276,6 +310,7 @@ export default function ProgramDetailPage({ params }: { params: Promise<{ slug: 
             value={program.reach_count.toLocaleString()}
             icon={TrendingUp}
             description={outcomePct != null ? `${outcomePct}% of target` : "In progress"}
+            tip={PROGRAM_DETAIL_METRIC_TIPS.outcomeReached}
           />
         )}
         {tracksLgaCoverage(mode) && lgaCounts.target > 0 && (
@@ -284,6 +319,7 @@ export default function ProgramDetailPage({ params }: { params: Promise<{ slug: 
             value={String(lgaCounts.reach)}
             icon={MapPin}
             description={`of ${lgaCounts.target} target LGAs`}
+            tip={PROGRAM_DETAIL_METRIC_TIPS.lgaCoverage}
           />
         )}
         {timelineMetric && (
@@ -292,6 +328,7 @@ export default function ProgramDetailPage({ params }: { params: Promise<{ slug: 
             value={timelineMetric.value}
             icon={Calendar}
             description={timelineMetric.description}
+            tip={PROGRAM_DETAIL_METRIC_TIPS.timeline}
           />
         )}
       </section>
@@ -299,7 +336,10 @@ export default function ProgramDetailPage({ params }: { params: Promise<{ slug: 
       {/* Progress Section */}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between gap-3 border-b">
-          <CardTitle>Progress Overview</CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            Progress Overview
+            <HelpTip content={PROGRAM_PROGRESS_PANEL_TIP} label="About progress overview" />
+          </CardTitle>
           {canEditProgress && (
             <Button
               size="sm"
@@ -364,7 +404,10 @@ export default function ProgramDetailPage({ params }: { params: Promise<{ slug: 
         {/* Programme Information */}
         <Card>
           <CardHeader className="border-b">
-            <CardTitle>Programme Information</CardTitle>
+            <CardTitle className="flex items-center gap-2">
+              Programme Information
+              <HelpTip content={PROGRAM_INFO_PANEL_TIP} label="About programme information" />
+            </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4 pt-6">
             <InfoRow label="Type" value={program.type ? program.type.replace("-", " ") : "Not specified"} />
@@ -378,7 +421,10 @@ export default function ProgramDetailPage({ params }: { params: Promise<{ slug: 
         {/* Timeline */}
         <Card>
           <CardHeader className="border-b">
-            <CardTitle>Timeline</CardTitle>
+            <CardTitle className="flex items-center gap-2">
+              Timeline
+              <HelpTip content={PROGRAM_TIMELINE_PANEL_TIP} label="About timeline" />
+            </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4 pt-6">
             <InfoRow
@@ -405,7 +451,10 @@ export default function ProgramDetailPage({ params }: { params: Promise<{ slug: 
         {program.target_lgas && program.target_lgas.length > 0 && (
           <Card>
             <CardHeader className="border-b">
-              <CardTitle>Geographic Coverage</CardTitle>
+              <CardTitle className="flex items-center gap-2">
+                Geographic Coverage
+                <HelpTip content={PROGRAM_COVERAGE_PANEL_TIP} label="About geographic coverage" />
+              </CardTitle>
             </CardHeader>
             <CardContent className="pt-6">
               <div className="space-y-3">
@@ -438,7 +487,10 @@ export default function ProgramDetailPage({ params }: { params: Promise<{ slug: 
         {program.objectives && program.objectives.length > 0 && (
           <Card>
             <CardHeader className="border-b">
-              <CardTitle>Objectives</CardTitle>
+              <CardTitle className="flex items-center gap-2">
+                Objectives
+                <HelpTip content={PROGRAM_OBJECTIVES_PANEL_TIP} label="About objectives" />
+              </CardTitle>
             </CardHeader>
             <CardContent className="pt-6">
               <RichHtmlContent html={objectivesToEditorHtml(program.objectives)} />
@@ -447,17 +499,31 @@ export default function ProgramDetailPage({ params }: { params: Promise<{ slug: 
         )}
       </div>
     </div>
+    </TooltipProvider>
   );
 }
 
-function MetricCard({ label, value, icon: Icon, description }: { label: string; value: string; icon: React.ElementType; description?: string }) {
+function MetricCard({
+  label,
+  value,
+  icon: Icon,
+  description,
+  tip,
+}: {
+  label: string;
+  value: string;
+  icon: React.ElementType;
+  description?: string;
+  tip?: string;
+}) {
   return (
     <Card className="overflow-hidden">
       <CardContent className="p-4">
         <div className="flex items-start justify-between">
           <div className="flex-1">
-            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+            <p className="flex items-center gap-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
               {label}
+              {tip ? <HelpTip content={tip} label={`About ${label}`} /> : null}
             </p>
             <p className="mt-2 text-2xl font-bold tabular-nums">{value}</p>
             {description && (

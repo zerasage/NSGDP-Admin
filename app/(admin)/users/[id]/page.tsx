@@ -33,6 +33,20 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
+import { HelpTip } from "@/components/admin/help-tip";
+import {
+  USER_DETAIL_ACCESS_SUMMARY_TIP,
+  USER_DETAIL_ACCOUNT_ACTIONS_TIP,
+  USER_DETAIL_ACCOUNT_INFO_TIP,
+  USER_DETAIL_EMAIL_VERIFIED_TIP,
+  USER_DETAIL_MFA_TIP,
+  USER_DETAIL_PAGE_TIP,
+  USER_DETAIL_RECORD_TIP,
+  USER_DETAIL_TIMELINE_TIP,
+  USERS_REACTIVATE_TIP,
+  USERS_SUSPEND_TIP,
+} from "@/lib/constants/users-tooltips";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { formatDate } from "@/lib/utils/date";
 import { toast } from "sonner";
@@ -68,7 +82,9 @@ export default function UserDetailPage({ params }: { params: Promise<{ id: strin
       {
         onSuccess: () =>
           toast.success(
-            `${user.status === "pending" ? "Approved" : "Reactivated"} ${user.first_name} ${user.last_name}`
+            user.status === "suspended"
+              ? `Reactivated ${user.first_name} ${user.last_name}`
+              : `Updated ${user.first_name} ${user.last_name}`
           ),
         onError: () => toast.error("Failed to update user status"),
       }
@@ -131,6 +147,7 @@ export default function UserDetailPage({ params }: { params: Promise<{ id: strin
   }
 
   return (
+    <TooltipProvider delay={200}>
     <div className="space-y-6">
       <div>
         <Link
@@ -145,10 +162,15 @@ export default function UserDetailPage({ params }: { params: Promise<{ id: strin
           <div className="flex min-w-0 items-start gap-3">
             <UserIdentityAvatar user={user} />
             <div className="min-w-0">
-              <h1 className="text-2xl font-bold leading-8">
+              <h1 className="flex items-center gap-2 text-2xl font-bold leading-8">
                 {user.first_name} {user.last_name}
+                <HelpTip content={USER_DETAIL_PAGE_TIP} label="About this user" />
               </h1>
-              <p className="mt-1 truncate text-sm text-muted-foreground">{user.email}</p>
+              <p className="mt-1 truncate text-sm text-muted-foreground">
+                <a href={`mailto:${user.email}`} className="hover:underline">
+                  {user.email}
+                </a>
+              </p>
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -158,37 +180,41 @@ export default function UserDetailPage({ params }: { params: Promise<{ id: strin
         </div>
       </div>
 
-      {canManageStatus && (user.status === "pending" || user.status === "active" || user.status === "suspended") && (
+      {canManageStatus && (user.status === "active" || user.status === "suspended") && (
         <div className="flex flex-col gap-2 rounded-2xl border bg-card p-3 sm:flex-row sm:items-center sm:p-4">
           <div className="min-w-0 flex-1">
-            <p className="text-sm font-semibold">Account actions</p>
+            <p className="flex items-center gap-1.5 text-sm font-semibold">
+              Account actions
+              <HelpTip content={USER_DETAIL_ACCOUNT_ACTIONS_TIP} label="About account actions" />
+            </p>
             <p className="mt-0.5 text-xs text-muted-foreground">
               Status changes take effect immediately and are recorded in the audit log.
             </p>
           </div>
-          {user.status === "pending" && (
-            <Button className="h-11 sm:h-8" onClick={activateUser} disabled={updateStatusMutation.isPending}>
-              Approve user
-            </Button>
-          )}
           {user.status === "active" && (
-            <Button
-              variant="outline"
-              className="h-11 sm:h-8"
-              onClick={() => setSuspendConfirmOpen(true)}
-              disabled={deactivateMutation.isPending}
-            >
-              Suspend user
-            </Button>
+            <div className="flex items-center gap-1">
+              <Button
+                variant="outline"
+                className="h-11 sm:h-8"
+                onClick={() => setSuspendConfirmOpen(true)}
+                disabled={deactivateMutation.isPending}
+              >
+                Suspend user
+              </Button>
+              <HelpTip content={USERS_SUSPEND_TIP} label="About suspend user" className="hidden sm:inline-flex" />
+            </div>
           )}
           {user.status === "suspended" && (
-            <Button
-              className="h-11 sm:h-8"
-              onClick={activateUser}
-              disabled={updateStatusMutation.isPending}
-            >
-              Reactivate user
-            </Button>
+            <div className="flex items-center gap-1">
+              <Button
+                className="h-11 sm:h-8"
+                onClick={activateUser}
+                disabled={updateStatusMutation.isPending}
+              >
+                Reactivate user
+              </Button>
+              <HelpTip content={USERS_REACTIVATE_TIP} label="About reactivate user" className="hidden sm:inline-flex" />
+            </div>
           )}
         </div>
       )}
@@ -197,7 +223,10 @@ export default function UserDetailPage({ params }: { params: Promise<{ id: strin
         <div className="space-y-6">
           <Card>
             <CardHeader className="border-b">
-              <CardTitle>Account information</CardTitle>
+              <CardTitle className="flex items-center gap-2 text-base">
+                Account information
+                <HelpTip content={USER_DETAIL_ACCOUNT_INFO_TIP} label="About account information" />
+              </CardTitle>
             </CardHeader>
             <CardContent className="divide-y">
               <InfoRow icon={Mail} label="Email address">
@@ -231,7 +260,10 @@ export default function UserDetailPage({ params }: { params: Promise<{ id: strin
 
           <Card>
             <CardHeader className="border-b">
-              <CardTitle>Account timeline</CardTitle>
+              <CardTitle className="flex items-center gap-2 text-base">
+                Account timeline
+                <HelpTip content={USER_DETAIL_TIMELINE_TIP} label="About account timeline" />
+              </CardTitle>
             </CardHeader>
             <CardContent className="divide-y">
               <InfoRow icon={CalendarDays} label="Joined platform">
@@ -243,9 +275,18 @@ export default function UserDetailPage({ params }: { params: Promise<{ id: strin
               <InfoRow icon={RotateCcw} label="Last account update">
                 {formatDate(user.updated_at)}
               </InfoRow>
-              <InfoRow icon={CheckCircle2} label="Approved">
-                {user.approved_at ? formatDate(user.approved_at) : "Not recorded"}
+              <InfoRow icon={CheckCircle2} label="Email verified">
+                {user.email_verified_at
+                  ? formatDate(user.email_verified_at)
+                  : user.email_verified
+                    ? "Yes"
+                    : "Not yet verified"}
               </InfoRow>
+              {user.approved_at ? (
+                <InfoRow icon={ShieldCheck} label="Manually activated">
+                  {formatDate(user.approved_at)}
+                </InfoRow>
+              ) : null}
             </CardContent>
           </Card>
         </div>
@@ -253,15 +294,32 @@ export default function UserDetailPage({ params }: { params: Promise<{ id: strin
         <div className="space-y-6 lg:sticky lg:top-6 lg:self-start">
           <Card>
             <CardHeader className="border-b">
-              <CardTitle>Access summary</CardTitle>
+              <CardTitle className="flex items-center gap-2 text-base">
+                Access summary
+                <HelpTip content={USER_DETAIL_ACCESS_SUMMARY_TIP} label="About access summary" />
+              </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <SummaryItem label="Role"><RoleBadge role={user.role} /></SummaryItem>
               <SummaryItem label="Account status"><UserStatusBadge status={user.status} /></SummaryItem>
-              <SummaryItem label="Email verification">
+              <SummaryItem
+                label={
+                  <span className="inline-flex items-center gap-1">
+                    Email verification
+                    <HelpTip content={USER_DETAIL_EMAIL_VERIFIED_TIP} label="About email verification" />
+                  </span>
+                }
+              >
                 <VerificationBadge verified={!!user.email_verified} verifiedLabel="Verified" missingLabel="Not verified" />
               </SummaryItem>
-              <SummaryItem label="Multi-factor authentication">
+              <SummaryItem
+                label={
+                  <span className="inline-flex items-center gap-1">
+                    Multi-factor authentication
+                    <HelpTip content={USER_DETAIL_MFA_TIP} label="About multi-factor authentication" />
+                  </span>
+                }
+              >
                 <VerificationBadge verified={!!user.mfa_enabled} verifiedLabel="Enabled" missingLabel="Not enabled" />
               </SummaryItem>
             </CardContent>
@@ -269,7 +327,10 @@ export default function UserDetailPage({ params }: { params: Promise<{ id: strin
 
           <Card>
             <CardHeader className="border-b">
-              <CardTitle>Record information</CardTitle>
+              <CardTitle className="flex items-center gap-2 text-base">
+                Record information
+                <HelpTip content={USER_DETAIL_RECORD_TIP} label="About record information" />
+              </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3 text-xs text-muted-foreground">
               <div>
@@ -295,6 +356,7 @@ export default function UserDetailPage({ params }: { params: Promise<{ id: strin
         onConfirm={suspendUser}
       />
     </div>
+    </TooltipProvider>
   );
 }
 
@@ -318,7 +380,7 @@ function InfoRow({
   );
 }
 
-function SummaryItem({ label, children }: { label: string; children: React.ReactNode }) {
+function SummaryItem({ label, children }: { label: React.ReactNode; children: React.ReactNode }) {
   return (
     <div className="flex items-center justify-between gap-3 border-b pb-4 last:border-0 last:pb-0">
       <span className="text-xs text-muted-foreground">{label}</span>
@@ -337,6 +399,8 @@ function UserIdentityAvatar({ user }: { user: AdminUser }) {
 }
 
 function UserStatusBadge({ status }: { status: AdminUser["status"] }) {
+  const label =
+    status === "pending" ? "Signup incomplete" : status;
   const variant =
     status === "active"
       ? "default"
@@ -346,7 +410,7 @@ function UserStatusBadge({ status }: { status: AdminUser["status"] }) {
           ? "secondary"
           : "outline";
 
-  return <Badge variant={variant} className="capitalize text-[11px]">{status}</Badge>;
+  return <Badge variant={variant} className="capitalize text-[11px]">{label}</Badge>;
 }
 
 function VerificationBadge({

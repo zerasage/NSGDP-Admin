@@ -55,6 +55,26 @@ import {
   type MetricTone,
   tabToneClass,
 } from "@/components/admin/admin-analytics-ui";
+import { HelpTip } from "@/components/admin/help-tip";
+import {
+  GIS_REFERENCE_CONFIRM_WARD_TIP,
+  GIS_REFERENCE_COVERAGE_TIP,
+  GIS_REFERENCE_LAYERS_PANEL_TIP,
+  GIS_REFERENCE_PAGE_TIP,
+  GIS_REFERENCE_REBUILD_TIP,
+  GIS_REFERENCE_REPLACE_LAYER_TIP,
+  GIS_REFERENCE_RESOLUTION_METRIC_TIPS,
+  GIS_REFERENCE_RESOLUTION_PANEL_TIP,
+  GIS_REFERENCE_RESOLUTION_TAB_TIPS,
+  GIS_REFERENCE_REVIEW_QUEUE_TIP,
+  GIS_REFERENCE_METRIC_TIPS,
+  GIS_REFERENCE_UPLOAD_LAYER_TIP,
+} from "@/lib/constants/gis-reference-tooltips";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import {
+  GisReferenceHelpDialog,
+  GisReferenceHelpFab,
+} from "@/components/admin/gis-reference-help-dialog";
 import {
   AdminSectionTabsNav,
   AdminTabCount,
@@ -110,20 +130,39 @@ function ResolutionReportBody({
   return (
     <div className="space-y-4">
       {report.belowCoverageThreshold ? (
-        <div className="rounded-xl border border-warning/30 bg-warning/[0.06] px-4 py-3 text-sm text-amber-900 dark:text-warning">
-          Match rate {Math.round(report.matchRate * 100)}% is below the 95% threshold —{" "}
-          {report.unmatched.length} spelling(s) still need review before this layer is fully fit
-          for analytics.
+        <div className="flex items-start gap-2 rounded-xl border border-warning/30 bg-warning/[0.06] px-4 py-3 text-sm text-amber-900 dark:text-warning">
+          <p>
+            Match rate {Math.round(report.matchRate * 100)}% is below the 95% threshold —{" "}
+            {report.unmatched.length} spelling(s) still need review before this layer is fully fit
+            for analytics.
+            <HelpTip
+              content={GIS_REFERENCE_COVERAGE_TIP}
+              label="About coverage threshold"
+              className="ml-1 inline-flex align-middle"
+            />
+          </p>
         </div>
       ) : null}
       <div className="grid gap-3 sm:grid-cols-3">
-        <MetricCard label="Total pairs" value={report.totalPairs} tone="muted" />
-        <MetricCard label="Matched" value={report.matched} icon={CheckCircle2} tone="success" />
+        <MetricCard
+          label="Total pairs"
+          value={report.totalPairs}
+          tone="muted"
+          tip={GIS_REFERENCE_RESOLUTION_METRIC_TIPS.totalPairs}
+        />
+        <MetricCard
+          label="Matched"
+          value={report.matched}
+          icon={CheckCircle2}
+          tone="success"
+          tip={GIS_REFERENCE_RESOLUTION_METRIC_TIPS.matched}
+        />
         <MetricCard
           label="Unmatched"
           value={report.unmatched.length}
           icon={AlertTriangle}
           tone={report.unmatched.length > 0 ? "destructive" : "success"}
+          tip={GIS_REFERENCE_RESOLUTION_METRIC_TIPS.unmatched}
         />
       </div>
 
@@ -149,16 +188,22 @@ function ResolutionReportBody({
                   <TableCell>{pair.lga}</TableCell>
                   <TableCell>{pair.ward}</TableCell>
                   <TableCell className="text-right">
-                    <div className="flex justify-end gap-1.5">
-                      <Button size="sm" variant="outline" onClick={() => onConfirm(pair)}>
-                        Confirm ward
-                      </Button>
-                      <Link
-                        href={`/ingestion-ops?orgunit=${encodeURIComponent(pair.ward)}`}
-                        className={cn(buttonVariants({ variant: "ghost", size: "sm" }))}
-                      >
-                        Review queue
-                      </Link>
+                    <div className="flex items-center justify-end gap-1.5">
+                      <div className="flex items-center gap-1">
+                        <Button size="sm" variant="outline" onClick={() => onConfirm(pair)}>
+                          Confirm ward
+                        </Button>
+                        <HelpTip content={GIS_REFERENCE_CONFIRM_WARD_TIP} label="About confirm ward" />
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Link
+                          href={`/ingestion-ops?orgunit=${encodeURIComponent(pair.ward)}`}
+                          className={cn(buttonVariants({ variant: "ghost", size: "sm" }))}
+                        >
+                          Review queue
+                        </Link>
+                        <HelpTip content={GIS_REFERENCE_REVIEW_QUEUE_TIP} label="About review queue" />
+                      </div>
                     </div>
                   </TableCell>
                 </TableRow>
@@ -320,7 +365,7 @@ function ActiveLayersList({
                       {layer?.updatedAt ? formatDate(layer.updatedAt) : "—"}
                     </TableCell>
                     <TableCell className="text-right">
-                      <div className="flex justify-end gap-1.5">
+                      <div className="flex items-center justify-end gap-1">
                         <Button
                           size="sm"
                           variant={configured ? "outline" : "default"}
@@ -330,6 +375,14 @@ function ActiveLayersList({
                           <Pencil className="size-3.5" />
                           {configured ? "Replace" : "Upload layer"}
                         </Button>
+                        <HelpTip
+                          content={
+                            configured
+                              ? GIS_REFERENCE_REPLACE_LAYER_TIP
+                              : GIS_REFERENCE_UPLOAD_LAYER_TIP
+                          }
+                          label={configured ? "About replace layer" : "About upload layer"}
+                        />
                       </div>
                     </TableCell>
                   </TableRow>
@@ -443,6 +496,7 @@ export default function GisReferenceLayersPage() {
   const { data: layers, isLoading } = useGisReferenceLayers();
   const rebuildMutation = useRebuildCanonicalWards();
 
+  const [helpOpen, setHelpOpen] = useState(false);
   const [editingSlot, setEditingSlot] = useState<GisReferenceSlot | null>(null);
   const [pendingRebuild, setPendingRebuild] = useState<GisPendingRebuild | null>(null);
   const [reportSlot, setReportSlot] = useState<GisReconcilableSlot | null>(null);
@@ -587,28 +641,35 @@ export default function GisReferenceLayersPage() {
         : undefined;
 
   return (
+    <TooltipProvider delay={200}>
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">GIS Reference Layers</h1>
+          <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+            GIS Reference Layers
+            <HelpTip content={GIS_REFERENCE_PAGE_TIP} label="About GIS reference layers" />
+          </h1>
           <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
             Upload dedicated GIS reference files for the five platform map slots, then reconcile
             raw LGA/ward spellings via the shared org-unit ladder and Data Review queue.
           </p>
         </div>
-        <Button
-          variant="outline"
-          className="shrink-0 gap-1.5"
-          onClick={handleRebuild}
-          disabled={rebuildMutation.isPending}
-        >
-          {rebuildMutation.isPending ? (
-            <Loader2 className="size-4 animate-spin" />
-          ) : (
-            <RotateCcw className="size-4" />
-          )}
-          Rebuild canonical wards
-        </Button>
+        <div className="flex items-center gap-1.5 shrink-0">
+          <Button
+            variant="outline"
+            className="gap-1.5"
+            onClick={handleRebuild}
+            disabled={rebuildMutation.isPending}
+          >
+            {rebuildMutation.isPending ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : (
+              <RotateCcw className="size-4" />
+            )}
+            Rebuild canonical wards
+          </Button>
+          <HelpTip content={GIS_REFERENCE_REBUILD_TIP} label="About rebuild canonical wards" />
+        </div>
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -617,12 +678,14 @@ export default function GisReferenceLayersPage() {
           value={`${configuredCount}/${GIS_REFERENCE_SLOTS.length}`}
           icon={CheckCircle2}
           tone="success"
+          tip={GIS_REFERENCE_METRIC_TIPS.configured}
         />
         <MetricCard
           label="Needs assignment"
           value={unsetCount}
           icon={AlertTriangle}
           tone={unsetCount > 0 ? "warning" : "muted"}
+          tip={GIS_REFERENCE_METRIC_TIPS.unset}
         />
         <MetricCard
           label="Unmatched spellings"
@@ -642,6 +705,7 @@ export default function GisReferenceLayersPage() {
                 ? "success"
                 : "muted"
           }
+          tip={GIS_REFERENCE_METRIC_TIPS.unmatched}
         />
         <MetricCard
           label="Match rate"
@@ -653,11 +717,13 @@ export default function GisReferenceLayersPage() {
           }
           icon={Layers}
           tone="info"
+          tip={GIS_REFERENCE_METRIC_TIPS.matchRate}
         />
-            </div>
+      </div>
 
       <Panel
         title="Active map layers"
+        titleTip={GIS_REFERENCE_LAYERS_PANEL_TIP}
         description="Each slot reads from one staff-uploaded file (or legacy catalogue dataset). Replacing a layer triggers gazetteer rebuild when applicable."
         icon={MapIcon}
         tone="primary"
@@ -673,6 +739,7 @@ export default function GisReferenceLayersPage() {
 
       <Panel
         title="Name resolution report"
+        titleTip={GIS_REFERENCE_RESOLUTION_PANEL_TIP}
         description="Unmatched LGA/ward spellings across reconcilable layers. Tabs show counts per layer — the layer with issues is selected automatically."
         icon={MapPin}
         tone="warning"
@@ -706,14 +773,21 @@ export default function GisReferenceLayersPage() {
                 const meta = RECONCILABLE_SLOT_META[slot];
 
                 return (
-                  <TabsTrigger
-                    key={slot}
-                    value={slot}
-                    className={cn(ADMIN_TAB_TRIGGER_BASE, tabToneClass(meta.tone))}
-                  >
-                  {GIS_SLOT_LABELS[slot]}
-                    <AdminTabCount count={unmatchedCount} active={isActive} />
-                  </TabsTrigger>
+                  <div key={slot} className="inline-flex flex-none items-center gap-0.5">
+                    <TabsTrigger
+                      value={slot}
+                      className={cn(ADMIN_TAB_TRIGGER_BASE, tabToneClass(meta.tone))}
+                    >
+                      {GIS_SLOT_LABELS[slot]}
+                      <AdminTabCount count={unmatchedCount} active={isActive} />
+                    </TabsTrigger>
+                    {isActive ? (
+                      <HelpTip
+                        content={GIS_REFERENCE_RESOLUTION_TAB_TIPS[slot]}
+                        label={`About ${GIS_SLOT_LABELS[slot]}`}
+                      />
+                    ) : null}
+                  </div>
                 );
               })}
             </AdminSectionTabsNav>
@@ -765,6 +839,10 @@ export default function GisReferenceLayersPage() {
           onClose={() => setVariantTarget(null)}
         />
       )}
+
+      <GisReferenceHelpDialog open={helpOpen} onOpenChange={setHelpOpen} />
+      <GisReferenceHelpFab onClick={() => setHelpOpen(true)} />
     </div>
+    </TooltipProvider>
   );
 }

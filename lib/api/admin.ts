@@ -351,6 +351,20 @@ export async function publishDataset(datasetSlug: string): Promise<Dataset> {
 }
 
 /**
+ * Change catalogue access level (public / restricted / private).
+ */
+export async function updateDatasetVisibility(
+  datasetSlug: string,
+  visibility: 'public' | 'restricted' | 'private',
+): Promise<Dataset> {
+  const response = await apiClient.patch<ApiResponse<Dataset>>(
+    `/admin/datasets/${datasetSlug}/visibility`,
+    { visibility },
+  );
+  return response.data.data;
+}
+
+/**
  * Load resolved staging into disease_burden (analytics warehouse).
  * Separate from catalogue publish.
  */
@@ -458,13 +472,46 @@ export async function deleteDataset(datasetSlug: string): Promise<void> {
   await apiClient.delete(`/admin/datasets/${datasetSlug}`);
 }
 
+export interface ArchiveDatasetPayload {
+  reason?: string;
+  retractFromAnalytics?: boolean;
+  retractReason?: string;
+  mfaCode?: string;
+}
+
+export interface BulkArchiveDatasetsPayload extends ArchiveDatasetPayload {
+  slugs: string[];
+}
+
+export interface BulkArchiveDatasetsResult {
+  succeeded: Array<{ slug: string; id: string; title: string }>;
+  failed: Array<{ slug: string; error: string; needsRetract?: boolean }>;
+  analyticsRetractCount: number;
+}
+
 /**
  * Archive a dataset (changes status to ARCHIVED)
  */
-export async function archiveDataset(datasetSlug: string, reason?: string): Promise<Dataset> {
+export async function archiveDataset(
+  datasetSlug: string,
+  payload?: ArchiveDatasetPayload,
+): Promise<Dataset> {
   const response = await apiClient.post<ApiResponse<Dataset>>(
     `/datasets/${datasetSlug}/archive`,
-    reason ? { reason } : undefined
+    payload,
+  );
+  return response.data.data;
+}
+
+/**
+ * Archive multiple datasets (admin review queue bulk action)
+ */
+export async function bulkArchiveDatasets(
+  payload: BulkArchiveDatasetsPayload,
+): Promise<BulkArchiveDatasetsResult> {
+  const response = await apiClient.post<ApiResponse<BulkArchiveDatasetsResult>>(
+    '/admin/datasets/bulk-archive',
+    payload,
   );
   return response.data.data;
 }
@@ -631,6 +678,7 @@ export interface GovernanceAnalytics {
     totalRows: number;
   }>;
   openConflicts: number;
+  datasetsWithOpenConflicts: number;
   stagingTotal: number;
   indicatorPendingStaging: number;
 }
@@ -638,6 +686,7 @@ export interface GovernanceAnalytics {
 export interface DatasetCompareResult {
   datasetA: string;
   datasetB: string;
+  mode: 'live' | 'raw';
   keysA: number;
   keysB: number;
   sharedKeys: number;
@@ -645,7 +694,10 @@ export interface DatasetCompareResult {
   conflicts: number;
   completenessA: number | null;
   completenessB: number | null;
+  relationStatus?: string | null;
 }
+
+export type DatasetCompareMode = 'live' | 'raw';
 
 /**
  * Get real month-bucketed uploads/new-users series for the Analytics page
@@ -676,13 +728,18 @@ export async function getGovernanceAnalytics(): Promise<GovernanceAnalytics> {
 
 export async function compareDatasets(
   datasetA: string,
-  datasetB: string
+  datasetB: string,
+  mode: DatasetCompareMode = 'live',
 ): Promise<DatasetCompareResult> {
   const response = await apiClient.get<ApiResponse<DatasetCompareResult>>(
-    '/analytics/compare',
-    { params: { dataset_a: datasetA, dataset_b: datasetB } }
+    '/admin/analytics/compare',
+    { params: { dataset_a: datasetA, dataset_b: datasetB, mode } }
   );
   return response.data.data;
+}
+
+export async function refreshAnalyticsCache(): Promise<void> {
+  await apiClient.post('/analytics/refresh');
 }
 
 /**

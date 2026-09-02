@@ -20,6 +20,9 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { ArchiveDatasetDialog } from "@/components/admin/archive-dataset-dialog";
+import { BulkArchiveDatasetDialog } from "@/components/admin/bulk-archive-dataset-dialog";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Table,
   TableBody,
@@ -43,9 +46,17 @@ import {
   tabToneClass,
   type MetricTone,
 } from "@/components/admin/admin-analytics-ui";
+import { HelpTip } from "@/components/admin/help-tip";
+import {
+  DATASETS_QUEUE_METRIC_TIPS,
+  DATASETS_QUEUE_PAGE_TIP,
+  DATASETS_QUEUE_PANEL_TIP,
+  DATASETS_PUBLISH_TIP,
+} from "@/lib/constants/datasets-queue-tooltips";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { useToast } from "@/lib/hooks/use-toast";
 import { useAdminAccess } from "@/lib/hooks/useAdminAccess";
-import { adminApi, archiveDataset, publishDataset, unarchiveDataset } from "@/lib/api/admin";
+import { adminApi, archiveDataset, bulkArchiveDatasets, publishDataset, unarchiveDataset, type ArchiveDatasetPayload } from "@/lib/api/admin";
 import type { DatasetStatus } from "@/lib/api/datasets";
 import type { Visibility } from "@/types";
 import { cn } from "@/lib/utils";
@@ -66,6 +77,7 @@ interface Dataset {
   created_at: string;
   updated_at: string;
   published_at: string | null;
+  analytics_published_at?: string | null;
 }
 
 interface Organisation {
@@ -84,11 +96,14 @@ interface DatasetPage {
   };
 }
 
-const TABS: Array<{ key: DatasetStatus | "all"; label: string; tone: MetricTone }> = [
+type QueueTab = DatasetStatus | "all" | "published";
+
+const TABS: Array<{ key: QueueTab; label: string; tone: MetricTone }> = [
   { key: "all", label: "All datasets", tone: "muted" },
   { key: "pending", label: "Pending", tone: "warning" },
   { key: "under_review", label: "Under review", tone: "info" },
-  { key: "approved", label: "Approved", tone: "success" },
+  { key: "approved", label: "Approved", tone: "warning" },
+  { key: "published", label: "Published", tone: "success" },
   { key: "rejected", label: "Rejected", tone: "destructive" },
   { key: "archived", label: "Archived", tone: "muted" },
 ];
@@ -98,9 +113,19 @@ async function fetchQueueCount(path: string): Promise<number> {
   return response.data.data.meta.total;
 }
 
-async function fetchStatusCount(status: DatasetStatus): Promise<number> {
+async function fetchStatusCount(
+  status: DatasetStatus,
+  published?: boolean,
+): Promise<number> {
+  const params = new URLSearchParams({
+    page: "1",
+    limit: "1",
+    status,
+  });
+  if (published === true) params.set("published", "true");
+  if (published === false) params.set("published", "false");
   const response = await adminApi.get<{ data: DatasetPage }>(
-    `/admin/datasets?page=1&limit=1&status=${status}`,
+    `/admin/datasets?${params}`,
   );
   return response.data.data.meta.total;
 }
@@ -114,12 +139,18 @@ export default function DatasetsReviewPage() {
   const canPublish = can("publish:datasets");
   const canArchive = can("archive:datasets");
 
-  const [tab, setTab] = useState<DatasetStatus | "all">("pending");
+  const [tab, setTab] = useState<QueueTab>("pending");
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
   const [archiveTarget, setArchiveTarget] = useState<Dataset | null>(null);
+  const [selectedSlugs, setSelectedSlugs] = useState<Set<string>>(new Set());
+  const [bulkArchiveOpen, setBulkArchiveOpen] = useState(false);
+
+  useEffect(() => {
+    setSelectedSlugs(new Set());
+  }, [tab, page, debouncedQuery]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -131,7 +162,13 @@ export default function DatasetsReviewPage() {
   }, [query]);
 
   const archiveMutation = useMutation({
-    mutationFn: (slug: string) => archiveDataset(slug),
+    mutationFn: ({
+      slug,
+      payload,
+    }: {
+      slug: string;
+      payload?: ArchiveDatasetPayload;
+    }) => archiveDataset(slug, payload),
     onSuccess: () => {
       toast({ title: "Success", description: "Dataset archived" });
       setArchiveTarget(null);
@@ -156,6 +193,40 @@ export default function DatasetsReviewPage() {
       toast({
         title: "Error",
         description: error instanceof Error ? error.message : "Failed to restore dataset",
+        variant: "destructive",
+      }),
+  });
+
+  const bulkArchiveMutation = useMutation({
+    mutationFn: (payload: { slugs: string[] } & ArchiveDatasetPayload) =>
+      bulkArchiveDatasets(payload),
+    onSuccess: (result) => {
+      setBulkArchiveOpen(false);
+      setSelectedSlugs(new Set());
+      queryClient.invalidateQueries({ queryKey: ["admin", "datasets"] });
+
+      const { succeeded, failed, analyticsRetractCount } = result;
+      if (failed.length === 0) {
+        toast({
+          title: "Bulk archive complete",
+          description:
+            analyticsRetractCount > 0
+              ? `${succeeded.length} archived; ${analyticsRetractCount} retracted from analytics.`
+              : `${succeeded.length} dataset${succeeded.length === 1 ? "" : "s"} archived.`,
+        });
+        return;
+      }
+
+      toast({
+        title: "Bulk archive finished with errors",
+        description: `${succeeded.length} archived, ${failed.length} failed.${analyticsRetractCount > 0 ? ` ${analyticsRetractCount} retracted.` : ""}`,
+        variant: failed.length === result.succeeded.length + result.failed.length ? "destructive" : "default",
+      });
+    },
+    onError: (error: unknown) =>
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Bulk archive failed",
         variant: "destructive",
       }),
   });
@@ -197,14 +268,28 @@ export default function DatasetsReviewPage() {
         );
         return response.data.data;
       }
-      if (tab !== "all") params.append("status", tab);
+      if (tab === "published") {
+        params.append("status", "approved");
+        params.append("published", "true");
+      } else if (tab !== "all") {
+        params.append("status", tab);
+        if (tab === "approved") {
+          params.append("published", "false");
+        }
+      }
       const response = await adminApi.get<{ data: DatasetPage }>(`/admin/datasets?${params}`);
       return response.data.data;
     },
     placeholderData: keepPreviousData,
   });
 
-  const [pendingSummary, underReviewSummary, approvedSummary, rejectedSummary] = useQueries({
+  const [
+    pendingSummary,
+    underReviewSummary,
+    approvedSummary,
+    publishedSummary,
+    rejectedSummary,
+  ] = useQueries({
     queries: [
       {
         queryKey: ["admin", "datasets", "summary", "pending"],
@@ -218,7 +303,12 @@ export default function DatasetsReviewPage() {
       },
       {
         queryKey: ["admin", "datasets", "summary", "approved"],
-        queryFn: () => fetchStatusCount("approved"),
+        queryFn: () => fetchStatusCount("approved", false),
+        enabled: canViewQueue,
+      },
+      {
+        queryKey: ["admin", "datasets", "summary", "published"],
+        queryFn: () => fetchStatusCount("approved", true),
         enabled: canViewQueue,
       },
       {
@@ -233,6 +323,7 @@ export default function DatasetsReviewPage() {
     pendingSummary.isLoading ||
     underReviewSummary.isLoading ||
     approvedSummary.isLoading ||
+    publishedSummary.isLoading ||
     rejectedSummary.isLoading;
 
   const { data: organisationsData } = useQuery({
@@ -250,6 +341,38 @@ export default function DatasetsReviewPage() {
   const totalPages = data?.meta.totalPages ?? 1;
   const isSearchPending = query.trim() !== debouncedQuery;
   const hasFilters = !!query || !!debouncedQuery || tab !== "pending";
+  const showBulkArchive = canArchive && tab !== "archived";
+  const selectableOnPage = showBulkArchive
+    ? datasets.filter((d) => d.status !== "archived")
+    : [];
+  const allPageSelected =
+    selectableOnPage.length > 0 &&
+    selectableOnPage.every((d) => selectedSlugs.has(d.slug));
+  const selectedDatasets = datasets.filter((d) => selectedSlugs.has(d.slug));
+  const selectedAnalyticsCount = selectedDatasets.filter((d) =>
+    Boolean(d.analytics_published_at),
+  ).length;
+
+  const toggleSelectAllOnPage = () => {
+    setSelectedSlugs((prev) => {
+      const next = new Set(prev);
+      if (allPageSelected) {
+        selectableOnPage.forEach((d) => next.delete(d.slug));
+      } else {
+        selectableOnPage.forEach((d) => next.add(d.slug));
+      }
+      return next;
+    });
+  };
+
+  const toggleSelectSlug = (slug: string) => {
+    setSelectedSlugs((prev) => {
+      const next = new Set(prev);
+      if (next.has(slug)) next.delete(slug);
+      else next.add(slug);
+      return next;
+    });
+  };
 
   const clearFilters = () => {
     setQuery("");
@@ -286,17 +409,20 @@ export default function DatasetsReviewPage() {
           {isReviewable && canApprove ? "Review" : "View"}
         </Link>
         {dataset.status === "approved" && !dataset.published_at && canPublish && (
-          <Button
-            size="sm"
-            variant="outline"
-            className={cn("gap-1.5", mobile && "h-11 flex-1")}
-            onClick={() => publishMutation.mutate(dataset.slug)}
-            disabled={publishMutation.isPending}
-            aria-label={`Publish ${dataset.title}`}
-          >
-            <Globe className="size-3.5" aria-hidden="true" />
-            Publish
-          </Button>
+          <div className={cn("inline-flex items-center gap-0.5", mobile && "flex-1")}>
+            <Button
+              size="sm"
+              variant="outline"
+              className={cn("gap-1.5", mobile && "h-11 flex-1")}
+              onClick={() => publishMutation.mutate(dataset.slug)}
+              disabled={publishMutation.isPending}
+              aria-label={`Publish ${dataset.title}`}
+            >
+              <Globe className="size-3.5" aria-hidden="true" />
+              Publish
+            </Button>
+            <HelpTip content={DATASETS_PUBLISH_TIP} label="About publish" />
+          </div>
         )}
         {canArchive &&
           (dataset.status === "archived" ? (
@@ -339,10 +465,14 @@ export default function DatasetsReviewPage() {
   }
 
   return (
+    <TooltipProvider delay={200}>
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Review Queue</h1>
+          <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+            Review Queue
+            <HelpTip content={DATASETS_QUEUE_PAGE_TIP} label="About the review queue" />
+          </h1>
           <p className="mt-1 text-sm text-muted-foreground">
             Manage dataset submissions through the approval pipeline
           </p>
@@ -354,24 +484,19 @@ export default function DatasetsReviewPage() {
         )}
       </div>
 
-      <div className="rounded-xl border border-info/25 bg-info/[0.06] px-4 py-3 text-sm text-muted-foreground">
-        New uploads enter as pending and move through review before approval. Approved datasets must
-        still be published to appear on the public catalogue — approval and publishing are separate
-        steps.
-      </div>
-
       {statsLoading ? (
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          {[...Array(4)].map((_, i) => (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+          {[...Array(5)].map((_, i) => (
             <Skeleton key={i} className="h-28 rounded-2xl" />
           ))}
         </div>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
           <MetricCard
             label="Pending review"
             value={pendingSummary.data ?? 0}
             hint="Awaiting first review"
+            tip={DATASETS_QUEUE_METRIC_TIPS.pending}
             icon={FileCheck}
             tone="warning"
           />
@@ -379,6 +504,7 @@ export default function DatasetsReviewPage() {
             label="Under review"
             value={underReviewSummary.data ?? 0}
             hint="Assigned to a reviewer"
+            tip={DATASETS_QUEUE_METRIC_TIPS.under_review}
             icon={Database}
             tone="info"
           />
@@ -386,6 +512,15 @@ export default function DatasetsReviewPage() {
             label="Approved"
             value={approvedSummary.data ?? 0}
             hint="Ready to publish"
+            tip={DATASETS_QUEUE_METRIC_TIPS.approved}
+            icon={Globe}
+            tone="warning"
+          />
+          <MetricCard
+            label="Published"
+            value={publishedSummary.data ?? 0}
+            hint="Live on catalogue"
+            tip={DATASETS_QUEUE_METRIC_TIPS.published}
             icon={Globe}
             tone="success"
           />
@@ -393,6 +528,7 @@ export default function DatasetsReviewPage() {
             label="Rejected"
             value={rejectedSummary.data ?? 0}
             hint="Returned to submitter"
+            tip={DATASETS_QUEUE_METRIC_TIPS.rejected}
             icon={Archive}
             tone="destructive"
           />
@@ -401,6 +537,7 @@ export default function DatasetsReviewPage() {
 
       <Panel
         title="Dataset queue"
+        titleTip={DATASETS_QUEUE_PANEL_TIP}
         description="Filter by workflow status or search title, format, and organisation."
         icon={FileCheck}
         tone="info"
@@ -476,6 +613,41 @@ export default function DatasetsReviewPage() {
               </span>
             </div>
           </div>
+
+          {showBulkArchive && selectedSlugs.size > 0 && (
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-destructive/20 bg-destructive/5 px-4 py-3">
+              <p className="text-sm">
+                <span className="font-semibold tabular-nums">{selectedSlugs.size}</span>{" "}
+                selected
+                {selectedAnalyticsCount > 0 ? (
+                  <span className="text-muted-foreground">
+                    {" "}
+                    · {selectedAnalyticsCount} loaded in analytics
+                  </span>
+                ) : null}
+              </p>
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setSelectedSlugs(new Set())}
+                >
+                  Clear
+                </Button>
+                <Button
+                  type="button"
+                  variant="destructive"
+                  size="sm"
+                  className="gap-1.5"
+                  onClick={() => setBulkArchiveOpen(true)}
+                >
+                  <Archive className="size-3.5" aria-hidden="true" />
+                  Archive selected
+                </Button>
+              </div>
+            </div>
+          )}
         </div>
       </Panel>
 
@@ -531,6 +703,15 @@ export default function DatasetsReviewPage() {
                 <Table>
                   <TableHeader>
                     <TableRow className="h-11 bg-muted/40 text-[11px] uppercase tracking-wide hover:bg-muted/40">
+                      {showBulkArchive ? (
+                        <TableHead className="h-11 w-10 px-3">
+                          <Checkbox
+                            checked={allPageSelected}
+                            onCheckedChange={toggleSelectAllOnPage}
+                            aria-label="Select all datasets on this page"
+                          />
+                        </TableHead>
+                      ) : null}
                       <TableHead className="h-11 px-4">Dataset</TableHead>
                       <TableHead className="h-11 px-4">Organisation</TableHead>
                       <TableHead className="h-11 px-4">Format</TableHead>
@@ -543,6 +724,17 @@ export default function DatasetsReviewPage() {
                   <TableBody>
                     {datasets.map((dataset) => (
                       <TableRow key={dataset.id} className="hover:bg-muted/30">
+                        {showBulkArchive ? (
+                          <TableCell className="w-10 px-3 py-3.5">
+                            {dataset.status !== "archived" ? (
+                              <Checkbox
+                                checked={selectedSlugs.has(dataset.slug)}
+                                onCheckedChange={() => toggleSelectSlug(dataset.slug)}
+                                aria-label={`Select ${dataset.title}`}
+                              />
+                            ) : null}
+                          </TableCell>
+                        ) : null}
                         <TableCell className="max-w-sm px-4 py-3.5">
                           <div className="flex items-center gap-3">
                             <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
@@ -596,6 +788,14 @@ export default function DatasetsReviewPage() {
               {datasets.map((dataset) => (
                 <article key={dataset.id} className="rounded-xl border bg-card p-4">
                   <div className="flex items-start gap-3">
+                    {showBulkArchive && dataset.status !== "archived" ? (
+                      <Checkbox
+                        checked={selectedSlugs.has(dataset.slug)}
+                        onCheckedChange={() => toggleSelectSlug(dataset.slug)}
+                        aria-label={`Select ${dataset.title}`}
+                        className="mt-1"
+                      />
+                    ) : null}
                     <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
                       <Database className="size-5" aria-hidden="true" />
                     </div>
@@ -680,27 +880,46 @@ export default function DatasetsReviewPage() {
       </div>
 
       <ConfirmDialog
-        open={!!archiveTarget}
+        open={!!archiveTarget && archiveTarget.status === "archived"}
         onOpenChange={(open) => !open && setArchiveTarget(null)}
-        title={archiveTarget?.status === "archived" ? "Restore dataset?" : "Archive dataset?"}
-        description={
-          archiveTarget?.status === "archived"
-            ? `"${archiveTarget?.title}" will be restored to its previous workflow status.`
-            : `"${archiveTarget?.title}" will be removed from the public catalogue but remains accessible to admins.`
-        }
-        confirmLabel={archiveTarget?.status === "archived" ? "Restore" : "Archive"}
-        variant={archiveTarget?.status === "archived" ? "default" : "destructive"}
-        loading={archiveMutation.isPending || unarchiveMutation.isPending}
+        title="Restore dataset?"
+        description={`"${archiveTarget?.title}" will be restored to its previous workflow status.`}
+        confirmLabel="Restore"
+        loading={unarchiveMutation.isPending}
         onConfirm={() => {
           if (!archiveTarget) return;
-          if (archiveTarget.status === "archived") {
-            unarchiveMutation.mutate(archiveTarget.slug);
-          } else {
-            archiveMutation.mutate(archiveTarget.slug);
-          }
+          unarchiveMutation.mutate(archiveTarget.slug);
+        }}
+      />
+
+      <ArchiveDatasetDialog
+        open={!!archiveTarget && archiveTarget.status !== "archived"}
+        onOpenChange={(open) => !open && setArchiveTarget(null)}
+        title="Archive dataset?"
+        datasetTitle={archiveTarget?.title ?? "This dataset"}
+        analyticsPublished={Boolean(archiveTarget?.analytics_published_at)}
+        loading={archiveMutation.isPending}
+        onConfirm={(payload) => {
+          if (!archiveTarget) return;
+          archiveMutation.mutate({ slug: archiveTarget.slug, payload });
+        }}
+      />
+
+      <BulkArchiveDatasetDialog
+        open={bulkArchiveOpen}
+        onOpenChange={setBulkArchiveOpen}
+        selectedCount={selectedSlugs.size}
+        analyticsLoadedCount={selectedAnalyticsCount}
+        loading={bulkArchiveMutation.isPending}
+        onConfirm={(payload) => {
+          bulkArchiveMutation.mutate({
+            slugs: [...selectedSlugs],
+            ...payload,
+          });
         }}
       />
     </div>
+    </TooltipProvider>
   );
 }
 

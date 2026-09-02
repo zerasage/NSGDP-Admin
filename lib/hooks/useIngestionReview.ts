@@ -5,6 +5,8 @@ import * as api from '../api/ingestion-review';
 const REVIEW_QUEUE_KEY = 'ingestion-review-queue';
 const REPORT_KEY = 'ingestion-report';
 export const ANALYTICS_PUBLISH_STATUS_KEY = 'analytics-publish-status';
+export const ANALYTICS_WAREHOUSE_KEY = 'analytics-warehouse';
+export const PIPELINE_ATTENTION_KEY = 'pipeline-attention';
 const COVERAGE_KEY = 'ingestion-coverage';
 const RELATED_KEY = 'ingestion-related-datasets';
 export const INGESTION_PROGRESS_KEY = 'ingestion-progress';
@@ -53,6 +55,43 @@ export function useAnalyticsPublishStatus(datasetId: string | undefined) {
       if (data?.ingestionInProgress) return 2000;
       return false;
     },
+  });
+}
+
+export function useAnalyticsWarehouse(
+  filter: api.AnalyticsWarehouseFilter = 'in_warehouse',
+  options?: { enabled?: boolean },
+) {
+  return useQuery({
+    queryKey: [ANALYTICS_WAREHOUSE_KEY, filter],
+    queryFn: () => api.listAnalyticsWarehouse({ filter, limit: 200 }),
+    enabled: options?.enabled !== false,
+    refetchInterval: (query) => {
+      const data = query.state.data;
+      if ((data?.summary.loading ?? 0) > 0) return 3000;
+      const items = data?.items ?? [];
+      const active = items.some(
+        (row) =>
+          row.phase === 'loading' ||
+          row.phase === 'updating' ||
+          row.ingestionStatus === 'retracting' ||
+          row.publicationStatus === 'publishing' ||
+          row.publicationStatus === 'retracting',
+      );
+      return active ? 3000 : false;
+    },
+  });
+}
+
+export function usePipelineAttention(
+  filter: api.PipelineAttentionFilter = 'all',
+  options?: { enabled?: boolean },
+) {
+  return useQuery({
+    queryKey: [PIPELINE_ATTENTION_KEY, filter],
+    queryFn: () => api.listPipelineAttention({ filter, limit: 200 }),
+    enabled: options?.enabled !== false,
+    refetchInterval: 15_000,
   });
 }
 
@@ -197,6 +236,7 @@ export function useRunDatasetIngestion(datasetId?: string) {
       queryClient.invalidateQueries({ queryKey: [INGESTION_PROGRESS_KEY, datasetId] });
       queryClient.invalidateQueries({ queryKey: [ANALYTICS_PUBLISH_STATUS_KEY, datasetId] });
       queryClient.invalidateQueries({ queryKey: [IN_FLIGHT_JOBS_KEY] });
+      queryClient.invalidateQueries({ queryKey: [PIPELINE_ATTENTION_KEY] });
       queryClient.invalidateQueries({ queryKey: ['dataset'] });
     },
   });
@@ -215,6 +255,7 @@ export function useCancelDatasetIngestion(datasetId?: string) {
       queryClient.invalidateQueries({ queryKey: [INGESTION_PROGRESS_KEY, datasetId] });
       queryClient.invalidateQueries({ queryKey: [ANALYTICS_PUBLISH_STATUS_KEY, datasetId] });
       queryClient.invalidateQueries({ queryKey: [IN_FLIGHT_JOBS_KEY] });
+      queryClient.invalidateQueries({ queryKey: [PIPELINE_ATTENTION_KEY] });
       queryClient.invalidateQueries({ queryKey: ['dataset'] });
     },
   });

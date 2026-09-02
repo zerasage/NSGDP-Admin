@@ -45,6 +45,14 @@ import { cn } from "@/lib/utils";
 import { formatDate } from "@/lib/utils/date";
 import { GroupFormModal } from "@/components/admin/group-form-modal";
 import { GroupMembersModal } from "@/components/admin/group-members-modal";
+import { HelpTip } from "@/components/admin/help-tip";
+import {
+  GROUPS_CREATE_TIP,
+  GROUPS_METRIC_TIPS,
+  GROUPS_PAGE_TIP,
+  GROUPS_PANEL_TIP,
+} from "@/lib/constants/groups-tooltips";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import type { AdminGroup } from "@/lib/api/groups";
 import { toast } from "sonner";
 
@@ -146,10 +154,14 @@ export default function AdminGroupsPage() {
     : "From first 100 groups";
 
   return (
+    <TooltipProvider delay={200}>
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Groups</h1>
+          <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+            Groups
+            <HelpTip content={GROUPS_PAGE_TIP} label="About groups" />
+          </h1>
           <p className="mt-1 text-sm text-muted-foreground">
             Curated topic collections of datasets and documents — e.g. &quot;Malaria Control
             2024–2026&quot;
@@ -160,12 +172,6 @@ export default function AdminGroupsPage() {
             {total} {total === 1 ? "group" : "groups"}
           </Badge>
         )}
-      </div>
-
-      <div className="rounded-xl border border-info/25 bg-info/[0.06] px-4 py-3 text-sm text-muted-foreground">
-        Groups bundle related datasets and documents for the public portal — thematic collections
-        like disease programmes or policy areas. Feature a group to highlight it on the homepage
-        catalogue.
       </div>
 
       {statsLoading ? (
@@ -180,6 +186,7 @@ export default function AdminGroupsPage() {
             label="Total groups"
             value={totalSummary.data ?? 0}
             hint="Curated collections"
+            tip={GROUPS_METRIC_TIPS.total}
             icon={FolderKanban}
             tone="primary"
           />
@@ -187,6 +194,7 @@ export default function AdminGroupsPage() {
             label="Featured"
             value={featuredSummary.data ?? 0}
             hint="Highlighted on the portal"
+            tip={GROUPS_METRIC_TIPS.featured}
             icon={Star}
             tone="warning"
           />
@@ -194,6 +202,7 @@ export default function AdminGroupsPage() {
             label="Dataset links"
             value={aggregatesSummary.data?.datasetLinks ?? 0}
             hint={aggregateHint}
+            tip={GROUPS_METRIC_TIPS.datasetLinks}
             icon={Database}
             tone="info"
           />
@@ -201,6 +210,7 @@ export default function AdminGroupsPage() {
             label="Document links"
             value={aggregatesSummary.data?.documentLinks ?? 0}
             hint={aggregateHint}
+            tip={GROUPS_METRIC_TIPS.documentLinks}
             icon={FileText}
             tone="success"
           />
@@ -209,15 +219,19 @@ export default function AdminGroupsPage() {
 
       <Panel
         title="Group directory"
+        titleTip={GROUPS_PANEL_TIP}
         description="Search by name or description."
         icon={FolderKanban}
         tone="info"
         action={
           canManage ? (
-            <Button className="h-9 w-full sm:w-auto" onClick={openCreate}>
-              <Plus className="size-4" aria-hidden="true" />
-              Create group
-            </Button>
+            <div className="flex w-full items-center gap-1.5 sm:w-auto">
+              <Button className="h-9 flex-1 sm:flex-none" onClick={openCreate}>
+                <Plus className="size-4" aria-hidden="true" />
+                Create group
+              </Button>
+              <HelpTip content={GROUPS_CREATE_TIP} label="About create group" />
+            </div>
           ) : undefined
         }
       >
@@ -506,6 +520,7 @@ export default function AdminGroupsPage() {
         onConfirm={confirmDelete}
       />
     </div>
+    </TooltipProvider>
   );
 }
 

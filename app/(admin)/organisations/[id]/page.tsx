@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useMemo, useRef, useState } from "react";
+import { use, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -22,6 +22,7 @@ import {
 import { useAuth } from "@/lib/auth";
 import { useAdminAccess } from "@/lib/hooks/useAdminAccess";
 import { InviteMemberModal } from "@/components/admin/invite-member-modal";
+import { HelpTip } from "@/components/admin/help-tip";
 import { OrganisationAgreementCard } from "@/components/admin/organisation-agreement-card";
 import { EditOrganisationModal } from "@/components/admin/edit-organisation-modal";
 import { OrganisationApiKeysPanel } from "@/components/admin/organisation-api-keys-panel";
@@ -39,6 +40,16 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import { formatDate } from "@/lib/utils/date";
+import {
+  ORGANISATION_CONTACT_PANEL_TIP,
+  ORGANISATION_DATASETS_PANEL_TIP,
+  ORGANISATION_DETAIL_PAGE_TIP,
+  ORGANISATION_INVITES_PANEL_TIP,
+  ORGANISATION_MEMBERS_PANEL_TIP,
+  ORGANISATION_SUMMARY_TIPS,
+  ORGANISATION_WORKSPACE_TIP,
+} from "@/lib/constants/organisations-tooltips";
+import { TooltipProvider } from "@/components/ui/tooltip";
 
 type Member = Awaited<ReturnType<typeof getUsers>>["data"][number];
 type Invite = Awaited<ReturnType<typeof getOrganisationInvites>>[number];
@@ -54,15 +65,22 @@ export default function OrganisationDetailPage({ params }: { params: Promise<{ i
   const router = useRouter();
   const queryClient = useQueryClient();
   const { user } = useAuth();
-  const { can } = useAdminAccess();
+  const { can, canAny, isSuperAdmin, isLoading: permissionsLoading } = useAdminAccess();
   const canPromote = can("promote:org-admin");
   const canDemote = can("demote:org-admin");
   const canRemove = can("remove:org-members");
+  const canViewMembers = canAny(
+    "invite:users",
+    "promote:org-admin",
+    "demote:org-admin",
+    "remove:org-members",
+  );
   const canEdit = can("edit:organisations");
   const canDeactivate = can("deactivate:organisations");
   const canDeleteOrg = can("delete:organisations");
   const canAgreement = can("manage:organisation-agreements");
   const canInvite = can("invite:users");
+  const canViewInvites = canInvite;
   const canUpload = can("create:datasets");
   const canArchive = can("archive:datasets");
   const canDeleteDataset = can("archive:datasets");
@@ -88,8 +106,16 @@ export default function OrganisationDetailPage({ params }: { params: Promise<{ i
   const org = organisationQuery.data?.organisation;
   const orgId = org?.id;
   const datasets = useMemo(() => (organisationQuery.data?.datasets ?? []) as Dataset[], [organisationQuery.data?.datasets]);
-  const membersQuery = useQuery({ queryKey: ["org-members", orgId], queryFn: () => getUsers({ organisationId: orgId!, limit: 100 }), enabled: !!orgId });
-  const invitesQuery = useQuery({ queryKey: ["org-invites", orgId], queryFn: () => getOrganisationInvites(orgId!), enabled: !!orgId });
+  const membersQuery = useQuery({
+    queryKey: ["org-members", orgId],
+    queryFn: () => getUsers({ organisationId: orgId!, limit: 100 }),
+    enabled: !!orgId && canViewMembers,
+  });
+  const invitesQuery = useQuery({
+    queryKey: ["org-invites", orgId],
+    queryFn: () => getOrganisationInvites(orgId!),
+    enabled: !!orgId && canViewInvites,
+  });
   const members = useMemo(() => membersQuery.data?.data ?? [], [membersQuery.data?.data]);
   const invites = useMemo(() => invitesQuery.data ?? [], [invitesQuery.data]);
 
@@ -124,12 +150,22 @@ export default function OrganisationDetailPage({ params }: { params: Promise<{ i
     dataset.title.toLowerCase().includes(datasetSearch.toLowerCase()) && (datasetStatus === "all" || dataset.status === datasetStatus)
   ), [datasets, datasetSearch, datasetStatus]);
 
+  useEffect(() => {
+    if (permissionsLoading) return;
+    if (activeTab === "members" && !canViewMembers) setActiveTab("datasets");
+    if (activeTab === "invites" && !canViewInvites) setActiveTab("datasets");
+  }, [permissionsLoading, activeTab, canViewMembers, canViewInvites]);
+
   if (organisationQuery.isLoading) return <PageSkeleton />;
   if (organisationQuery.isError) return <LoadFailure title="Could not load organisation" retry={() => organisationQuery.refetch()} />;
   if (!org) return <LoadFailure title="Organisation not found" description="The record may have been removed or the URL may be incorrect." retry={() => organisationQuery.refetch()} />;
 
-  const pendingInvites = invites.filter((invite) => invite.status === "pending").length;
-  const adminCount = members.filter((member) => member.role === "admin").length;
+  const pendingInvites = canViewInvites
+    ? invites.filter((invite) => invite.status === "pending").length
+    : 0;
+  const adminCount = canViewMembers
+    ? members.filter((member) => member.role === "admin").length
+    : 0;
   const resetMembers = () => { setMemberSearch(""); setMemberStatus("all"); };
   const resetInvites = () => { setInviteSearch(""); setInviteStatus("all"); };
   const resetDatasets = () => { setDatasetSearch(""); setDatasetStatus("all"); };
@@ -144,7 +180,9 @@ export default function OrganisationDetailPage({ params }: { params: Promise<{ i
     requestAnimationFrame(() => directoryRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }));
   };
 
-  return <div className="space-y-5">
+  return (
+    <TooltipProvider delay={200}>
+  <div className="space-y-5">
     <InviteMemberModal open={inviteOpen} onClose={() => setInviteOpen(false)} organisationId={orgId ?? ""} organisationName={org.name} />
     <EditOrganisationModal open={editOpen} onClose={() => setEditOpen(false)} org={org} slug={slug} />
     <ConfirmDialog open={!!removeTarget} onOpenChange={(open) => !open && setRemoveTarget(null)} title="Remove member?" description={`Remove “${removeTarget?.name}” from this organisation? Their account will remain intact.`} confirmLabel="Remove" variant="destructive" loading={removeMember.isPending} onConfirm={() => removeTarget && removeMember.mutate(removeTarget.id, { onSuccess: () => setRemoveTarget(null) })} />
@@ -156,62 +194,94 @@ export default function OrganisationDetailPage({ params }: { params: Promise<{ i
     <header className="overflow-hidden rounded-2xl border bg-card">
       <div className="border-b px-4 py-3 sm:px-5"><Link href="/organisations" className={cn(buttonVariants({ variant: "ghost" }), "-ml-3 h-11 sm:h-8")}><ArrowLeft className="size-4" />Organisations</Link></div>
       <div className="flex flex-col gap-4 p-4 sm:p-5 lg:flex-row lg:items-start lg:justify-between">
-        <div className="flex min-w-0 gap-3"><div className="flex size-12 shrink-0 items-center justify-center rounded-xl border bg-muted"><Building2 className="size-6" /></div><div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><h1 className="text-2xl font-bold leading-8">{org.name}</h1>{org.acronym && <Badge variant="secondary">{org.acronym}</Badge>}<Badge variant="outline" className="capitalize">{org.type}</Badge><Badge variant={org.is_active ? "default" : "secondary"}>{org.is_active ? "Active" : "Inactive"}</Badge></div><p className="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">{org.description || "No organisation description has been added."}</p></div></div>
+        <div className="flex min-w-0 gap-3"><div className="flex size-12 shrink-0 items-center justify-center rounded-xl border bg-muted"><Building2 className="size-6" /></div><div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><h1 className="flex items-center gap-2 text-2xl font-bold leading-8">{org.name}<HelpTip content={ORGANISATION_DETAIL_PAGE_TIP} label="About this organisation" /></h1>{org.acronym && <Badge variant="secondary">{org.acronym}</Badge>}<Badge variant="outline" className="capitalize">{org.type}</Badge><Badge variant={org.is_active ? "default" : "secondary"}>{org.is_active ? "Active" : "Inactive"}</Badge></div><p className="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">{org.description || "No organisation description has been added."}</p></div></div>
         {(canEdit || canDeactivate || canDeleteOrg) && <div className="flex gap-2">{canEdit && <Button variant="outline" className="h-11 flex-1 sm:h-9 sm:flex-none" onClick={() => setEditOpen(true)}><Edit className="size-4" />Edit</Button>}<DropdownMenu><DropdownMenuTrigger className="inline-flex h-11 items-center justify-center rounded-md border px-4 sm:h-9" aria-label="Organisation actions"><MoreVertical className="size-4" /></DropdownMenuTrigger><DropdownMenuContent align="end">{canDeactivate && <DropdownMenuItem onClick={() => setStatusOpen(true)}><Power className="size-4" />{org.is_active ? "Deactivate" : "Activate"}</DropdownMenuItem>}{canDeleteOrg && <DropdownMenuItem className="text-destructive" onClick={() => setDeleteOrgOpen(true)}><Trash2 className="size-4" />Delete organisation</DropdownMenuItem>}</DropdownMenuContent></DropdownMenu></div>}
       </div>
     </header>
 
-    <section className="grid grid-cols-2 gap-3 xl:grid-cols-4" aria-label="Organisation summary">
-      <Metric label="Members" value={members.length} icon={Users} onClick={() => openDirectory("members")} /><Metric label="Datasets" value={datasets.length} icon={FileText} onClick={() => openDirectory("datasets")} /><Metric label="Pending invites" value={pendingInvites} icon={Mail} onClick={() => openDirectory("invites", "pending")} /><Metric label="Org admins" value={adminCount} icon={ShieldCheck} onClick={() => openDirectory("members")} />
+    <section
+      className={cn(
+        "grid gap-3",
+        canViewMembers && canViewInvites
+          ? "grid-cols-2 xl:grid-cols-4"
+          : canViewMembers || canViewInvites
+            ? "grid-cols-2 xl:grid-cols-3"
+            : "grid-cols-1",
+      )}
+      aria-label="Organisation summary"
+    >
+      {canViewMembers ? (
+        <>
+          <Metric label="Members" value={members.length} icon={Users} tip={ORGANISATION_SUMMARY_TIPS.members} onClick={() => openDirectory("members")} />
+          <Metric label="Org admins" value={adminCount} icon={ShieldCheck} tip={ORGANISATION_SUMMARY_TIPS.orgAdmins} onClick={() => openDirectory("members")} />
+        </>
+      ) : null}
+      <Metric label="Datasets" value={datasets.length} icon={FileText} tip={ORGANISATION_SUMMARY_TIPS.datasets} onClick={() => openDirectory("datasets")} />
+      {canViewInvites ? (
+        <Metric label="Pending invites" value={pendingInvites} icon={Mail} tip={ORGANISATION_SUMMARY_TIPS.pendingInvites} onClick={() => openDirectory("invites", "pending")} />
+      ) : null}
     </section>
     <div className="grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(280px,1fr)]">
-      <Card size="sm"><CardHeader className="border-b"><CardTitle>Contact and record information</CardTitle></CardHeader><CardContent className="grid gap-2 sm:grid-cols-2"><Info icon={Mail} label="Email" value={org.email} href={org.email ? `mailto:${org.email}` : undefined} /><Info icon={Phone} label="Phone" value={org.phone} href={org.phone ? `tel:${org.phone}` : undefined} /><Info icon={Globe} label="Website" value={org.website} href={org.website ?? undefined} /><Info icon={MapPin} label="Address" value={org.address} /><Info icon={Building2} label="Organisation ID" value={org.id} mono /></CardContent></Card>
+      <Card size="sm"><CardHeader className="border-b"><CardTitle className="flex items-center gap-2 text-base">Contact and record information<HelpTip content={ORGANISATION_CONTACT_PANEL_TIP} label="About contact information" /></CardTitle></CardHeader><CardContent className="grid gap-2 sm:grid-cols-2"><Info icon={Mail} label="Email" value={org.email} href={org.email ? `mailto:${org.email}` : undefined} /><Info icon={Phone} label="Phone" value={org.phone} href={org.phone ? `tel:${org.phone}` : undefined} /><Info icon={Globe} label="Website" value={org.website} href={org.website ?? undefined} /><Info icon={MapPin} label="Address" value={org.address} /><Info icon={Building2} label="Organisation ID" value={org.id} mono /></CardContent></Card>
       <OrganisationAgreementCard org={org} orgId={orgId!} slug={slug} canManage={canAgreement} />
     </div>
 
     <Tabs ref={directoryRef} value={activeTab} onValueChange={setActiveTab} className="scroll-mt-6 space-y-4">
       <div className="rounded-2xl border bg-card p-3 sm:p-4">
         <div className="mb-3 px-1">
-          <h2 className="text-sm font-semibold">Organisation workspace</h2>
+          <h2 className="flex items-center gap-2 text-sm font-semibold">
+            Organisation workspace
+            <HelpTip content={ORGANISATION_WORKSPACE_TIP} label="About organisation workspace" />
+          </h2>
           <p className="mt-0.5 text-xs text-muted-foreground">Choose a section to manage its records and actions.</p>
         </div>
         <div className="scrollbar-hide overflow-x-auto rounded-xl bg-muted/70 p-1">
           <TabsList className="h-auto min-w-max justify-start gap-1 bg-transparent p-0">
-            <TabsTrigger value="members" className="min-h-11 flex-none gap-2 px-4 data-active:bg-primary data-active:text-primary-foreground data-active:shadow-none dark:data-active:bg-primary dark:data-active:text-primary-foreground"><Users className="size-4" aria-hidden="true" />Members <span className="rounded-full bg-background/90 px-1.5 py-0.5 text-[10px] tabular-nums text-foreground">{members.length}</span></TabsTrigger>
-            <TabsTrigger value="invites" className="min-h-11 flex-none gap-2 px-4 data-active:bg-primary data-active:text-primary-foreground data-active:shadow-none dark:data-active:bg-primary dark:data-active:text-primary-foreground"><Mail className="size-4" aria-hidden="true" />Invitations <span className="rounded-full bg-background/90 px-1.5 py-0.5 text-[10px] tabular-nums text-foreground">{invites.length}</span></TabsTrigger>
+            {canViewMembers ? (
+              <TabsTrigger value="members" className="min-h-11 flex-none gap-2 px-4 data-active:bg-primary data-active:text-primary-foreground data-active:shadow-none dark:data-active:bg-primary dark:data-active:text-primary-foreground"><Users className="size-4" aria-hidden="true" />Members <span className="rounded-full bg-background/90 px-1.5 py-0.5 text-[10px] tabular-nums text-foreground">{members.length}</span></TabsTrigger>
+            ) : null}
+            {canViewInvites ? (
+              <TabsTrigger value="invites" className="min-h-11 flex-none gap-2 px-4 data-active:bg-primary data-active:text-primary-foreground data-active:shadow-none dark:data-active:bg-primary dark:data-active:text-primary-foreground"><Mail className="size-4" aria-hidden="true" />Invitations <span className="rounded-full bg-background/90 px-1.5 py-0.5 text-[10px] tabular-nums text-foreground">{invites.length}</span></TabsTrigger>
+            ) : null}
             <TabsTrigger value="datasets" className="min-h-11 flex-none gap-2 px-4 data-active:bg-primary data-active:text-primary-foreground data-active:shadow-none dark:data-active:bg-primary dark:data-active:text-primary-foreground"><FileText className="size-4" aria-hidden="true" />Datasets <span className="rounded-full bg-background/90 px-1.5 py-0.5 text-[10px] tabular-nums text-foreground">{datasets.length}</span></TabsTrigger>
             {canManageApiKeys && <TabsTrigger value="api-keys" className="min-h-11 flex-none gap-2 px-4 data-active:bg-primary data-active:text-primary-foreground data-active:shadow-none dark:data-active:bg-primary dark:data-active:text-primary-foreground"><KeyRound className="size-4" aria-hidden="true" />API Keys</TabsTrigger>}
           </TabsList>
         </div>
       </div>
-      <TabsContent value="members"><Directory title="Members" description="Manage organisation access and roles." action={canInvite ? <Button className="h-11 sm:h-9" onClick={() => setInviteOpen(true)}><UserPlus className="size-4" />Invite member</Button> : null} search={memberSearch} setSearch={setMemberSearch} status={memberStatus} setStatus={setMemberStatus} statuses={["active", "pending", "suspended", "archived"]} reset={resetMembers}><MemberList records={filteredMembers} loading={membersQuery.isLoading} failed={membersQuery.isError} filtered={!!memberSearch || memberStatus !== "all"} retry={() => membersQuery.refetch()} actions={{ canPromote, canDemote, canRemove, promote, demote, suspend, reactivate, remove: setRemoveTarget }} /></Directory></TabsContent>
-      <TabsContent value="invites"><Directory title="Invitations" description="Track invitations and their delivery status." action={canInvite ? <Button className="h-11 sm:h-9" onClick={() => setInviteOpen(true)}><UserPlus className="size-4" />Send invite</Button> : null} search={inviteSearch} setSearch={setInviteSearch} status={inviteStatus} setStatus={setInviteStatus} statuses={["pending", "accepted", "revoked", "expired"]} reset={resetInvites}><InviteList records={filteredInvites} loading={invitesQuery.isLoading} failed={invitesQuery.isError} filtered={!!inviteSearch || inviteStatus !== "all"} retry={() => invitesQuery.refetch()} canInvite={canInvite} revoke={revoke} resend={resend} remove={removeInvite} /></Directory></TabsContent>
-      <TabsContent value="datasets"><Directory title="Datasets" description="Review datasets owned by this organisation." action={canUpload ? <Link href={`/upload?orgId=${orgId}`} className={cn(buttonVariants(), "h-11 sm:h-9")}><Upload className="size-4" />Upload dataset</Link> : null} search={datasetSearch} setSearch={setDatasetSearch} status={datasetStatus} setStatus={setDatasetStatus} statuses={[...DATASET_STATUSES]} reset={resetDatasets}><DatasetList records={filteredDatasets} filtered={!!datasetSearch || datasetStatus !== "all"} canArchive={canArchive} canDelete={canDeleteDataset} archive={setArchiveTarget} remove={setDeleteTarget} /></Directory></TabsContent>
+      {canViewMembers ? (
+        <TabsContent value="members"><Directory title="Members" titleTip={ORGANISATION_MEMBERS_PANEL_TIP} description="Manage organisation access and roles." action={canInvite ? <Button className="h-11 sm:h-9" onClick={() => setInviteOpen(true)}><UserPlus className="size-4" />Invite member</Button> : null} search={memberSearch} setSearch={setMemberSearch} status={memberStatus} setStatus={setMemberStatus} statuses={["active", "pending", "suspended", "archived"]} reset={resetMembers}><MemberList records={filteredMembers} loading={membersQuery.isLoading} failed={membersQuery.isError} filtered={!!memberSearch || memberStatus !== "all"} retry={() => membersQuery.refetch()} actions={{ canPromote, canDemote, canRemove, canManageStatus: isSuperAdmin, promote, demote, suspend, reactivate, remove: setRemoveTarget }} /></Directory></TabsContent>
+      ) : null}
+      {canViewInvites ? (
+        <TabsContent value="invites"><Directory title="Invitations" titleTip={ORGANISATION_INVITES_PANEL_TIP} description="Track invitations and their delivery status." action={canInvite ? <Button className="h-11 sm:h-9" onClick={() => setInviteOpen(true)}><UserPlus className="size-4" />Send invite</Button> : null} search={inviteSearch} setSearch={setInviteSearch} status={inviteStatus} setStatus={setInviteStatus} statuses={["pending", "accepted", "revoked", "expired"]} reset={resetInvites}><InviteList records={filteredInvites} loading={invitesQuery.isLoading} failed={invitesQuery.isError} filtered={!!inviteSearch || inviteStatus !== "all"} retry={() => invitesQuery.refetch()} canInvite={canInvite} revoke={revoke} resend={resend} remove={removeInvite} /></Directory></TabsContent>
+      ) : null}
+      <TabsContent value="datasets"><Directory title="Datasets" titleTip={ORGANISATION_DATASETS_PANEL_TIP} description="Review datasets owned by this organisation." action={canUpload ? <Link href={`/upload?orgId=${orgId}`} className={cn(buttonVariants(), "h-11 sm:h-9")}><Upload className="size-4" />Upload dataset</Link> : null} search={datasetSearch} setSearch={setDatasetSearch} status={datasetStatus} setStatus={setDatasetStatus} statuses={[...DATASET_STATUSES]} reset={resetDatasets}><DatasetList records={filteredDatasets} filtered={!!datasetSearch || datasetStatus !== "all"} canArchive={canArchive} canDelete={canDeleteDataset} archive={setArchiveTarget} remove={setDeleteTarget} /></Directory></TabsContent>
       {canManageApiKeys && <TabsContent value="api-keys"><OrganisationApiKeysPanel organisationId={orgId ?? ""} canManage={canManageApiKeys} /></TabsContent>}
     </Tabs>
-  </div>;
+  </div>
+  </TooltipProvider>
+  );
 }
 
-function Directory({ title, description, action, search, setSearch, status, setStatus, statuses, reset, children }: { title: string; description: string; action: React.ReactNode; search: string; setSearch: (v: string) => void; status: string; setStatus: (v: string) => void; statuses: readonly string[]; reset: () => void; children: React.ReactNode }) {
-  return <section className="overflow-hidden rounded-2xl border bg-card"><div className="flex flex-col gap-3 border-b p-4 sm:flex-row sm:items-center sm:justify-between"><div><h2 className="font-semibold">{title}</h2><p className="text-sm text-muted-foreground">{description}</p></div>{action}</div><div className="grid gap-2 border-b bg-muted/20 p-3 sm:grid-cols-[minmax(0,1fr)_180px_auto]"><div className="relative"><Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" /><Input className="h-11 pl-9 sm:h-9" value={search} onChange={(e) => setSearch(e.target.value)} placeholder={`Search ${title.toLowerCase()}`} aria-label={`Search ${title.toLowerCase()}`} /></div><Select value={status} onValueChange={(value) => setStatus(value ?? "all")}><SelectTrigger className="h-11 sm:h-9" aria-label="Filter by status"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">All statuses</SelectItem>{statuses.map((item) => <SelectItem key={item} value={item} className="capitalize">{item.replaceAll("_", " ")}</SelectItem>)}</SelectContent></Select><Button variant="ghost" className="h-11 sm:h-9" onClick={reset} disabled={!search && status === "all"}><RotateCcw className="size-4" />Reset</Button></div>{children}</section>;
+function Directory({ title, description, titleTip, action, search, setSearch, status, setStatus, statuses, reset, children }: { title: string; description: string; titleTip?: string; action: React.ReactNode; search: string; setSearch: (v: string) => void; status: string; setStatus: (v: string) => void; statuses: readonly string[]; reset: () => void; children: React.ReactNode }) {
+  return <section className="overflow-hidden rounded-2xl border bg-card"><div className="flex flex-col gap-3 border-b p-4 sm:flex-row sm:items-center sm:justify-between"><div><h2 className="flex items-center gap-2 font-semibold">{title}{titleTip ? <HelpTip content={titleTip} label={`About ${title}`} /> : null}</h2><p className="text-sm text-muted-foreground">{description}</p></div>{action}</div><div className="grid gap-2 border-b bg-muted/20 p-3 sm:grid-cols-[minmax(0,1fr)_180px_auto]"><div className="relative"><Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" /><Input className="h-11 pl-9 sm:h-9" value={search} onChange={(e) => setSearch(e.target.value)} placeholder={`Search ${title.toLowerCase()}`} aria-label={`Search ${title.toLowerCase()}`} /></div><Select value={status} onValueChange={(value) => setStatus(value ?? "all")}><SelectTrigger className="h-11 sm:h-9" aria-label="Filter by status"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">All statuses</SelectItem>{statuses.map((item) => <SelectItem key={item} value={item} className="capitalize">{item.replaceAll("_", " ")}</SelectItem>)}</SelectContent></Select><Button variant="ghost" className="h-11 sm:h-9" onClick={reset} disabled={!search && status === "all"}><RotateCcw className="size-4" />Reset</Button></div>{children}</section>;
 }
 
 type StringMutation = { mutate: (value: string) => void };
-type MemberActions = { canPromote: boolean; canDemote: boolean; canRemove: boolean; promote: StringMutation; demote: StringMutation; suspend: StringMutation; reactivate: StringMutation; remove: (v: { id: string; name: string }) => void };
+type MemberActions = { canPromote: boolean; canDemote: boolean; canRemove: boolean; canManageStatus: boolean; promote: StringMutation; demote: StringMutation; suspend: StringMutation; reactivate: StringMutation; remove: (v: { id: string; name: string }) => void };
 function MemberList({ records, loading, failed, filtered, retry, actions }: { records: Member[]; loading: boolean; failed: boolean; filtered: boolean; retry: () => void; actions: MemberActions }) {
   if (loading) return <ListSkeleton />;
   if (failed) return <InlineFailure retry={retry} />;
   if (!records.length) return <ListEmpty icon={Users} filtered={filtered} noun="members" />;
   return <><div className="hidden xl:block"><Table><TableHeader><TableRow><TableHead>Member</TableHead><TableHead>Role</TableHead><TableHead>Status</TableHead><TableHead>Joined</TableHead><TableHead className="text-right">Actions</TableHead></TableRow></TableHeader><TableBody>{records.map((m) => <TableRow key={m.id}><TableCell><Link className="font-medium hover:underline" href={`/users/${m.id}`}>{m.first_name} {m.last_name}</Link><p className="text-xs text-muted-foreground">{m.email}</p></TableCell><TableCell><Role role={m.role} /></TableCell><TableCell><MemberStatus status={m.status} /></TableCell><TableCell className="text-xs text-muted-foreground">{formatDate(m.created_at)}</TableCell><TableCell className="text-right"><MemberMenu member={m} actions={actions} /></TableCell></TableRow>)}</TableBody></Table></div><div className="divide-y xl:hidden">{records.map((m) => <div key={m.id} className="p-4"><div className="flex items-start justify-between gap-3"><div className="min-w-0"><Link className="font-semibold hover:underline" href={`/users/${m.id}`}>{m.first_name} {m.last_name}</Link><p className="truncate text-sm text-muted-foreground">{m.email}</p></div><MemberMenu member={m} actions={actions} /></div><div className="mt-3 flex flex-wrap gap-2"><Role role={m.role} /><MemberStatus status={m.status} /><span className="text-xs text-muted-foreground">Joined {formatDate(m.created_at)}</span></div></div>)}</div></>;
 }
-function MemberMenu({ member: m, actions }: { member: Member; actions: MemberActions }) { return <DropdownMenu><DropdownMenuTrigger className="inline-flex h-11 items-center justify-center rounded-md border px-4 sm:h-9" aria-label={`Actions for ${m.first_name} ${m.last_name}`}><MoreVertical className="size-4" /></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuItem onClick={() => window.location.assign(`/users/${m.id}`)}><ExternalLink className="size-4" />View user</DropdownMenuItem>{actions.canPromote && m.role === "contributor" && <DropdownMenuItem onClick={() => actions.promote.mutate(m.id)}><ShieldCheck className="size-4" />Promote to org admin</DropdownMenuItem>}{actions.canDemote && m.role === "admin" && <DropdownMenuItem onClick={() => actions.demote.mutate(m.id)}><UserCog className="size-4" />Demote to contributor</DropdownMenuItem>}{m.status === "active" ? <DropdownMenuItem onClick={() => actions.suspend.mutate(m.id)}><Power className="size-4" />Suspend</DropdownMenuItem> : <DropdownMenuItem onClick={() => actions.reactivate.mutate(m.id)}><CheckCircle2 className="size-4" />Reactivate</DropdownMenuItem>}{actions.canRemove && <DropdownMenuItem className="text-destructive" onClick={() => actions.remove({ id: m.id, name: `${m.first_name} ${m.last_name}` })}><Trash2 className="size-4" />Remove</DropdownMenuItem>}</DropdownMenuContent></DropdownMenu>; }
+function MemberMenu({ member: m, actions }: { member: Member; actions: MemberActions }) { return <DropdownMenu><DropdownMenuTrigger className="inline-flex h-11 items-center justify-center rounded-md border px-4 sm:h-9" aria-label={`Actions for ${m.first_name} ${m.last_name}`}><MoreVertical className="size-4" /></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuItem onClick={() => window.location.assign(`/users/${m.id}`)}><ExternalLink className="size-4" />View user</DropdownMenuItem>{actions.canPromote && m.role === "contributor" && <DropdownMenuItem onClick={() => actions.promote.mutate(m.id)}><ShieldCheck className="size-4" />Promote to org admin</DropdownMenuItem>}{actions.canDemote && m.role === "admin" && <DropdownMenuItem onClick={() => actions.demote.mutate(m.id)}><UserCog className="size-4" />Demote to contributor</DropdownMenuItem>}{actions.canManageStatus && (m.status === "active" ? <DropdownMenuItem onClick={() => actions.suspend.mutate(m.id)}><Power className="size-4" />Suspend</DropdownMenuItem> : <DropdownMenuItem onClick={() => actions.reactivate.mutate(m.id)}><CheckCircle2 className="size-4" />Reactivate</DropdownMenuItem>)}{actions.canRemove && <DropdownMenuItem className="text-destructive" onClick={() => actions.remove({ id: m.id, name: `${m.first_name} ${m.last_name}` })}><Trash2 className="size-4" />Remove</DropdownMenuItem>}</DropdownMenuContent></DropdownMenu>; }
 
 function InviteList({ records, loading, failed, filtered, retry, canInvite, revoke, resend, remove }: { records: Invite[]; loading: boolean; failed: boolean; filtered: boolean; retry: () => void; canInvite: boolean; revoke: StringMutation; resend: StringMutation; remove: StringMutation }) {
   if (loading) return <ListSkeleton />; if (failed) return <InlineFailure retry={retry} />; if (!records.length) return <ListEmpty icon={Mail} filtered={filtered} noun="invitations" />;
   const row = (i: Invite, mobile = false) => { const expired = new Date(i.expiresAt) < new Date(); const menu = <InviteMenu invite={i} expired={expired} canInvite={canInvite} revoke={revoke} resend={resend} remove={remove} />; return mobile ? <div key={i.id} className="p-4"><div className="flex justify-between gap-3"><div className="min-w-0"><p className="truncate font-semibold">{i.invitedEmail}</p><p className="text-xs text-muted-foreground">Invited by {i.invitedByName}</p></div>{menu}</div><div className="mt-3 flex flex-wrap gap-2"><Badge variant="secondary" className="capitalize">{i.role}</Badge><Badge variant={i.status === "pending" ? "default" : "secondary"} className="capitalize">{expired && i.status === "pending" ? "Expired" : i.status}</Badge><span className="text-xs text-muted-foreground">Sent {formatDate(i.createdAt)}</span></div></div> : <TableRow key={i.id}><TableCell><p className="font-medium">{i.invitedEmail}</p><p className="text-xs text-muted-foreground">{i.invitedByName}</p></TableCell><TableCell><Badge variant="secondary" className="capitalize">{i.role}</Badge></TableCell><TableCell><Badge variant={i.status === "pending" ? "default" : "secondary"} className="capitalize">{expired && i.status === "pending" ? "Expired" : i.status}</Badge></TableCell><TableCell className="text-xs text-muted-foreground">{formatDate(i.createdAt)}</TableCell><TableCell className="text-xs text-muted-foreground">{formatDate(i.expiresAt)}</TableCell><TableCell className="text-right">{menu}</TableCell></TableRow>; };
   return <><div className="hidden xl:block"><Table><TableHeader><TableRow><TableHead>Invitation</TableHead><TableHead>Role</TableHead><TableHead>Status</TableHead><TableHead>Sent</TableHead><TableHead>Expires</TableHead><TableHead className="text-right">Actions</TableHead></TableRow></TableHeader><TableBody>{records.map((i) => row(i))}</TableBody></Table></div><div className="divide-y xl:hidden">{records.map((i) => row(i, true))}</div></>;
 }
-function InviteMenu({ invite, expired, canInvite, revoke, resend, remove }: { invite: Invite; expired: boolean; canInvite: boolean; revoke: StringMutation; resend: StringMutation; remove: StringMutation }) { return <DropdownMenu><DropdownMenuTrigger className="inline-flex h-11 items-center justify-center rounded-md border px-4 sm:h-9" aria-label={`Actions for invitation to ${invite.invitedEmail}`}><MoreVertical className="size-4" /></DropdownMenuTrigger><DropdownMenuContent align="end">{invite.status === "pending" && !expired && canInvite && <><DropdownMenuItem onClick={() => resend.mutate(invite.id)}><RefreshCw className="size-4" />Resend</DropdownMenuItem><DropdownMenuItem onClick={() => revoke.mutate(invite.id)}><XCircle className="size-4" />Revoke</DropdownMenuItem></>}<DropdownMenuItem className="text-destructive" onClick={() => remove.mutate(invite.id)}><Trash2 className="size-4" />Delete permanently</DropdownMenuItem></DropdownMenuContent></DropdownMenu>; }
+function InviteMenu({ invite, expired, canInvite, revoke, resend, remove }: { invite: Invite; expired: boolean; canInvite: boolean; revoke: StringMutation; resend: StringMutation; remove: StringMutation }) { return <DropdownMenu><DropdownMenuTrigger className="inline-flex h-11 items-center justify-center rounded-md border px-4 sm:h-9" aria-label={`Actions for invitation to ${invite.invitedEmail}`}><MoreVertical className="size-4" /></DropdownMenuTrigger><DropdownMenuContent align="end">{invite.status === "pending" && !expired && canInvite && <><DropdownMenuItem onClick={() => resend.mutate(invite.id)}><RefreshCw className="size-4" />Resend</DropdownMenuItem><DropdownMenuItem onClick={() => revoke.mutate(invite.id)}><XCircle className="size-4" />Revoke</DropdownMenuItem></>}{canInvite ? <DropdownMenuItem className="text-destructive" onClick={() => remove.mutate(invite.id)}><Trash2 className="size-4" />Delete permanently</DropdownMenuItem> : null}</DropdownMenuContent></DropdownMenu>; }
 
 function DatasetList({ records, filtered, canArchive, canDelete, archive, remove }: { records: Dataset[]; filtered: boolean; canArchive: boolean; canDelete: boolean; archive: (v: Target) => void; remove: (v: Target) => void }) {
   if (!records.length) return <ListEmpty icon={FileText} filtered={filtered} noun="datasets" />;
@@ -221,7 +291,27 @@ function DatasetList({ records, filtered, canArchive, canDelete, archive, remove
 function DatasetStatus({ value }: { value?: string | null }) { return DATASET_STATUSES.includes(value as typeof DATASET_STATUSES[number]) ? <StatusBadge status={value as typeof DATASET_STATUSES[number]} /> : <Badge variant="outline">Unknown</Badge>; }
 function MemberStatus({ status }: { status: Member["status"] }) { return <Badge variant={status === "active" ? "default" : status === "suspended" ? "destructive" : "secondary"} className="capitalize">{status}</Badge>; }
 function Role({ role }: { role: Member["role"] }) { return <Badge variant="secondary" className="capitalize">{role === "admin" ? "Org admin" : role.replaceAll("_", " ")}</Badge>; }
-function Metric({ label, value, icon: Icon, onClick }: { label: string; value: number; icon: typeof Users; onClick: () => void }) { return <button type="button" className="group rounded-xl border bg-card p-3 text-left transition-colors hover:border-primary/40 hover:bg-muted/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2" onClick={onClick} aria-label={`View ${label.toLowerCase()}`}><Icon className="size-4 text-muted-foreground transition-colors group-hover:text-primary" aria-hidden="true" /><p className="mt-2 text-xl font-bold tabular-nums">{value}</p><p className="text-xs text-muted-foreground">{label}</p></button>; }
+function Metric({ label, value, icon: Icon, onClick, tip }: { label: string; value: number; icon: typeof Users; onClick: () => void; tip?: string }) {
+  return (
+    <div className="relative rounded-xl border bg-card transition-colors hover:border-primary/40 hover:bg-muted/30">
+      {tip ? (
+        <div className="absolute right-2 top-2 z-10">
+          <HelpTip content={tip} label={`About ${label}`} />
+        </div>
+      ) : null}
+      <button
+        type="button"
+        className="group w-full rounded-xl p-3 pr-8 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+        onClick={onClick}
+        aria-label={`View ${label.toLowerCase()}`}
+      >
+        <Icon className="size-4 text-muted-foreground transition-colors group-hover:text-primary" aria-hidden="true" />
+        <p className="mt-2 text-xl font-bold tabular-nums">{value}</p>
+        <p className="text-xs text-muted-foreground">{label}</p>
+      </button>
+    </div>
+  );
+}
 function Info({ icon: Icon, label, value, href, mono }: { icon: typeof Mail; label: string; value?: string | null; href?: string; mono?: boolean }) { return <div className="rounded-xl border p-3"><p className="flex items-center gap-2 text-xs font-medium text-muted-foreground"><Icon className="size-4" />{label}</p>{value ? href ? <a href={href} className="mt-1 block break-all text-sm font-medium hover:underline" target={href.startsWith("http") ? "_blank" : undefined} rel={href.startsWith("http") ? "noreferrer" : undefined}>{value}</a> : <p className={cn("mt-1 break-all text-sm font-medium", mono && "font-mono text-xs")}>{value}</p> : <p className="mt-1 text-sm text-muted-foreground">Not provided</p>}</div>; }
 function ListEmpty({ icon, filtered, noun }: { icon: typeof Users; filtered: boolean; noun: string }) { return <EmptyState icon={icon} title={filtered ? `No matching ${noun}` : `No ${noun} yet`} description={filtered ? "Adjust the search or status filter, or reset filters." : `This organisation has no ${noun} to display.`} />; }
 function InlineFailure({ retry }: { retry: () => void }) { return <div className="p-8 text-center"><p className="text-sm font-medium">Could not load these records</p><Button variant="outline" className="mt-3 h-11 sm:h-9" onClick={retry}><RotateCcw className="size-4" />Try again</Button></div>; }

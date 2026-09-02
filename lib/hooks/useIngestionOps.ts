@@ -6,6 +6,10 @@ const QUEUE_HEALTH_KEY = 'queue-health';
 const DEAD_LETTER_KEY = 'dead-letter';
 const SUCCESSION_KEY = 'succession-candidates';
 const CHANGEPOINTS_KEY = 'changepoints';
+const CONFLICTS_SUMMARY_KEY = 'conflict-dataset-summaries';
+const CONFLICTS_PERIODS_KEY = 'conflict-period-options';
+const CONFLICTS_KEY = 'observation-conflicts';
+const STALE_CONFLICTS_KEY = 'stale-resolved-conflicts';
 
 export function useObservability() {
   return useQuery({
@@ -130,5 +134,66 @@ export function useRejectChangepoint() {
   return useMutation({
     mutationFn: (id: string) => api.rejectChangepoint(id),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: [CHANGEPOINTS_KEY] }),
+  });
+}
+
+export function useConflictDatasetSummaries(options?: { enabled?: boolean }) {
+  return useQuery({
+    queryKey: [CONFLICTS_SUMMARY_KEY],
+    queryFn: api.getConflictDatasetSummaries,
+    enabled: options?.enabled !== false,
+  });
+}
+
+export function useConflictPeriodOptions(datasetBId?: string) {
+  return useQuery({
+    queryKey: [CONFLICTS_PERIODS_KEY, datasetBId ?? 'all'],
+    queryFn: () => api.getConflictPeriodOptions(datasetBId),
+  });
+}
+
+export function useObservationConflicts(params: {
+  datasetBId?: string;
+  periodYear?: number;
+  periodMonth?: number;
+  periodQuarter?: number;
+  page?: number;
+  limit?: number;
+}) {
+  return useQuery({
+    queryKey: [CONFLICTS_KEY, params],
+    queryFn: () => api.getObservationConflicts(params),
+  });
+}
+
+function invalidateConflictQueries(queryClient: ReturnType<typeof useQueryClient>) {
+  queryClient.invalidateQueries({ queryKey: [CONFLICTS_SUMMARY_KEY] });
+  queryClient.invalidateQueries({ queryKey: [CONFLICTS_PERIODS_KEY] });
+  queryClient.invalidateQueries({ queryKey: [CONFLICTS_KEY] });
+  queryClient.invalidateQueries({ queryKey: [OBSERVABILITY_KEY] });
+  queryClient.invalidateQueries({ queryKey: ["admin", "analytics", "governance"] });
+}
+
+export function useResolveObservationConflicts() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: api.resolveObservationConflicts,
+    onSuccess: () => invalidateConflictQueries(queryClient),
+  });
+}
+
+export function useStaleResolvedConflictSummary(options?: { enabled?: boolean }) {
+  return useQuery({
+    queryKey: [STALE_CONFLICTS_KEY, 'summary'],
+    queryFn: api.getStaleResolvedConflictSummary,
+    enabled: options?.enabled !== false,
+  });
+}
+
+export function useStaleResolvedConflicts(page = 1, options?: { enabled?: boolean }) {
+  return useQuery({
+    queryKey: [STALE_CONFLICTS_KEY, page],
+    queryFn: () => api.getStaleResolvedConflicts({ page, limit: 10 }),
+    enabled: options?.enabled !== false,
   });
 }

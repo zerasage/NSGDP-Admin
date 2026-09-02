@@ -74,6 +74,13 @@ import {
   AdminTabCount,
 } from "@/components/admin/admin-section-tabs-nav";
 import { Panel, tabToneClass } from "@/components/admin/admin-analytics-ui";
+import { HelpTip } from "@/components/admin/help-tip";
+import {
+  AGENCY_INVITE_STAFF_TIP,
+  AGENCY_STAFF_TAB_TIPS,
+  AGENCY_STAFF_WORKFLOW_PANEL_TIP,
+  AGENCY_UPLOAD_DATASET_TIP,
+} from "@/lib/constants/agency-tooltips";
 import { formatDate, formatDateTime } from "@/lib/utils/date";
 import { cn } from "@/lib/utils";
 
@@ -322,20 +329,27 @@ export function StaffWorkflow({ organisationId }: { organisationId: string }) {
   return (
     <Panel
       title="Staff & datasets"
+      titleTip={AGENCY_STAFF_WORKFLOW_PANEL_TIP}
       description="Manage agency staff, permission-group access, invitations, and the agency's own datasets."
       icon={Users}
       tone="info"
       action={
         activeTab === "datasets" ? (
-          <Link href="/upload?agency=1" className={cn(buttonVariants({}), "h-9 w-full sm:w-auto")}>
-            <Upload className="size-4" aria-hidden />
-            Upload dataset
-          </Link>
+          <div className="flex items-center gap-1">
+            <Link href="/upload?agency=1" className={cn(buttonVariants({}), "h-9 w-full sm:w-auto")}>
+              <Upload className="size-4" aria-hidden />
+              Upload dataset
+            </Link>
+            <HelpTip content={AGENCY_UPLOAD_DATASET_TIP} label="About upload dataset" />
+          </div>
         ) : (
-          <Button className="h-9 w-full sm:w-auto" onClick={() => setInviteOpen(true)}>
-            <UserPlus className="size-4" aria-hidden />
-            Invite staff
-          </Button>
+          <div className="flex items-center gap-1">
+            <Button className="h-9 w-full sm:w-auto" onClick={() => setInviteOpen(true)}>
+              <UserPlus className="size-4" aria-hidden />
+              Invite staff
+            </Button>
+            <HelpTip content={AGENCY_INVITE_STAFF_TIP} label="About invite staff" />
+          </div>
         )
       }
     >
@@ -346,33 +360,48 @@ export function StaffWorkflow({ organisationId }: { organisationId: string }) {
 
       <Tabs value={activeTab} onValueChange={(value) => value && setActiveTab(value)}>
         <AdminSectionTabsNav>
-          <TabsTrigger
-            value="staff"
-            className={cn(ADMIN_TAB_TRIGGER_BASE, tabToneClass("primary"))}
-          >
-            <Users className="size-3.5 shrink-0 sm:size-4" aria-hidden />
-            Staff
-            <AdminTabCount count={staffQuery.data?.total ?? 0} active={activeTab === "staff"} />
-          </TabsTrigger>
-          <TabsTrigger
-            value="invites"
-            className={cn(ADMIN_TAB_TRIGGER_BASE, tabToneClass("warning"))}
-          >
-            <MailPlus className="size-3.5 shrink-0 sm:size-4" aria-hidden />
-            Invitations
-            <AdminTabCount count={inviteQuery.data?.total ?? 0} active={activeTab === "invites"} />
-          </TabsTrigger>
-          <TabsTrigger
-            value="datasets"
-            className={cn(ADMIN_TAB_TRIGGER_BASE, tabToneClass("success"))}
-          >
-            <Database className="size-3.5 shrink-0 sm:size-4" aria-hidden />
-            Datasets
-            <AdminTabCount
-              count={datasetsQuery.data?.meta.total ?? 0}
-              active={activeTab === "datasets"}
-            />
-          </TabsTrigger>
+          <div className="inline-flex flex-none items-center gap-0.5">
+            <TabsTrigger
+              value="staff"
+              className={cn(ADMIN_TAB_TRIGGER_BASE, tabToneClass("primary"))}
+            >
+              <Users className="size-3.5 shrink-0 sm:size-4" aria-hidden />
+              Staff
+              <AdminTabCount count={staffQuery.data?.total ?? 0} active={activeTab === "staff"} />
+            </TabsTrigger>
+            {activeTab === "staff" ? (
+              <HelpTip content={AGENCY_STAFF_TAB_TIPS.staff} label="About staff tab" />
+            ) : null}
+          </div>
+          <div className="inline-flex flex-none items-center gap-0.5">
+            <TabsTrigger
+              value="invites"
+              className={cn(ADMIN_TAB_TRIGGER_BASE, tabToneClass("warning"))}
+            >
+              <MailPlus className="size-3.5 shrink-0 sm:size-4" aria-hidden />
+              Invitations
+              <AdminTabCount count={inviteQuery.data?.total ?? 0} active={activeTab === "invites"} />
+            </TabsTrigger>
+            {activeTab === "invites" ? (
+              <HelpTip content={AGENCY_STAFF_TAB_TIPS.invites} label="About invitations tab" />
+            ) : null}
+          </div>
+          <div className="inline-flex flex-none items-center gap-0.5">
+            <TabsTrigger
+              value="datasets"
+              className={cn(ADMIN_TAB_TRIGGER_BASE, tabToneClass("success"))}
+            >
+              <Database className="size-3.5 shrink-0 sm:size-4" aria-hidden />
+              Datasets
+              <AdminTabCount
+                count={datasetsQuery.data?.meta.total ?? 0}
+                active={activeTab === "datasets"}
+              />
+            </TabsTrigger>
+            {activeTab === "datasets" ? (
+              <HelpTip content={AGENCY_STAFF_TAB_TIPS.datasets} label="About datasets tab" />
+            ) : null}
+          </div>
         </AdminSectionTabsNav>
 
         <div className="mt-4 overflow-hidden rounded-xl border bg-card">

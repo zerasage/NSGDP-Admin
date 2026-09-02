@@ -26,7 +26,9 @@ import {
 } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/feedback/empty-state";
+import { HelpTip } from "@/components/admin/help-tip";
 import { formatDate } from "@/lib/utils/date";
+import { ORGANISATION_API_KEYS_TIP } from "@/lib/constants/organisations-tooltips";
 import {
   useOrganisationApiKeys,
   useCreateOrganisationApiKey,
@@ -87,7 +89,10 @@ export function OrganisationApiKeysPanel({
     <section className="overflow-hidden rounded-2xl border bg-card">
       <div className="flex flex-col gap-3 border-b p-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="font-semibold">Partner API Keys</h2>
+          <h2 className="flex items-center gap-2 font-semibold">
+            Partner API Keys
+            <HelpTip content={ORGANISATION_API_KEYS_TIP} label="About partner API keys" />
+          </h2>
           <p className="text-sm text-muted-foreground">
             Programmatic access for this organisation&apos;s own systems — scoped to the same
             datasets they could already reach (their own data, the public catalogue, and any

@@ -23,6 +23,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/feedback/empty-state";
 import { IndicatorForm } from "@/components/admin/indicator-form";
 import { DataTableShell, MetricCard, Panel } from "@/components/admin/admin-analytics-ui";
+import { OPS_TAB_TOOLTIPS } from "@/lib/constants/ingestion-ops-tooltips";
 import { toast } from "sonner";
 
 export function IndicatorsRegistryTab() {
@@ -75,6 +76,7 @@ export function IndicatorsRegistryTab() {
 
       <Panel
         title="Indicator registry"
+        titleTip={OPS_TAB_TOOLTIPS.indicators}
         description="Canonical registry every uploaded workbook resolves against. New indicators proposed during ingestion start inactive until activated here."
         icon={Tags}
         tone="success"

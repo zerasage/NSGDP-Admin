@@ -12,6 +12,8 @@ import {
   useRunDatasetIngestion,
 } from "@/lib/hooks/useIngestionReview";
 import { IngestionProgressPanel } from "@/components/admin/ingestion-progress-panel";
+import { HelpTip } from "@/components/admin/help-tip";
+import { INGESTION_SUMMARY_METRIC_TIPS } from "@/lib/constants/dataset-tooltips";
 import {
   INGESTION_STATUS_LABEL,
   ingestionCtaHref,
@@ -198,16 +200,34 @@ export function IngestionSummaryCard({
       ) : null}
 
       <div className="grid gap-3 p-4 sm:grid-cols-4 sm:p-5">
-        {[
-          { label: "Staging rows", value: report?.stagingTotal?.toLocaleString() ?? "—" },
-          { label: "Resolved", value: report?.resolved?.toLocaleString() ?? "—" },
-          { label: "Auto-resolution", value: resolvedPct },
-          {
-            label: "Pending aliases",
-            value: String(pendingAliases),
-            warn: pendingAliases > 0,
-          },
-        ].map((m) => (
+        {(
+          [
+            {
+              label: "Staging rows",
+              value: report?.stagingTotal?.toLocaleString() ?? "—",
+              tip: INGESTION_SUMMARY_METRIC_TIPS.staging_rows,
+              warn: false,
+            },
+            {
+              label: "Resolved",
+              value: report?.resolved?.toLocaleString() ?? "—",
+              tip: INGESTION_SUMMARY_METRIC_TIPS.resolved,
+              warn: false,
+            },
+            {
+              label: "Auto-resolution",
+              value: resolvedPct,
+              tip: INGESTION_SUMMARY_METRIC_TIPS.auto_resolution,
+              warn: false,
+            },
+            {
+              label: "Pending aliases",
+              value: String(pendingAliases),
+              warn: pendingAliases > 0,
+              tip: INGESTION_SUMMARY_METRIC_TIPS.pending_aliases,
+            },
+          ]
+        ).map((m) => (
           <div
             key={m.label}
             className={cn(
@@ -215,8 +235,9 @@ export function IngestionSummaryCard({
               m.warn ? "border-warning/40 bg-warning/10" : "bg-muted/20"
             )}
           >
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+            <p className="flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
               {m.label}
+              <HelpTip content={m.tip} label={`Help: ${m.label}`} />
             </p>
             <p className="mt-1 text-xl font-bold tabular-nums tracking-tight">{m.value}</p>
           </div>

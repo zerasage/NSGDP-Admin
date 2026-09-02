@@ -12,6 +12,13 @@ import { EmptyState } from "@/components/feedback/empty-state";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatDateTime } from "@/lib/utils/date";
 import { cn } from "@/lib/utils";
+import { HelpTip } from "@/components/admin/help-tip";
+import {
+  NOTIFICATIONS_MARK_ALL_TIP,
+  NOTIFICATIONS_PAGE_TIP,
+  NOTIFICATIONS_UNREAD_TAB_TIP,
+} from "@/lib/constants/notifications-tooltips";
+import { TooltipProvider } from "@/components/ui/tooltip";
 
 const TYPE_LABELS: Record<NotificationType, string> = {
   dataset_approved: "Dataset Approved",
@@ -41,9 +48,9 @@ const TYPE_DOT_CLASS: Record<NotificationType, string> = {
   admin_invited: "bg-amber-500",
 };
 
-const TABS: Array<{ key: "all" | "unread"; label: string }> = [
+const TABS: Array<{ key: "all" | "unread"; label: string; tip?: string }> = [
   { key: "all", label: "All" },
-  { key: "unread", label: "Unread" },
+  { key: "unread", label: "Unread", tip: NOTIFICATIONS_UNREAD_TAB_TIP },
 ];
 
 export default function NotificationsPage() {
@@ -68,10 +75,14 @@ export default function NotificationsPage() {
   };
 
   return (
+    <TooltipProvider delay={200}>
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold">Notifications</h1>
+          <h1 className="flex items-center gap-2 text-2xl font-bold">
+            Notifications
+            <HelpTip content={NOTIFICATIONS_PAGE_TIP} label="About notifications" />
+          </h1>
           <p className="mt-1 text-sm text-muted-foreground">Platform activity and alerts for your account</p>
         </div>
         <div className="flex items-center gap-2">
@@ -81,43 +92,50 @@ export default function NotificationsPage() {
             </Badge>
           )}
           {unreadCount > 0 && (
-            <Button
-              variant="outline"
-              className="h-11 sm:h-9"
-              onClick={() => markAllRead.mutate()}
-              disabled={markAllRead.isPending}
-            >
-              <CheckCheck className="size-4" aria-hidden="true" />
-              Mark all read
-            </Button>
+            <div className="flex items-center gap-1">
+              <Button
+                variant="outline"
+                className="h-11 sm:h-9"
+                onClick={() => markAllRead.mutate()}
+                disabled={markAllRead.isPending}
+              >
+                <CheckCheck className="size-4" aria-hidden="true" />
+                Mark all read
+              </Button>
+              <HelpTip content={NOTIFICATIONS_MARK_ALL_TIP} label="About mark all read" />
+            </div>
           )}
         </div>
       </div>
 
       <div className="overflow-hidden rounded-2xl border bg-card">
         <div className="scrollbar-hide overflow-x-auto px-4">
-          <div className="flex min-w-max gap-1" role="tablist" aria-label="Notification filter">
+          <div className="flex min-w-max items-center gap-1" role="tablist" aria-label="Notification filter">
             {TABS.map((t) => (
-              <button
-                key={t.key}
-                type="button"
-                role="tab"
-                aria-selected={tab === t.key}
-                onClick={() => { setTab(t.key); setPage(1); }}
-                className={cn(
-                  "relative px-3 py-3 text-sm font-medium transition-colors",
-                  tab === t.key
-                    ? "text-foreground after:absolute after:inset-x-3 after:bottom-0 after:h-0.5 after:rounded-full after:bg-primary"
-                    : "text-muted-foreground hover:text-foreground"
-                )}
-              >
-                {t.label}
-                {t.key === "unread" && unreadCount > 0 && (
-                  <span className="ml-1.5 rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-semibold tabular-nums text-foreground">
-                    {unreadCount}
-                  </span>
-                )}
-              </button>
+              <div key={t.key} className="inline-flex items-center gap-0.5">
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={tab === t.key}
+                  onClick={() => { setTab(t.key); setPage(1); }}
+                  className={cn(
+                    "relative px-3 py-3 text-sm font-medium transition-colors",
+                    tab === t.key
+                      ? "text-foreground after:absolute after:inset-x-3 after:bottom-0 after:h-0.5 after:rounded-full after:bg-primary"
+                      : "text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  {t.label}
+                  {t.key === "unread" && unreadCount > 0 && (
+                    <span className="ml-1.5 rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-semibold tabular-nums text-foreground">
+                      {unreadCount}
+                    </span>
+                  )}
+                </button>
+                {t.tip && tab === t.key ? (
+                  <HelpTip content={t.tip} label={`About ${t.label} tab`} />
+                ) : null}
+              </div>
             ))}
           </div>
         </div>
@@ -208,5 +226,6 @@ export default function NotificationsPage() {
         )}
       </div>
     </div>
+    </TooltipProvider>
   );
 }

@@ -27,6 +27,14 @@ import {
   Panel,
   type MetricTone,
 } from "@/components/admin/admin-analytics-ui";
+import { HelpTip } from "@/components/admin/help-tip";
+import {
+  AGENCY_EDIT_PROFILE_TIP,
+  AGENCY_METRIC_TIPS,
+  AGENCY_PAGE_TIP,
+  AGENCY_PROFILE_PANEL_TIP,
+} from "@/lib/constants/agency-tooltips";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { useAuth } from "@/lib/auth";
 import { useOrganisations } from "@/lib/hooks/useOrganisations";
 import { useStaffInvites, useStaffMembers } from "@/lib/hooks/useStaff";
@@ -116,17 +124,16 @@ export default function AgencyPage() {
   }
 
   return (
+    <TooltipProvider delay={200}>
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Agency</h1>
+        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+          Agency
+          <HelpTip content={AGENCY_PAGE_TIP} label="About agency" />
+        </h1>
         <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
           Manage the platform-owning agency profile, staff access, invitations, and agency datasets.
         </p>
-      </div>
-
-      <div className="rounded-xl border border-info/25 bg-info/[0.06] px-4 py-3 text-sm text-muted-foreground">
-        NSPHCDA is the platform owner. Staff accounts belong to this agency and receive capabilities
-        through permission groups — partner organisations are managed separately.
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -134,6 +141,7 @@ export default function AgencyPage() {
           label="Staff members"
           value={staffSummary.data?.total ?? 0}
           hint="Agency staff accounts"
+          tip={AGENCY_METRIC_TIPS.staff}
           icon={Users}
           tone="primary"
         />
@@ -141,6 +149,7 @@ export default function AgencyPage() {
           label="Pending invites"
           value={inviteSummary.data?.total ?? 0}
           hint="Awaiting acceptance"
+          tip={AGENCY_METRIC_TIPS.invites}
           icon={MailPlus}
           tone="warning"
         />
@@ -148,6 +157,7 @@ export default function AgencyPage() {
           label="Agency datasets"
           value={datasetsSummary.data ?? 0}
           hint="Owned by the platform agency"
+          tip={AGENCY_METRIC_TIPS.datasets}
           icon={Database}
           tone="info"
         />
@@ -155,6 +165,7 @@ export default function AgencyPage() {
           label="Agency status"
           value={agency.is_active ? "Active" : "Inactive"}
           hint={agency.acronym ?? agency.slug}
+          tip={AGENCY_METRIC_TIPS.status}
           icon={Building2}
           tone={agency.is_active ? "success" : "muted"}
         />
@@ -162,14 +173,18 @@ export default function AgencyPage() {
 
       <Panel
         title={agency.name}
+        titleTip={AGENCY_PROFILE_PANEL_TIP}
         description={agency.description || "Platform-owning agency profile."}
         icon={Building2}
         tone="primary"
         action={
-          <Button variant="outline" className="h-9" onClick={() => setEditOpen(true)}>
-            <Edit className="size-4" />
-            Edit profile
-          </Button>
+          <div className="flex items-center gap-1">
+            <Button variant="outline" className="h-9" onClick={() => setEditOpen(true)}>
+              <Edit className="size-4" />
+              Edit profile
+            </Button>
+            <HelpTip content={AGENCY_EDIT_PROFILE_TIP} label="About edit profile" />
+          </div>
         }
       >
         <div className="space-y-4">
@@ -214,6 +229,7 @@ export default function AgencyPage() {
         slug={agency.slug}
       />
     </div>
+    </TooltipProvider>
   );
 }
 
