@@ -201,6 +201,7 @@ export function GroupMembersModal({ open, onClose, groupSlug }: GroupMembersModa
           </div>
         </div>
       </DialogContent>
+    </Dialog>
 
       <ConfirmDialog
         open={!!removeTarget}
