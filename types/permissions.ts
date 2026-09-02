@@ -80,7 +80,7 @@ export const PERMISSION_ACTION_LABELS: Record<PermissionAction, string> = {
   "manage:organisation-agreements": "Manage Org Agreements",
   "create:datasets": "Upload Dataset for Org",
   "manage:documents": "Manage Documents",
-  "manage:groups": "Manage Groups",
+  "manage:groups": "Manage Collections",
   "manage:analytics": "Manage Analytics",
   "manage:gis-reference-data": "Manage GIS Reference Layers",
   "manage:partner-api-keys": "Manage Partner API Keys",
@@ -192,7 +192,7 @@ export const PERMISSION_ACTION_GROUPS: Array<{ label: string; actions: Permissio
     actions: ["manage:documents"],
   },
   {
-    label: "Groups",
+    label: "Collections",
     actions: ["manage:groups"],
   },
   {

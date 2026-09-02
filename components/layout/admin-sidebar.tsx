@@ -81,7 +81,7 @@ export const adminNavItems: Array<{
     badgeKey: "documentReviewQueue",
   },
   { href: "/programs", label: "Programmes", icon: Target, anyPermission: ["create:programs", "edit:programs", "upload:programs", "delete:programs"] },
-  { href: "/groups", label: "Groups", icon: FolderKanban },
+  { href: "/collections", label: "Collections", icon: FolderKanban },
   { href: "/analytics", label: "Platform Analytics", icon: BarChart3 },
   {
     href: "/partner-interest",

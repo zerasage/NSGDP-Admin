@@ -72,19 +72,19 @@ export function GroupFormModal({ open, onClose, group }: GroupFormModalProps) {
             isFeatured: data.isFeatured,
           },
         });
-        toast.success("Group updated");
+        toast.success("Collection updated");
       } else {
         const created = await createMutation.mutateAsync({
           name: data.name,
           description: data.description,
           isFeatured: data.isFeatured,
         });
-        toast.success(`Group "${created.name}" created`);
+        toast.success(`Collection "${created.name}" created`);
       }
       onClose();
     } catch (error) {
       const err = error as { message?: string };
-      toast.error(err?.message || `Failed to ${isEditing ? "update" : "create"} group`);
+      toast.error(err?.message || `Failed to ${isEditing ? "update" : "create"} collection`);
     } finally {
       setSubmitting(false);
     }
@@ -100,11 +100,11 @@ export function GroupFormModal({ open, onClose, group }: GroupFormModalProps) {
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <FolderKanban className="size-5" />
-            {isEditing ? "Edit Group" : "Create Group"}
+            {isEditing ? "Edit collection" : "Create collection"}
           </DialogTitle>
           <DialogDescription>
-            A curated collection of datasets and documents around a topic, e.g. &quot;Malaria
-            Control 2024–2026&quot;.
+            A curated set of datasets and documents around a topic, e.g. &quot;Malaria Control
+            2024–2026&quot;.
           </DialogDescription>
         </DialogHeader>
 
@@ -130,7 +130,7 @@ export function GroupFormModal({ open, onClose, group }: GroupFormModalProps) {
               id="description"
               className="mt-1.5"
               rows={3}
-              placeholder="What this group curates and why..."
+              placeholder="What this collection curates and why..."
               {...register("description", {
                 required: "Description is required",
                 minLength: 10,
@@ -166,7 +166,7 @@ export function GroupFormModal({ open, onClose, group }: GroupFormModalProps) {
               ) : isEditing ? (
                 "Save Changes"
               ) : (
-                "Create Group"
+                "Create collection"
               )}
             </Button>
           </DialogFooter>

@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Database, Loader2, Search, Trash2, X } from "lucide-react";
+import Link from "next/link";
+import { Database, ExternalLink, Loader2, Search, Trash2, X } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -44,13 +45,13 @@ export function GroupMembersModal({ open, onClose, groupSlug }: GroupMembersModa
   const handleAdd = (dataset: Dataset) => {
     if (!groupSlug) return;
     if (!isPublishedDataset(dataset)) {
-      toast.error("Only published datasets can be added to a group.");
+      toast.error("Only published datasets can be added to a collection.");
       return;
     }
     addMutation.mutate(
       { slug: groupSlug, datasetId: dataset.id },
       {
-        onSuccess: () => toast.success(`Added "${dataset.title}" to group`),
+        onSuccess: () => toast.success(`Added "${dataset.title}" to collection`),
         onError: (error) => {
           const err = error as { message?: string };
           toast.error(err?.message || "Failed to add dataset");
@@ -64,7 +65,7 @@ export function GroupMembersModal({ open, onClose, groupSlug }: GroupMembersModa
     removeMutation.mutate(
       { slug: groupSlug, datasetId },
       {
-        onSuccess: () => toast.success(`Removed "${title}" from group`),
+        onSuccess: () => toast.success(`Removed "${title}" from collection`),
         onError: () => toast.error("Failed to remove dataset"),
       },
     );
@@ -81,10 +82,11 @@ export function GroupMembersModal({ open, onClose, groupSlug }: GroupMembersModa
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Database className="size-5" />
-            Manage Datasets — {group?.name ?? "…"}
+            Curate datasets — {group?.name ?? "…"}
           </DialogTitle>
           <DialogDescription>
-            Add or remove datasets curated in this group. Only published datasets can be added.
+            Add or remove published datasets in this collection. Only published datasets can be
+            added.
           </DialogDescription>
         </DialogHeader>
 
@@ -125,7 +127,15 @@ export function GroupMembersModal({ open, onClose, groupSlug }: GroupMembersModa
                     const alreadyIn = currentDatasetIds.has(dataset.id);
                     return (
                       <li key={dataset.id} className="flex items-center justify-between gap-3 p-3">
-                        <span className="min-w-0 truncate text-sm">{dataset.title}</span>
+                        <Link
+                          href={`/datasets/${dataset.slug}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex min-w-0 items-center gap-1.5 truncate text-sm text-primary hover:underline"
+                        >
+                          <span className="truncate">{dataset.title}</span>
+                          <ExternalLink className="size-3.5 shrink-0 opacity-60" aria-hidden />
+                        </Link>
                         <Button
                           size="sm"
                           variant={alreadyIn ? "secondary" : "outline"}
@@ -144,7 +154,7 @@ export function GroupMembersModal({ open, onClose, groupSlug }: GroupMembersModa
 
           <div>
             <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              In this group ({group?.datasets.length ?? 0})
+              In this collection ({group?.datasets.length ?? 0})
             </p>
             {isLoading ? (
               <div className="flex items-center justify-center gap-2 p-4 text-sm text-muted-foreground">
@@ -152,13 +162,21 @@ export function GroupMembersModal({ open, onClose, groupSlug }: GroupMembersModa
               </div>
             ) : (group?.datasets ?? []).length === 0 ? (
               <p className="rounded-lg border p-4 text-sm text-muted-foreground">
-                No datasets in this group yet — search above to add one.
+                No datasets in this collection yet — search above to add one.
               </p>
             ) : (
               <ul className="divide-y rounded-lg border">
                 {group!.datasets.map((dataset) => (
                   <li key={dataset.id} className="flex items-center justify-between gap-3 p-3">
-                    <span className="min-w-0 truncate text-sm font-medium">{dataset.title}</span>
+                    <Link
+                      href={`/datasets/${dataset.slug}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex min-w-0 items-center gap-1.5 truncate text-sm font-medium text-primary hover:underline"
+                    >
+                      <span className="truncate">{dataset.title}</span>
+                      <ExternalLink className="size-3.5 shrink-0 opacity-60" aria-hidden />
+                    </Link>
                     <Button
                       variant="ghost"
                       size="icon-sm"

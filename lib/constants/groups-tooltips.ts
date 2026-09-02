@@ -1,17 +1,17 @@
 export const GROUPS_PAGE_TIP =
-  "Groups bundle related datasets and documents into thematic collections for the public portal — e.g. a malaria programme or policy area. Feature a group to highlight it on the homepage catalogue.";
+  "Collections bundle related datasets and documents into thematic sets for the public portal — e.g. a malaria programme or policy area. Feature a collection to highlight it on the homepage catalogue.";
 
 export const GROUPS_METRIC_TIPS = {
   total: "Every curated collection on the platform.",
-  featured: "Groups promoted on the public homepage and catalogue highlights.",
+  featured: "Collections promoted on the public homepage and catalogue highlights.",
   datasetLinks:
-    "Total dataset memberships across all groups — one dataset can appear in multiple groups.",
+    "Total dataset memberships across all collections — one dataset can appear in multiple collections.",
   documentLinks:
-    "Total document memberships across all groups — one document can appear in multiple groups.",
+    "Total document memberships across all collections — one document can appear in multiple collections.",
 } as const;
 
 export const GROUPS_PANEL_TIP =
-  "Search by group name or description. Open Manage to add or remove linked datasets and documents.";
+  "Search by collection name or description. Open Curate to add or remove linked datasets.";
 
 export const GROUPS_CREATE_TIP =
-  "Create a collection with a name, description, and optional featured flag. Link datasets and documents after saving via Manage.";
+  "Create a collection with a name, description, and optional featured flag. Link datasets after saving via Curate.";
