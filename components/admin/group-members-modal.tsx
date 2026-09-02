@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useGroupBySlug, useAddDatasetToGroup, useRemoveDatasetFromGroup } from "@/lib/hooks/useGroups";
 import { getDatasets, type Dataset } from "@/lib/api/datasets";
 import { useQuery } from "@tanstack/react-query";
@@ -29,6 +30,7 @@ interface GroupMembersModalProps {
 
 export function GroupMembersModal({ open, onClose, groupSlug }: GroupMembersModalProps) {
   const [search, setSearch] = useState("");
+  const [removeTarget, setRemoveTarget] = useState<{ id: string; title: string } | null>(null);
   const { data: group, isLoading } = useGroupBySlug(open ? groupSlug : undefined);
   const addMutation = useAddDatasetToGroup();
   const removeMutation = useRemoveDatasetFromGroup();
@@ -60,12 +62,15 @@ export function GroupMembersModal({ open, onClose, groupSlug }: GroupMembersModa
     );
   };
 
-  const handleRemove = (datasetId: string, title: string) => {
-    if (!groupSlug) return;
+  const confirmRemove = () => {
+    if (!groupSlug || !removeTarget) return;
     removeMutation.mutate(
-      { slug: groupSlug, datasetId },
+      { slug: groupSlug, datasetId: removeTarget.id },
       {
-        onSuccess: () => toast.success(`Removed "${title}" from collection`),
+        onSuccess: () => {
+          toast.success(`Removed "${removeTarget.title}" from collection`);
+          setRemoveTarget(null);
+        },
         onError: () => toast.error("Failed to remove dataset"),
       },
     );
@@ -73,10 +78,12 @@ export function GroupMembersModal({ open, onClose, groupSlug }: GroupMembersModa
 
   const handleClose = () => {
     setSearch("");
+    setRemoveTarget(null);
     onClose();
   };
 
   return (
+    <>
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="sm:max-w-[600px] max-h-[85vh] overflow-y-auto">
         <DialogHeader>
@@ -183,7 +190,7 @@ export function GroupMembersModal({ open, onClose, groupSlug }: GroupMembersModa
                       className="text-destructive hover:text-destructive"
                       aria-label={`Remove ${dataset.title}`}
                       disabled={removeMutation.isPending}
-                      onClick={() => handleRemove(dataset.id, dataset.title)}
+                      onClick={() => setRemoveTarget({ id: dataset.id, title: dataset.title })}
                     >
                       <Trash2 className="size-4" />
                     </Button>
@@ -194,6 +201,19 @@ export function GroupMembersModal({ open, onClose, groupSlug }: GroupMembersModa
           </div>
         </div>
       </DialogContent>
-    </Dialog>
+
+      <ConfirmDialog
+        open={!!removeTarget}
+        onOpenChange={(isOpen) => !isOpen && setRemoveTarget(null)}
+        title="Remove dataset from collection?"
+        description={`Remove "${removeTarget?.title}" from "${group?.name ?? "this collection"}"? The dataset itself is not deleted — only this collection link.`}
+        confirmLabel="Remove"
+        cancelLabel="Cancel"
+        variant="destructive"
+        loading={removeMutation.isPending}
+        closeOnConfirm={false}
+        onConfirm={confirmRemove}
+      />
+    </>
   );
 }
