@@ -79,7 +79,6 @@ import {
   GIS_REFERENCE_RESOLUTION_METRIC_TIPS,
   GIS_REFERENCE_RESOLUTION_PANEL_TIP,
   GIS_REFERENCE_RESOLUTION_TAB_TIPS,
-  GIS_REFERENCE_REVIEW_QUEUE_TIP,
   GIS_REFERENCE_METRIC_TIPS,
   GIS_REFERENCE_UPLOAD_LAYER_TIP,
 } from "@/lib/constants/gis-reference-tooltips";
@@ -194,22 +193,11 @@ function ResolutionReportBody({
                   <TableCell>{pair.lga}</TableCell>
                   <TableCell>{pair.ward}</TableCell>
                   <TableCell className="text-right">
-                    <div className="flex items-center justify-end gap-1.5">
-                      <div className="flex items-center gap-1">
-                        <Button size="sm" variant="outline" onClick={() => onConfirm(pair)}>
-                          Confirm ward
-                        </Button>
-                        <HelpTip content={GIS_REFERENCE_CONFIRM_WARD_TIP} label="About confirm ward" />
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <Link
-                          href={`/ingestion-ops?orgunit=${encodeURIComponent(pair.ward)}`}
-                          className={cn(buttonVariants({ variant: "ghost", size: "sm" }))}
-                        >
-                          Review queue
-                        </Link>
-                        <HelpTip content={GIS_REFERENCE_REVIEW_QUEUE_TIP} label="About review queue" />
-                      </div>
+                    <div className="flex items-center justify-end gap-1">
+                      <Button size="sm" variant="outline" onClick={() => onConfirm(pair)}>
+                        Confirm ward
+                      </Button>
+                      <HelpTip content={GIS_REFERENCE_CONFIRM_WARD_TIP} label="About confirm ward" />
                     </div>
                   </TableCell>
                 </TableRow>
@@ -719,7 +707,8 @@ export default function GisReferenceLayersPage() {
           </h1>
           <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
             Upload dedicated GIS reference files for the five platform map slots, then reconcile
-            raw LGA/ward spellings via the shared org-unit ladder and Data Review queue.
+            raw LGA/ward spellings in Name resolution. Confirmed mappings become shared aliases
+            for future GIS layers and partner dataset uploads.
           </p>
         </div>
         <div className="flex items-center gap-1.5 shrink-0">

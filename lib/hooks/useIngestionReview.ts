@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { useEffect } from 'react';
+import { toast } from 'sonner';
 import * as api from '../api/ingestion-review';
 import { isLiveAnalyticsStatus } from '../utils/analytics-publish-ui';
 
@@ -245,13 +246,39 @@ export function useRejectIndicatorAlias(datasetId?: string) {
 export function useAcceptAutoMatchedAliases(datasetId?: string) {
   const queryClient = useQueryClient();
   return useMutation({
+    mutationKey: ['accept-auto-matched-aliases', datasetId ?? 'global'],
     mutationFn: (aliasIds: string[]) => api.acceptAutoMatchedAliases(aliasIds),
-    onSuccess: () => {
+    onMutate: (aliasIds) => {
+      const n = aliasIds.length;
+      return {
+        toastId: toast.loading(
+          `Accepting ${n.toLocaleString()} auto-matched alias${n === 1 ? "" : "es"}…`,
+        ),
+      };
+    },
+    onSuccess: (result, _aliasIds, context) => {
+      toast.success(
+        `Accepted ${result.accepted.toLocaleString()} auto-matched alias${
+          result.accepted === 1 ? "" : "es"
+        }` +
+          (result.skipped
+            ? ` — ${result.skipped.toLocaleString()} skipped`
+            : ""),
+        { id: context?.toastId },
+      );
       queryClient.invalidateQueries({ queryKey: [REVIEW_QUEUE_KEY] });
       queryClient.invalidateQueries({ queryKey: [REPORT_KEY, datasetId] });
       queryClient.invalidateQueries({ queryKey: ['dataset'] });
       queryClient.invalidateQueries({ queryKey: ['ingestion-observability'] });
       queryClient.invalidateQueries({ queryKey: [ANALYTICS_PUBLISH_STATUS_KEY] });
+    },
+    onError: (error: unknown, _aliasIds, context) => {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Failed to accept selected aliases",
+        { id: context?.toastId },
+      );
     },
   });
 }

@@ -19,7 +19,7 @@ export const GIS_REFERENCE_LAYERS_PANEL_TIP =
   "Five fixed slots, each holding one staff-uploaded file. Replacing ward boundaries, facilities, or settlements may queue a background gazetteer rebuild.";
 
 export const GIS_REFERENCE_RESOLUTION_PANEL_TIP =
-  "Spellings from uploaded layers compared to the canonical gazetteer. Fix unmatched rows here or send tricky cases to the Ingestion Ops alias queue.";
+  "Spellings from uploaded layers compared to the canonical gazetteer. Confirm unmatched wards here — GIS-only mismatches stay in Name resolution and do not appear in the Ingestion Ops alias queue.";
 
 export const GIS_REFERENCE_RESOLUTION_TAB_TIPS = {
   ward_boundaries:
@@ -40,10 +40,7 @@ export const GIS_REFERENCE_COVERAGE_TIP =
   "Analytics expects at least 95% of spellings resolved. Review remaining unmatched rows before publishing datasets that depend on this layer.";
 
 export const GIS_REFERENCE_CONFIRM_WARD_TIP =
-  "Links this raw spelling to the canonical ward you pick. Future uploads using the same spelling will resolve automatically.";
-
-export const GIS_REFERENCE_REVIEW_QUEUE_TIP =
-  "Opens Ingestion Ops filtered to this ward name — use when the spelling needs alias review rather than a one-off confirm.";
+  "Links this raw spelling to the canonical ward you pick. Future GIS layers and partner uploads using the same spelling will resolve automatically.";
 
 export const GIS_REFERENCE_REPLACE_LAYER_TIP =
   "Upload a new GeoPackage or spreadsheet for this slot. The dialog closes immediately; send progress and any gazetteer rebuild show on this row.";

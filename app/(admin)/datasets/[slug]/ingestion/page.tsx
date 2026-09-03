@@ -441,7 +441,7 @@ export default function DatasetIngestionPage({
         <TabsContent value="report" className="mt-0">
           <IngestionReportTab datasetId={dataset.id} />
         </TabsContent>
-        <TabsContent value="aliases" className="mt-0">
+        <TabsContent value="aliases" className="mt-0" keepMounted>
           <DataReviewQueueTab datasetId={dataset.id} />
         </TabsContent>
         <TabsContent value="related" className="mt-0">

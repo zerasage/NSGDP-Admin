@@ -133,7 +133,7 @@ export const AI_SPEND_TIPS = {
 } as const;
 
 export const ALIASES_TAB_TIP =
-  "Upload column names that did not match the registry exactly. Approving links them to the canonical indicator; rejecting creates a new one or marks as non-indicator.";
+  "Upload column names and location strings from datasets that did not match the registry. GIS-only ward/facility mismatches are handled in GIS Reference → Name resolution, not this queue.";
 
 export const COMPARE_TAB_TIP =
   "Pick two datasets and compare values on shared keys. Portal view matches public charts (live sources only); raw warehouse mode includes retracted or archived sources for forensics.";

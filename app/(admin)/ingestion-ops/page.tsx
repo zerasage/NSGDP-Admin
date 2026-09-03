@@ -571,7 +571,7 @@ export default function IngestionOpsPage() {
         <TabsContent value="pipeline" className="mt-0">
           <PipelineTab />
         </TabsContent>
-        <TabsContent value="aliases" className="mt-0">
+        <TabsContent value="aliases" className="mt-0" keepMounted>
           <DataReviewQueueTab global />
         </TabsContent>
         <TabsContent value="conflicts" className="mt-0">

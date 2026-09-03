@@ -133,27 +133,15 @@ export function DataReviewQueueTab({
     });
   };
 
+  const accepting = acceptAutoMutation.isPending;
+  const acceptingCount = acceptAutoMutation.variables?.length ?? 0;
+
   const handleAcceptSelectedAuto = () => {
-    if (selectedIds.length === 0) return;
-    acceptAutoMutation.mutate(selectedIds, {
-      onSuccess: (result) => {
-        toast.success(
-          `Accepted ${result.accepted.toLocaleString()} auto-matched alias${
-            result.accepted === 1 ? "" : "es"
-          }` +
-            (result.skipped
-              ? ` — ${result.skipped.toLocaleString()} skipped`
-              : ""),
-        );
-        setSelectedIds([]);
-        setAcceptSelectedOpen(false);
-      },
-      onError: (error: unknown) =>
-        toast.error(
-          error instanceof Error
-            ? error.message
-            : "Failed to accept selected aliases",
-        ),
+    if (selectedIds.length === 0 || accepting) return;
+    const ids = [...selectedIds];
+    setAcceptSelectedOpen(false);
+    acceptAutoMutation.mutate(ids, {
+      onSuccess: () => setSelectedIds([]),
     });
   };
 
@@ -235,7 +223,7 @@ export function DataReviewQueueTab({
             <label className="flex h-8 items-center gap-2 rounded-md border border-input px-2.5 text-sm">
               <Checkbox
                 checked={allSelectableChecked}
-                disabled={acceptAutoMutation.isPending}
+                disabled={accepting}
                 onCheckedChange={(checked) => toggleSelectAll(checked === true)}
                 aria-label="Mark all auto-matched in this view to accept"
               />
@@ -245,15 +233,15 @@ export function DataReviewQueueTab({
               type="button"
               size="sm"
               className="h-8"
-              disabled={selectedIds.length === 0 || acceptAutoMutation.isPending}
+              disabled={selectedIds.length === 0 || accepting}
               onClick={() => setAcceptSelectedOpen(true)}
             >
-              {acceptAutoMutation.isPending ? (
+              {accepting ? (
                 <Loader2 className="size-4 animate-spin" aria-hidden />
               ) : (
                 <CheckCircle2 className="size-4" />
               )}
-              {acceptAutoMutation.isPending
+              {accepting
                 ? "Accepting…"
                 : `Accept selected${
                     selectedIds.length > 0 ? ` (${selectedIds.length})` : ""
@@ -262,6 +250,21 @@ export function DataReviewQueueTab({
           </>
         ) : null}
       </div>
+
+      {accepting ? (
+        <div
+          className="flex items-center gap-2 rounded-lg border border-info/30 bg-info/6 px-3 py-2 text-sm"
+          role="status"
+          aria-live="polite"
+        >
+          <Loader2 className="size-4 shrink-0 animate-spin text-info" aria-hidden />
+          <span>
+            Accepting {acceptingCount.toLocaleString()} auto-matched alias
+            {acceptingCount === 1 ? "" : "es"}. You can switch tabs or keep
+            working — this list stays locked until it finishes.
+          </span>
+        </div>
+      ) : null}
 
       {!items || items.length === 0 ? (
         <EmptyState
@@ -311,6 +314,7 @@ export function DataReviewQueueTab({
                 size="sm"
                 variant={kindFilter === filter.value ? "default" : "outline"}
                 className="h-8"
+                disabled={accepting && queueMode === "auto"}
                 onClick={() => setKindFilter(filter.value)}
               >
                 {filter.label}
@@ -318,7 +322,14 @@ export function DataReviewQueueTab({
             ))}
           </div>
 
-          <div className="space-y-3">
+          <div
+            className={cn(
+              "relative space-y-3",
+              accepting && queueMode === "auto" && "pointer-events-none opacity-60",
+            )}
+            aria-busy={accepting && queueMode === "auto"}
+            aria-disabled={accepting && queueMode === "auto"}
+          >
             {filteredItems.length === 0 ? (
               <p className="rounded-xl border border-dashed px-4 py-8 text-center text-sm text-muted-foreground">
                 No aliases in this measure-kind filter.
@@ -345,7 +356,7 @@ export function DataReviewQueueTab({
                       <Checkbox
                         className="mt-1"
                         checked={selectedIds.includes(item.id)}
-                        disabled={!item.indicatorId || acceptAutoMutation.isPending}
+                        disabled={!item.indicatorId || accepting}
                         onCheckedChange={(checked) =>
                           toggleSelected(item.id, checked === true)
                         }
@@ -416,6 +427,7 @@ export function DataReviewQueueTab({
                           <Button
                             size="sm"
                             variant="outline"
+                            disabled={accepting}
                             onClick={() => setDeciding(item)}
                           >
                             Remap
@@ -431,7 +443,7 @@ export function DataReviewQueueTab({
                           variant="outline"
                           className="text-muted-foreground hover:text-destructive"
                           onClick={() => setRejectTarget(item)}
-                          disabled={rejectMutation.isPending}
+                          disabled={rejectMutation.isPending || accepting}
                         >
                           <XCircle className="size-4" />
                           Not an indicator
@@ -500,8 +512,6 @@ export function DataReviewQueueTab({
               } as accepted, keeping the engine mapping. Pending aliases are not changed.`
         }
         confirmLabel="Accept selected"
-        loading={acceptAutoMutation.isPending}
-        closeOnConfirm={false}
         onConfirm={handleAcceptSelectedAuto}
       />
     </div>

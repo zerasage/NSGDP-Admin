@@ -102,7 +102,7 @@ export const GIS_REFERENCE_HELP: Record<
       },
       {
         if: "Match rate is below 95%",
-        then: "Go to Name resolution, confirm wards or send names to the alias queue before publishing location-heavy datasets.",
+        then: "Go to Name resolution and confirm wards before publishing location-heavy datasets. GIS mismatches are resolved here, not in the Ingestion Ops alias queue.",
       },
       {
         if: "Facilities appear on the wrong ward",
@@ -170,8 +170,8 @@ export const GIS_REFERENCE_HELP: Record<
     whatYouCanDo: [
       "Switch tabs between ward boundaries, facilities, and settlements",
       "Confirm a one-off mapping to the correct canonical ward",
-      "Jump to Ingestion Ops alias review for recurring spelling variants",
       "Track total, matched, and unmatched counts per layer",
+      "Confirmed mappings become aliases that also help partner dataset uploads",
     ],
     steps: [
       {
@@ -182,12 +182,12 @@ export const GIS_REFERENCE_HELP: Record<
       {
         title: "Confirm ward for a row",
         detail:
-          "Search the canonical ward in the LGA, confirm, and the spelling is saved as an alias for future uploads.",
+          "Search the canonical ward in the LGA, confirm, and the spelling is saved as an alias for future GIS layers and partner uploads.",
       },
       {
-        title: "Use Review queue for messy names",
+        title: "Leave Ingestion Ops for workbook strings",
         detail:
-          "When the same variant appears across many datasets, approve it in Ingestion Ops → Aliases instead of confirming row by row.",
+          "Dataset location columns that fail matching still appear in Ingestion Ops → Aliases. Pure GIS layer mismatches stay on this page.",
       },
     ],
     whatHappensNext: [
@@ -206,7 +206,7 @@ export const GIS_REFERENCE_HELP: Record<
       },
     ],
     tips: [
-      "Confirm ward is best for typos in this GIS file. Alias review is best for spelling variants in partner uploads.",
+      "Confirm ward here for GIS file typos. Partner workbook location strings still go through Ingestion Ops aliases when they appear in staging.",
     ],
   },
 
