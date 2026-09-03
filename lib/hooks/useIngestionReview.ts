@@ -242,6 +242,20 @@ export function useRejectIndicatorAlias(datasetId?: string) {
   });
 }
 
+export function useAcceptAutoMatchedAliases(datasetId?: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (aliasIds: string[]) => api.acceptAutoMatchedAliases(aliasIds),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [REVIEW_QUEUE_KEY] });
+      queryClient.invalidateQueries({ queryKey: [REPORT_KEY, datasetId] });
+      queryClient.invalidateQueries({ queryKey: ['dataset'] });
+      queryClient.invalidateQueries({ queryKey: ['ingestion-observability'] });
+      queryClient.invalidateQueries({ queryKey: [ANALYTICS_PUBLISH_STATUS_KEY] });
+    },
+  });
+}
+
 export function useNarrateIngestion() {
   return useMutation({
     mutationFn: (datasetId: string) => api.narrateIngestion(datasetId),

@@ -9,7 +9,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, Loader2 } from "lucide-react";
 
 interface ConfirmDialogProps {
   open: boolean;
@@ -42,7 +42,13 @@ export function ConfirmDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        if (loading && !next) return;
+        onOpenChange(next);
+      }}
+    >
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
           <div className="flex items-center gap-3">
@@ -72,7 +78,14 @@ export function ConfirmDialog({
             onClick={handleConfirm}
             disabled={loading}
           >
-            {loading ? "Processing..." : confirmLabel}
+            {loading ? (
+              <>
+                <Loader2 className="size-4 animate-spin" aria-hidden />
+                Processing…
+              </>
+            ) : (
+              confirmLabel
+            )}
           </Button>
         </DialogFooter>
       </DialogContent>

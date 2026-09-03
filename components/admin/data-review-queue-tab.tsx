@@ -1,10 +1,11 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { CheckCircle2, Link2, MapPin, XCircle } from "lucide-react";
+import { CheckCircle2, Link2, Loader2, MapPin, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/feedback/empty-state";
 import { AliasDecisionDialog } from "@/components/admin/alias-decision-dialog";
@@ -18,6 +19,7 @@ import {
   useReviewQueue,
   useConfirmIndicatorAlias,
   useRejectIndicatorAlias,
+  useAcceptAutoMatchedAliases,
 } from "@/lib/hooks/useIngestionReview";
 import type {
   ReviewQueueItem,
@@ -57,9 +59,12 @@ export function DataReviewQueueTab({
   });
   const confirmMutation = useConfirmIndicatorAlias(datasetId);
   const rejectMutation = useRejectIndicatorAlias(datasetId);
+  const acceptAutoMutation = useAcceptAutoMatchedAliases(datasetId);
   const [deciding, setDeciding] = useState<ReviewQueueItem | null>(null);
   const [orgunitItem, setOrgunitItem] = useState<ReviewQueueItem | null>(null);
   const [rejectTarget, setRejectTarget] = useState<ReviewQueueItem | null>(null);
+  const [acceptSelectedOpen, setAcceptSelectedOpen] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [kindFilter, setKindFilter] = useState<MeasureKind | "all">("all");
 
   const filteredItems = useMemo(() => {
@@ -70,6 +75,25 @@ export function DataReviewQueueTab({
       return detectMeasureKind(item.rawText).kind === kindFilter;
     });
   }, [items, kindFilter]);
+  const selectableAutoIds = useMemo(
+    () =>
+      queueMode === "auto"
+        ? filteredItems
+            .filter((item) => item.kind === "indicator" && item.indicatorId)
+            .map((item) => item.id)
+        : [],
+    [queueMode, filteredItems],
+  );
+
+  useEffect(() => {
+    if (queueMode !== "auto") {
+      setSelectedIds([]);
+      return;
+    }
+    setSelectedIds((current) =>
+      current.filter((id) => selectableAutoIds.includes(id)),
+    );
+  }, [queueMode, selectableAutoIds]);
 
   const handleConfirm = (indicatorId: string) => {
     if (!deciding) return;
@@ -86,23 +110,6 @@ export function DataReviewQueueTab({
         },
         onError: (error: unknown) =>
           toast.error(error instanceof Error ? error.message : "Failed to confirm"),
-      },
-    );
-  };
-
-  const handleAcceptAuto = (item: ReviewQueueItem) => {
-    if (!item.indicatorId) {
-      setDeciding(item);
-      return;
-    }
-    confirmMutation.mutate(
-      { aliasId: item.id, indicatorId: item.indicatorId },
-      {
-        onSuccess: (result) => {
-          toast.success(`Accepted — ${result.promoted} staged row(s)`);
-        },
-        onError: (error: unknown) =>
-          toast.error(error instanceof Error ? error.message : "Failed to accept"),
       },
     );
   };
@@ -124,6 +131,44 @@ export function DataReviewQueueTab({
           error instanceof Error ? error.message : "Failed to mark as not an indicator",
         ),
     });
+  };
+
+  const handleAcceptSelectedAuto = () => {
+    if (selectedIds.length === 0) return;
+    acceptAutoMutation.mutate(selectedIds, {
+      onSuccess: (result) => {
+        toast.success(
+          `Accepted ${result.accepted.toLocaleString()} auto-matched alias${
+            result.accepted === 1 ? "" : "es"
+          }` +
+            (result.skipped
+              ? ` — ${result.skipped.toLocaleString()} skipped`
+              : ""),
+        );
+        setSelectedIds([]);
+        setAcceptSelectedOpen(false);
+      },
+      onError: (error: unknown) =>
+        toast.error(
+          error instanceof Error
+            ? error.message
+            : "Failed to accept selected aliases",
+        ),
+    });
+  };
+
+  const allSelectableChecked =
+    selectableAutoIds.length > 0 &&
+    selectableAutoIds.every((id) => selectedIds.includes(id));
+
+  const toggleSelectAll = (checked: boolean) => {
+    setSelectedIds(checked ? selectableAutoIds : []);
+  };
+
+  const toggleSelected = (id: string, checked: boolean) => {
+    setSelectedIds((current) =>
+      checked ? [...new Set([...current, id])] : current.filter((item) => item !== id),
+    );
   };
 
   if (isLoading) {
@@ -185,6 +230,37 @@ export function DataReviewQueueTab({
         >
           Auto-matched ({autoCount})
         </Button>
+        {queueMode === "auto" && selectableAutoIds.length > 0 ? (
+          <>
+            <label className="flex h-8 items-center gap-2 rounded-md border border-input px-2.5 text-sm">
+              <Checkbox
+                checked={allSelectableChecked}
+                disabled={acceptAutoMutation.isPending}
+                onCheckedChange={(checked) => toggleSelectAll(checked === true)}
+                aria-label="Mark all auto-matched in this view to accept"
+              />
+              Mark all
+            </label>
+            <Button
+              type="button"
+              size="sm"
+              className="h-8"
+              disabled={selectedIds.length === 0 || acceptAutoMutation.isPending}
+              onClick={() => setAcceptSelectedOpen(true)}
+            >
+              {acceptAutoMutation.isPending ? (
+                <Loader2 className="size-4 animate-spin" aria-hidden />
+              ) : (
+                <CheckCircle2 className="size-4" />
+              )}
+              {acceptAutoMutation.isPending
+                ? "Accepting…"
+                : `Accept selected${
+                    selectedIds.length > 0 ? ` (${selectedIds.length})` : ""
+                  }`}
+            </Button>
+          </>
+        ) : null}
       </div>
 
       {!items || items.length === 0 ? (
@@ -199,7 +275,7 @@ export function DataReviewQueueTab({
             queueMode === "auto"
               ? "Fuzzy, embed, and LLM auto-confirms that still need a human stamp will appear here."
               : global
-                ? "Every pending indicator and org-unit alias across the platform has been decided."
+                ? "Every pending dataset indicator and orgunit alias has been decided. GIS-only location mismatches are handled in GIS Reference."
                 : "Every indicator and org-unit string in this dataset resolved automatically, or has already been decided."
           }
         />
@@ -219,10 +295,10 @@ export function DataReviewQueueTab({
           }
           description={
             queueMode === "auto"
-              ? "Engine already resolved these into staging. Accept keeps the mapping; Remap if wrong; mark as not an indicator for sheet labels that are not metrics."
+              ? "Mark the matches you want to keep, then Accept selected. Remap or Not an indicator are separate — they do not use the ticks."
               : global
-                ? "Confirm maps a string to a registry indicator, or create one. Mark as not an indicator for headers and layout labels."
-                : "Resolve indicator strings for this dataset, or exclude labels that are not programme metrics."
+                ? "Confirm maps a string to a registry indicator, or create one. Mark as not an indicator for headers and layout labels. Location spellings from GIS layers are resolved in GIS Reference — only dataset orgunit aliases appear here."
+                : "Resolve indicator strings for this dataset, or exclude labels that are not programme metrics. Location strings that appear in this workbook can be confirmed here."
           }
           icon={Link2}
           tone={queueMode === "auto" ? "info" : "warning"}
@@ -257,7 +333,7 @@ export function DataReviewQueueTab({
                   <div
                     key={item.id}
                     className={cn(
-                      "flex flex-wrap items-center justify-between gap-3 rounded-xl border p-4",
+                      "flex flex-wrap items-start justify-between gap-3 rounded-xl border p-4",
                       queueMode === "auto"
                         ? "border-info/25 bg-info/[0.04]"
                         : item.kind === "indicator"
@@ -265,7 +341,18 @@ export function DataReviewQueueTab({
                           : "border-info/25 bg-info/[0.04]",
                     )}
                   >
-                    <div className="min-w-0">
+                    {queueMode === "auto" && item.kind === "indicator" ? (
+                      <Checkbox
+                        className="mt-1"
+                        checked={selectedIds.includes(item.id)}
+                        disabled={!item.indicatorId || acceptAutoMutation.isPending}
+                        onCheckedChange={(checked) =>
+                          toggleSelected(item.id, checked === true)
+                        }
+                        aria-label={`Mark ${item.rawText} to accept`}
+                      />
+                    ) : null}
+                    <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-2">
                         <p className="truncate text-sm font-medium">
                           {item.rawText}
@@ -326,23 +413,13 @@ export function DataReviewQueueTab({
                     {item.kind === "indicator" ? (
                       <div className="flex shrink-0 items-center gap-2">
                         {queueMode === "auto" ? (
-                          <>
-                            <Button
-                              size="sm"
-                              onClick={() => handleAcceptAuto(item)}
-                              disabled={confirmMutation.isPending}
-                            >
-                              <CheckCircle2 className="size-4" />
-                              Accept
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => setDeciding(item)}
-                            >
-                              Remap
-                            </Button>
-                          </>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setDeciding(item)}
+                          >
+                            Remap
+                          </Button>
                         ) : (
                           <Button size="sm" onClick={() => setDeciding(item)}>
                             <CheckCircle2 className="size-4" />
@@ -409,6 +486,23 @@ export function DataReviewQueueTab({
         variant="destructive"
         loading={rejectMutation.isPending}
         onConfirm={handleNotAnIndicatorConfirm}
+      />
+
+      <ConfirmDialog
+        open={acceptSelectedOpen}
+        onOpenChange={setAcceptSelectedOpen}
+        title="Accept selected auto-matches?"
+        description={
+          selectedIds.length === 0
+            ? ""
+            : `This stamps ${selectedIds.length.toLocaleString()} marked alias${
+                selectedIds.length === 1 ? "" : "es"
+              } as accepted, keeping the engine mapping. Pending aliases are not changed.`
+        }
+        confirmLabel="Accept selected"
+        loading={acceptAutoMutation.isPending}
+        closeOnConfirm={false}
+        onConfirm={handleAcceptSelectedAuto}
       />
     </div>
   );

@@ -145,6 +145,15 @@ export async function rejectIndicatorAlias(
   return response.data.data;
 }
 
+export async function acceptAutoMatchedAliases(
+  aliasIds: string[],
+): Promise<{ accepted: number; skipped: number }> {
+  const response = await apiClient.post<
+    ApiResponse<{ accepted: number; skipped: number }>
+  >('/admin/governance/ingestion/aliases/auto/accept', { aliasIds });
+  return response.data.data;
+}
+
 export async function getIngestionReport(datasetId: string): Promise<IngestionReport> {
   const response = await apiClient.get<ApiResponse<IngestionReport>>(
     `/admin/governance/ingestion/datasets/${datasetId}/report`

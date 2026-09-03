@@ -171,6 +171,7 @@ export const INGESTION_OPS_TAB_HELP: Record<IngestionOpsTabId, IngestionOpsTabHe
       "Approve a suggested match (links upload text to the canonical indicator or org unit)",
       "Reject or correct a bad suggestion",
       "Work the global queue or filter by dataset",
+      "On Auto-matched: mark rows to accept, then Accept selected",
       "Clear the backlog so pipeline can finish and warehouse load can proceed",
     ],
     steps: [
@@ -183,8 +184,8 @@ export const INGESTION_OPS_TAB_HELP: Record<IngestionOpsTabId, IngestionOpsTabHe
         detail: "Ask: is this the same metric/place we already use? If yes, approve. If it is a new metric, reject and create/activate the indicator.",
       },
       {
-        title: "Approve in bulk when confident",
-        detail: "Repeated DHIS column names often share one decision.",
+        title: "Auto-matched tab",
+        detail: "Mark the engine guesses you agree with, then Accept selected. Remap or Not an indicator are separate row actions and do not use the ticks.",
       },
       {
         title: "Return to Pipeline or Warehouse",
