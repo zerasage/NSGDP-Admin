@@ -8,6 +8,8 @@ const SUCCESSION_KEY = 'succession-candidates';
 const CHANGEPOINTS_KEY = 'changepoints';
 const CONFLICTS_SUMMARY_KEY = 'conflict-dataset-summaries';
 const CONFLICTS_PERIODS_KEY = 'conflict-period-options';
+const CONFLICTS_LOCATIONS_KEY = 'conflict-location-options';
+const CONFLICTS_SOURCES_KEY = 'conflict-source-options';
 const CONFLICTS_KEY = 'observation-conflicts';
 const STALE_CONFLICTS_KEY = 'stale-resolved-conflicts';
 
@@ -145,30 +147,69 @@ export function useConflictDatasetSummaries(options?: { enabled?: boolean }) {
   });
 }
 
-export function useConflictPeriodOptions(datasetBId?: string) {
+export function useConflictPeriodOptions(datasetBId?: string, lgaId?: string) {
   return useQuery({
-    queryKey: [CONFLICTS_PERIODS_KEY, datasetBId ?? 'all'],
-    queryFn: () => api.getConflictPeriodOptions(datasetBId),
+    queryKey: [CONFLICTS_PERIODS_KEY, datasetBId ?? 'all', lgaId ?? 'all'],
+    queryFn: () => api.getConflictPeriodOptions(datasetBId, lgaId),
   });
 }
 
-export function useObservationConflicts(params: {
+export function useConflictLocationOptions(params: {
   datasetBId?: string;
   periodYear?: number;
   periodMonth?: number;
   periodQuarter?: number;
+}) {
+  return useQuery({
+    queryKey: [CONFLICTS_LOCATIONS_KEY, params],
+    queryFn: () => api.getConflictLocationOptions(params),
+  });
+}
+
+export function useConflictSourceOptions(params: {
+  periodYear?: number;
+  periodMonth?: number;
+  periodQuarter?: number;
+  datasetBId?: string;
+  lgaId?: string;
+}) {
+  return useQuery({
+    queryKey: [CONFLICTS_SOURCES_KEY, params],
+    queryFn: () =>
+      api.getConflictSourceOptions({
+        periodYear: params.periodYear,
+        periodMonth: params.periodMonth,
+        periodQuarter: params.periodQuarter,
+        datasetBId: params.datasetBId,
+        lgaId: params.lgaId,
+      }),
+    enabled:
+      params.periodYear != null ||
+      Boolean(params.datasetBId) ||
+      Boolean(params.lgaId),
+  });
+}
+
+export function useObservationConflictCells(params: {
+  datasetBId?: string;
+  periodYear?: number;
+  periodMonth?: number;
+  periodQuarter?: number;
+  lgaId?: string;
   page?: number;
   limit?: number;
 }) {
   return useQuery({
-    queryKey: [CONFLICTS_KEY, params],
-    queryFn: () => api.getObservationConflicts(params),
+    queryKey: [CONFLICTS_KEY, 'cells', params],
+    queryFn: () => api.getObservationConflictCells(params),
   });
 }
 
 function invalidateConflictQueries(queryClient: ReturnType<typeof useQueryClient>) {
   queryClient.invalidateQueries({ queryKey: [CONFLICTS_SUMMARY_KEY] });
   queryClient.invalidateQueries({ queryKey: [CONFLICTS_PERIODS_KEY] });
+  queryClient.invalidateQueries({ queryKey: [CONFLICTS_LOCATIONS_KEY] });
+  queryClient.invalidateQueries({ queryKey: [CONFLICTS_SOURCES_KEY] });
   queryClient.invalidateQueries({ queryKey: [CONFLICTS_KEY] });
   queryClient.invalidateQueries({ queryKey: [OBSERVABILITY_KEY] });
   queryClient.invalidateQueries({ queryKey: ["admin", "analytics", "governance"] });

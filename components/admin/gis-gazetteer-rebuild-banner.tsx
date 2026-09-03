@@ -8,6 +8,12 @@ import { GIS_SLOT_LABELS, type GisReferenceSlot } from "@/lib/api/gis-reference"
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
+export interface GisPendingUpload {
+  slot: GisReferenceSlot;
+  fileName: string;
+  percent: number;
+}
+
 export interface GisPendingRebuild {
   jobId: string;
   slot: GisReferenceSlot;
@@ -33,6 +39,53 @@ interface GisGazetteerRebuildStatusProps {
   pending: GisPendingRebuild;
   onClear: () => void;
   className?: string;
+}
+
+/** Compact file-send progress — render on the slot row after the dialog closes. */
+export function GisLayerUploadStatus({
+  pending,
+  className,
+}: {
+  pending: GisPendingUpload;
+  className?: string;
+}) {
+  const sending = pending.percent < 100;
+  const barWidth = sending
+    ? Math.min(100, Math.max(pending.percent, 4))
+    : undefined;
+
+  return (
+    <div
+      className={cn(
+        "rounded-lg border border-info/30 bg-info/6 px-3 py-2 text-sm",
+        className,
+      )}
+    >
+      <div className="flex items-center gap-2">
+        <Loader2 className="size-3.5 shrink-0 animate-spin text-info" />
+        <span className="min-w-0">
+          {sending ? (
+            <>
+              Sending {pending.fileName}
+              <span className="tabular-nums"> — {pending.percent}%</span>
+            </>
+          ) : (
+            <>Saving {pending.fileName} and activating the slot</>
+          )}
+        </span>
+      </div>
+      <div className="mt-2 h-1 overflow-hidden rounded-full bg-info/20">
+        {sending ? (
+          <div
+            className="h-full rounded-full bg-info transition-all duration-300"
+            style={{ width: `${barWidth}%` }}
+          />
+        ) : (
+          <div className="h-full w-2/3 animate-pulse rounded-full bg-info" />
+        )}
+      </div>
+    </div>
+  );
 }
 
 /** Compact rebuild progress — render next to the layer that was just uploaded. */

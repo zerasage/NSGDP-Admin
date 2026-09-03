@@ -122,7 +122,7 @@ export const GIS_REFERENCE_HELP: Record<
     whatYouCanDo: [
       "Upload a missing layer or replace an outdated GeoPackage",
       "See which filename is active and when it was last updated",
-      "Follow gazetteer rebuild progress inline on the row you just changed",
+      "Follow file-send and gazetteer rebuild progress inline on the row you just changed",
     ],
     steps: [
       {
@@ -136,9 +136,9 @@ export const GIS_REFERENCE_HELP: Record<
           "Choose a file matching the accepted format in the row. Optionally add a friendly label. The previous source is replaced immediately on success.",
       },
       {
-        title: "Watch rebuild status",
+        title: "Watch progress on the row",
         detail:
-          "Ward boundaries, health facilities, and settlements may queue gazetteer rebuild. Population and LGA-only changes do not.",
+          "The replace dialog closes as soon as you confirm. File send and gazetteer rebuild progress show on that layer row — not in the dialog. Population and LGA-only changes skip gazetteer rebuild.",
       },
     ],
     whatHappensNext: [

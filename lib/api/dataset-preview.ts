@@ -11,7 +11,17 @@ interface ApiResponse<T> {
 export interface DatasetPreviewResult {
   dataset: unknown;
   preview: {
-    type: 'tabular' | 'geojson' | 'json' | 'spatial' | 'document' | 'unknown' | 'error';
+    type:
+      | 'tabular'
+      | 'geojson'
+      | 'geopackage'
+      | 'shapefile'
+      | 'kml'
+      | 'json'
+      | 'spatial'
+      | 'document'
+      | 'unknown'
+      | 'error';
     format?: string;
     message?: string;
     columns?: string[];

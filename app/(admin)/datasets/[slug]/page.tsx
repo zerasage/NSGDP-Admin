@@ -41,8 +41,8 @@ import { IngestionSummaryCard } from "@/components/admin/ingestion-summary-card"
 import { AnalyticsPipelineStrip } from "@/components/admin/analytics-pipeline-strip";
 import { getCategories } from "@/lib/api/categories";
 import { useDatasetVersions, useDownloadDataset, useDatasetFiles } from "@/lib/hooks/useDatasets";
-import { useReviewQueue, useIngestionReport, useIngestionProgress, useAnalyticsPublishStatus, INGESTION_PROGRESS_KEY } from "@/lib/hooks/useIngestionReview";
-import type { IngestionProgress } from "@/lib/api/ingestion-review";
+import { useReviewQueue, useIngestionReport, useIngestionProgress, useAnalyticsPublishStatus, INGESTION_PROGRESS_KEY, ANALYTICS_PUBLISH_STATUS_KEY, invalidateDatasetWorkspace } from "@/lib/hooks/useIngestionReview";
+import type { IngestionProgress, AnalyticsPublishStatus } from "@/lib/api/ingestion-review";
 import type { DatasetFile, DatasetStatus } from "@/lib/api/datasets";
 import type { Visibility } from "@/types";
 import { useToast } from "@/lib/hooks/use-toast";
@@ -53,7 +53,7 @@ import { DatasetVisibilityControl } from "@/components/admin/dataset-visibility-
 import { HelpTip } from "@/components/admin/help-tip";
 import { DATASET_PAGE_TIPS } from "@/lib/constants/dataset-tooltips";
 import { formatDate } from "@/lib/utils/date";
-import { shouldShowLoadAnalyticsButton } from "@/lib/utils/analytics-publish-ui";
+import { shouldShowLoadAnalyticsButton, isLiveAnalyticsStatus } from "@/lib/utils/analytics-publish-ui";
 import {
   INGESTION_STATUS_LABEL,
   hasIngestionActivity,
@@ -68,6 +68,7 @@ import {
 } from "@/lib/utils/ingestion-status";
 import {
   blocksPublishByFitness,
+  isAnalyticsNotApplicable,
   publishBlockedByFitnessMessage,
 } from "@/lib/utils/ingestion-fitness";
 
@@ -187,23 +188,18 @@ export default function DatasetDetailPage({
     // upload side.
     refetchInterval: (query) => {
       const status = query.state.data?.ingestion_status;
-      if (isIngestionInFlight(status)) return 3000;
+      if (isIngestionInFlight(status)) return 1500;
       const datasetId = query.state.data?.id;
       if (datasetId) {
         const progress = queryClient.getQueryData<IngestionProgress | null>([
           INGESTION_PROGRESS_KEY,
           datasetId,
         ]);
-        if (isProgressPipelineActive(progress)) return 3000;
-        const analyticsStatus = queryClient.getQueryData<{
-          phase?: string;
-        } | null>(["analytics-publish-status", datasetId]);
-        if (
-          analyticsStatus?.phase === "loading" ||
-          analyticsStatus?.phase === "updating"
-        ) {
-          return 3000;
-        }
+        if (isProgressPipelineActive(progress)) return 1500;
+        const analyticsStatus = queryClient.getQueryData<AnalyticsPublishStatus | null>(
+          [ANALYTICS_PUBLISH_STATUS_KEY, datasetId],
+        );
+        if (isLiveAnalyticsStatus(analyticsStatus ?? undefined)) return 1500;
       }
       return false;
     },
@@ -230,6 +226,10 @@ export default function DatasetDetailPage({
     canView && isTabularDataset && dataset ? dataset.id : undefined,
   );
   const fitnessBlocksAnalytics = blocksPublishByFitness(ingestionReport?.fitness);
+  const analyticsNotApplicable = isAnalyticsNotApplicable(
+    ingestionReport?.fitness,
+    ingestionReport?.report,
+  );
 
   const { data: organisationsData } = useQuery({
     queryKey: ["admin", "organisations"],
@@ -271,6 +271,7 @@ export default function DatasetDetailPage({
       setArchiveOpen(false);
       queryClient.invalidateQueries({ queryKey: ["dataset", slug] });
       queryClient.invalidateQueries({ queryKey: ["admin", "datasets", "queue"] });
+      queryClient.invalidateQueries({ queryKey: ["analytics-publish-status"] });
     },
     onError: (error: unknown) =>
       toast({
@@ -304,8 +305,7 @@ export default function DatasetDetailPage({
         description:
           "Dataset published to the catalogue. Analytics loads automatically once ingestion is complete and all aliases are resolved.",
       });
-      queryClient.invalidateQueries({ queryKey: ["dataset", slug] });
-      queryClient.invalidateQueries({ queryKey: ["analytics-publish-status"] });
+      invalidateDatasetWorkspace(queryClient, { slug, datasetId: dataset?.id });
     },
     onError: (error: unknown) =>
       toast({
@@ -317,14 +317,26 @@ export default function DatasetDetailPage({
 
   const loadAnalyticsMutation = useMutation({
     mutationFn: () => publishDatasetAnalytics(slug),
+    onMutate: async () => {
+      if (!dataset?.id) return;
+      await queryClient.cancelQueries({
+        queryKey: [ANALYTICS_PUBLISH_STATUS_KEY, dataset.id],
+      });
+      queryClient.setQueryData<AnalyticsPublishStatus>(
+        [ANALYTICS_PUBLISH_STATUS_KEY, dataset.id],
+        (current) =>
+          current
+            ? { ...current, phase: "loading", queueState: "waiting" }
+            : current,
+      );
+    },
     onSuccess: () => {
       toast({
         title: "Analytics load started",
         description:
           "Resolved rows are being written to the analytics warehouse. This page will update automatically.",
       });
-      queryClient.invalidateQueries({ queryKey: ["dataset", slug] });
-      queryClient.invalidateQueries({ queryKey: ["analytics-publish-status"] });
+      invalidateDatasetWorkspace(queryClient, { slug, datasetId: dataset?.id });
     },
     onError: (error: unknown) =>
       toast({
@@ -339,7 +351,7 @@ export default function DatasetDetailPage({
     mutationFn: () => unpublishDataset(slug),
     onSuccess: () => {
       toast({ title: "Success", description: "Dataset unpublished — no longer visible to the public" });
-      queryClient.invalidateQueries({ queryKey: ["dataset", slug] });
+      invalidateDatasetWorkspace(queryClient, { slug, datasetId: dataset?.id });
     },
     onError: (error: unknown) =>
       toast({
@@ -353,10 +365,25 @@ export default function DatasetDetailPage({
   const retractMutation = useMutation({
     mutationFn: () =>
       retractDataset(dataset!.id, { reason: "Retracted from admin portal" }),
+    onMutate: async () => {
+      await queryClient.cancelQueries({ queryKey: ["dataset", slug] });
+      queryClient.setQueryData<Dataset>(["dataset", slug], (current) =>
+        current ? { ...current, ingestion_status: "retracting" } : current,
+      );
+      if (dataset?.id) {
+        queryClient.setQueryData<AnalyticsPublishStatus>(
+          [ANALYTICS_PUBLISH_STATUS_KEY, dataset.id],
+          (current) =>
+            current
+              ? { ...current, phase: "retracting", queueState: "waiting" }
+              : current,
+        );
+      }
+    },
     onSuccess: () => {
       toast({ title: "Retraction started", description: "Removing analytics warehouse rows — this page will update as it completes." });
       setRetractOpen(false);
-      queryClient.invalidateQueries({ queryKey: ["dataset", slug] });
+      invalidateDatasetWorkspace(queryClient, { slug, datasetId: dataset?.id });
     },
     onError: (error: unknown) =>
       toast({
@@ -492,6 +519,7 @@ export default function DatasetDetailPage({
   );
   const analyticsAutoPending =
     isTabular &&
+    !analyticsNotApplicable &&
     !!dataset.published_at &&
     !dataset.analytics_published_at &&
     warehousePublishReady &&
@@ -499,16 +527,24 @@ export default function DatasetDetailPage({
     pendingAliases > 0;
   const ingestionInFlight = isIngestionInFlight(displayIngestionStatus);
   const analyticsPhase = analyticsPublishStatus?.phase;
-  const showLoadAnalytics = shouldShowLoadAnalyticsButton(
-    analyticsPublishStatus,
-    canPublish && isTabular,
-  );
+  const hideAnalyticsPipeline =
+    analyticsNotApplicable || analyticsPhase === "not_applicable";
+  const showLoadAnalytics =
+    !hideAnalyticsPipeline &&
+    shouldShowLoadAnalyticsButton(
+      analyticsPublishStatus,
+      canPublish && isTabular,
+    );
   const ingestionBadgeLabel =
     analyticsPhase === "loading" || analyticsPhase === "updating"
       ? "Loading analytics"
-      : dataset.analytics_published_at
-        ? "Published to warehouse"
-        : INGESTION_STATUS_LABEL[displayIngestionStatus];
+      : analyticsPhase === "retracting"
+        ? "Retracting"
+        : dataset.analytics_published_at
+          ? "Published to warehouse"
+          : analyticsNotApplicable
+            ? "Not analytics-shaped"
+            : INGESTION_STATUS_LABEL[displayIngestionStatus];
 
   const canEditVisibility =
     canAny("approve:datasets", "publish:datasets") &&
@@ -647,6 +683,8 @@ export default function DatasetDetailPage({
             </div>
           )}
           {canPublish &&
+            displayIngestionStatus !== "retracting" &&
+            analyticsPhase !== "retracting" &&
             (displayIngestionStatus === "published" ||
               !!dataset.analytics_published_at) && (
             <div className="inline-flex items-center gap-1">
@@ -703,7 +741,7 @@ export default function DatasetDetailPage({
           )}
       </div>
 
-      {showIngestion && analyticsPublishStatus && (
+      {showIngestion && analyticsPublishStatus && !hideAnalyticsPipeline && (
         <AnalyticsPipelineStrip status={analyticsPublishStatus} />
       )}
 
@@ -749,6 +787,7 @@ export default function DatasetDetailPage({
         )}
 
       {pendingAliases > 0 &&
+        !analyticsNotApplicable &&
         canPublish &&
         dataset.status === "approved" &&
         isTabular &&

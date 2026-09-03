@@ -118,11 +118,29 @@ export function formatFitnessReason(reason: string): string {
   return FITNESS_REASON_LABEL[reason as IngestionFitnessReason] ?? reason;
 }
 
-/** Hard block analytics load when canonicalization rejected the upload. */
+/** True when preflight marked the file as a geography/denominator table. */
+export function isCatalogueOnlyReport(
+  report: Record<string, unknown> | null | undefined,
+): boolean {
+  const preflight = report?.preflight as { referenceOnly?: boolean } | undefined;
+  return Boolean(preflight?.referenceOnly);
+}
+
+/** True when analytics is the wrong product for this file — not a failure. */
+export function isAnalyticsNotApplicable(
+  fitness: IngestionFitness | null | undefined,
+  report?: Record<string, unknown> | null,
+): boolean {
+  if (fitness && isCatalogueOnlyFitness(fitness)) return true;
+  return isCatalogueOnlyReport(report);
+}
+
+/** Hard block warehouse load for quality rejection. Catalogue-only is not a block. */
 export function blocksPublishByFitness(
   fitness: IngestionFitness | null | undefined,
 ): boolean {
-  return fitness?.verdict === "rejected_unusable";
+  if (!fitness || fitness.verdict !== "rejected_unusable") return false;
+  return !isCatalogueOnlyFitness(fitness);
 }
 
 export function publishBlockedByFitnessMessage(
@@ -134,7 +152,7 @@ export function publishBlockedByFitnessMessage(
       : "no warehouse observations";
 
   if (isCatalogueOnlyFitness(fitness)) {
-    return `Analytics load blocked: ${fitnessVerdictLabel(fitness)} (${summary}). Catalogue publish is still allowed.`;
+    return `Not an indicator grid (${summary}). Catalogue publish is the outcome — there is no analytics pipeline for this file.`;
   }
 
   return `Analytics load blocked: ${fitnessVerdictLabel(fitness)} (${summary}). Open Ingestion to review the report.`;

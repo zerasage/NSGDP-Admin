@@ -297,6 +297,45 @@ export interface PaginatedConflicts {
   };
 }
 
+export interface ConflictCellCandidate {
+  datasetId: string;
+  slug: string;
+  title: string;
+  value: string | null;
+  isLiveWarehouse: boolean;
+}
+
+export interface ConflictCell {
+  cellKey: string;
+  indicatorId: string;
+  indicatorName: string;
+  indicatorSlug: string;
+  periodYear: number;
+  periodMonth: number | null;
+  periodQuarter: number | null;
+  lgaId: string | null;
+  lgaName: string | null;
+  wardId: string | null;
+  wardName: string | null;
+  facilityId: string | null;
+  facilityName: string | null;
+  conflictIds: string[];
+  candidates: ConflictCellCandidate[];
+  liveWarehouseDatasetId: string | null;
+}
+
+export interface PaginatedConflictCells {
+  data: ConflictCell[];
+  meta: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+    hasNextPage: boolean;
+    hasPrevPage: boolean;
+  };
+}
+
 export type ConflictPrecedence = 'warehouse' | 'incoming';
 
 export async function getConflictDatasetSummaries(): Promise<ConflictDatasetSummary[]> {
@@ -315,25 +354,70 @@ export interface ConflictPeriodOption {
 }
 
 export async function getConflictPeriodOptions(
-  datasetBId?: string
+  datasetBId?: string,
+  lgaId?: string
 ): Promise<ConflictPeriodOption[]> {
+  const params: Record<string, string> = {};
+  if (datasetBId) params.datasetBId = datasetBId;
+  if (lgaId) params.lgaId = lgaId;
   const response = await apiClient.get<ApiResponse<ConflictPeriodOption[]>>(
     '/admin/governance/ingestion/conflicts/periods',
-    { params: datasetBId ? { datasetBId } : undefined }
+    { params: Object.keys(params).length ? params : undefined }
   );
   return response.data.data;
 }
 
-export async function getObservationConflicts(params: {
+export interface ConflictLocationOption {
+  lgaId: string;
+  lgaName: string;
+  openCells: number;
+}
+
+export async function getConflictLocationOptions(params: {
   datasetBId?: string;
   periodYear?: number;
   periodMonth?: number;
   periodQuarter?: number;
+}): Promise<ConflictLocationOption[]> {
+  const response = await apiClient.get<ApiResponse<ConflictLocationOption[]>>(
+    '/admin/governance/ingestion/conflicts/locations',
+    { params }
+  );
+  return response.data.data;
+}
+
+export interface ConflictSourceOption {
+  datasetId: string;
+  slug: string;
+  title: string;
+  openCells: number;
+}
+
+export async function getConflictSourceOptions(params: {
+  periodYear?: number;
+  periodMonth?: number;
+  periodQuarter?: number;
+  datasetBId?: string;
+  lgaId?: string;
+}): Promise<ConflictSourceOption[]> {
+  const response = await apiClient.get<ApiResponse<ConflictSourceOption[]>>(
+    '/admin/governance/ingestion/conflicts/sources',
+    { params }
+  );
+  return response.data.data;
+}
+
+export async function getObservationConflictCells(params: {
+  datasetBId?: string;
+  periodYear?: number;
+  periodMonth?: number;
+  periodQuarter?: number;
+  lgaId?: string;
   page?: number;
   limit?: number;
-}): Promise<PaginatedConflicts> {
-  const response = await apiClient.get<ApiResponse<PaginatedConflicts>>(
-    '/admin/governance/ingestion/conflicts',
+}): Promise<PaginatedConflictCells> {
+  const response = await apiClient.get<ApiResponse<PaginatedConflictCells>>(
+    '/admin/governance/ingestion/conflicts/cells',
     { params }
   );
   return response.data.data;
@@ -345,7 +429,9 @@ export async function resolveObservationConflicts(body: {
   periodYear?: number;
   periodMonth?: number;
   periodQuarter?: number;
-  precedence: ConflictPrecedence;
+  lgaId?: string;
+  precedence?: ConflictPrecedence;
+  winnerDatasetId?: string;
 }): Promise<{ resolved: number }> {
   const response = await apiClient.post<ApiResponse<{ resolved: number }>>(
     '/admin/governance/ingestion/conflicts/resolve',

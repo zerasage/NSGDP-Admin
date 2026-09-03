@@ -34,7 +34,7 @@ import {
   WAREHOUSE_METRIC_TIPS,
 } from "@/lib/constants/ingestion-ops-tooltips";
 import {
-  ANALYTICS_WAREHOUSE_KEY,
+  invalidateDatasetWorkspace,
   useAnalyticsWarehouse,
 } from "@/lib/hooks/useIngestionReview";
 import { useAdminAccess } from "@/lib/hooks/useAdminAccess";
@@ -48,6 +48,7 @@ import {
   type IngestionStatus,
 } from "@/lib/utils/ingestion-status";
 import { formatDate } from "@/lib/utils/date";
+import { publicAnalyticsMessage } from "@/lib/utils/analytics-publish-ui";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -92,6 +93,8 @@ function phaseLabel(
       return "Loading";
     case "ready":
       return "Ready to load";
+    case "retracting":
+      return "Retracting";
     case "failed":
       return "Failed";
     default:
@@ -105,6 +108,7 @@ function phaseBadgeClass(phase: string): string {
       return "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300";
     case "loading":
     case "updating":
+    case "retracting":
       return "border-sky-500/30 bg-sky-500/10 text-sky-700 dark:text-sky-300";
     case "ready":
       return "border-amber-500/30 bg-amber-500/10 text-amber-800 dark:text-amber-200";
@@ -134,8 +138,7 @@ export function AnalyticsWarehouseTab() {
   const { data, isLoading } = warehouseQuery;
 
   const invalidateWarehouse = () => {
-    queryClient.invalidateQueries({ queryKey: [ANALYTICS_WAREHOUSE_KEY] });
-    queryClient.invalidateQueries({ queryKey: ["analytics-publish-status"] });
+    invalidateDatasetWorkspace(queryClient);
   };
 
   const loadMutation = useMutation({
@@ -270,11 +273,13 @@ export function AnalyticsWarehouseTab() {
               </TableHeader>
               <TableBody>
                 {warehouseQuery.data.items.map((row) => {
+                  const lastError = publicAnalyticsMessage(row.lastError);
                   const showLoad = canPublish && row.canLoad;
                   const showRetract = canPublish && row.canRetract;
                   const isBusy =
                     row.phase === "loading" ||
                     row.phase === "updating" ||
+                    row.phase === "retracting" ||
                     row.ingestionStatus === "retracting" ||
                     row.publicationStatus === "publishing" ||
                     row.publicationStatus === "retracting";
@@ -289,9 +294,15 @@ export function AnalyticsWarehouseTab() {
                           >
                             {row.title}
                           </Link>
-                          {row.lastError ? (
+                          {lastError ? (
                             <p className="max-w-xs truncate text-xs text-destructive">
-                              {row.lastError}
+                              {lastError}
+                            </p>
+                          ) : row.openConflicts > 0 ? (
+                            <p className="max-w-xs truncate text-xs text-amber-800 dark:text-amber-200">
+                              {row.openConflicts.toLocaleString()} clash
+                              {row.openConflicts === 1 ? "" : "es"} — charts keep
+                              stored values
                             </p>
                           ) : row.phase === "ready" && row.publishableRows > 0 ? (
                             <p className="max-w-xs truncate text-xs text-muted-foreground">
@@ -393,7 +404,7 @@ export function AnalyticsWarehouseTab() {
         open={!!retractTarget}
         onOpenChange={(open) => !open && setRetractTarget(null)}
         title="Retract analytics load?"
-        description={`Remove ${retractTarget?.title ?? "this dataset"} from the analytics warehouse. Public charts and ward burden will no longer include its rows until reloaded.`}
+        description={`Remove ${retractTarget?.title ?? "this dataset"} from the analytics warehouse. The catalogue file stays — public charts drop its rows until you reload.`}
         confirmLabel="Retract analytics"
         variant="destructive"
         loading={retractMutation.isPending}

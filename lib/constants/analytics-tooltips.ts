@@ -19,7 +19,7 @@ export const ANALYTICS_METRIC_TIPS = {
   uploadsInRange: "New dataset records created during the selected date range.",
   newUsersInRange: "User accounts registered during the selected date range.",
   openConflicts:
-    "Uploads that disagree with values already stored in analytics on the same indicator, location, and period. Resolve in Ingestion Ops → Conflicts — your choice updates analytics and unblocks warehouse load.",
+    "Uploads that disagree with values already stored in analytics on the same indicator, location, and period. Unique rows still load; pick a winner in Ingestion Ops → Conflicts.",
 } as const;
 
 export const ANALYTICS_PANEL_TIPS = {

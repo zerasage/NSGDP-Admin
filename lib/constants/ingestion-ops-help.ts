@@ -49,7 +49,7 @@ export const INGESTION_JOURNEY_STEPS = [
   },
   {
     title: "Conflicts",
-    detail: "If a new number disagrees with one already in analytics, you pick Stored or Upload.",
+    detail: "If a new number disagrees with one already in analytics, you pick which dataset’s value is truth for that cell.",
   },
   {
     title: "Catalogue publish",
@@ -69,7 +69,7 @@ export const INGESTION_OPS_TAB_HELP: Record<IngestionOpsTabId, IngestionOpsTabHe
       "This tab is your at-a-glance scoreboard. It shows whether uploads are parsing well, how many items need human review, whether analytics loads are stuck, and how much AI assist is being used.",
     whatYouCanDo: [
       "See total staging rows and how many are blocked waiting on alias review",
-      "Spot open Stored vs Upload conflicts before they block warehouse load",
+      "Spot open clashes (charts keep the current analytics value until you pick a winner)",
       "Check auto-match rate and alias queue wait times",
       "Monitor AI spend and cache efficiency",
       "Jump to Pipeline, Aliases, or Conflicts when a number looks wrong",
@@ -89,13 +89,13 @@ export const INGESTION_OPS_TAB_HELP: Record<IngestionOpsTabId, IngestionOpsTabHe
       },
     ],
     whatHappensNext: [
-      "Fixing upstream issues (pipeline, aliases, conflicts) unlocks warehouse load for affected datasets",
+      "Fixing pipeline or alias issues unblocks warehouse load; clashes do not — unique rows still load",
       "Metrics refresh as jobs complete — give workers a minute after you act",
     ],
     scenarios: [
       {
         if: "Open conflicts is high",
-        then: "Go to Conflicts, filter by upload dataset, resolve rows, then retry warehouse load on that dataset.",
+        then: "Go to Conflicts and pick a winner per cell or for a period/upload/location slice. Unique rows already load; only the clashing cells wait.",
       },
       {
         if: "Auto-resolution rate dropped suddenly",
@@ -143,8 +143,8 @@ export const INGESTION_OPS_TAB_HELP: Record<IngestionOpsTabId, IngestionOpsTabHe
     whatHappensNext: [
       "Successful pipeline → rows sit in staging with matched indicators",
       "Pending aliases → ingestion pauses until Aliases tab is cleared",
-      "New clashes with existing analytics → conflicts appear in the Conflicts tab",
-      "When aliases and conflicts are clear → dataset can load to Warehouse",
+      "New clashes with existing analytics → Conflicts tab; unique rows still load to Warehouse",
+      "When aliases are clear → dataset can load to Warehouse",
     ],
     scenarios: [
       {
@@ -188,13 +188,13 @@ export const INGESTION_OPS_TAB_HELP: Record<IngestionOpsTabId, IngestionOpsTabHe
       },
       {
         title: "Return to Pipeline or Warehouse",
-        detail: "When pending count hits zero for that dataset, analytics load gates open (unless conflicts remain).",
+        detail: "When pending count hits zero for that dataset, analytics load can proceed. Clashes do not block the rest of the file.",
       },
     ],
     whatHappensNext: [
       "Approved alias → staging rows resolve to the canonical indicator/org unit",
       "Rejected alias → may create a review item for a new indicator or mark as non-indicator",
-      "Zero pending aliases → auto warehouse load may trigger if catalogue is published and conflicts are clear",
+      "Zero pending aliases → auto warehouse load may trigger if catalogue is published",
     ],
     scenarios: [
       {
@@ -207,54 +207,56 @@ export const INGESTION_OPS_TAB_HELP: Record<IngestionOpsTabId, IngestionOpsTabHe
       },
       {
         if: "Aliases clear but warehouse still blocked",
-        then: "Check Conflicts tab next — clashing numbers also block load.",
+        then: "Clashing cells also appear in Conflicts — unique rows still load.",
       },
     ],
   },
 
   conflicts: {
     tabLabel: "Conflicts",
-    tagline: "Pick which number wins when upload and analytics disagree",
+    tagline: "Pick which dataset’s number is truth when sources disagree",
     whatIsThis:
-      "A conflict is the same indicator, same place, same time period — but two different values. One comes from data already in analytics (Stored). The other comes from the new upload (Upload). You decide which number charts should use.",
+      "Each row is one place, one indicator, and one period. Every live dataset that reported a different number is listed. Charts keep the current analytics value until you pick a winner. Unique rows from new files still load — this queue is only for clashing cells.",
     whatYouCanDo: [
-      "Filter by incoming upload dataset and by period (e.g. 2023 Q4)",
-      "Resolve one row at a time with Use stored or Use upload",
-      "Bulk-resolve all rows in the current filter",
-      "See stale resolutions when a winning dataset was later archived",
+      "Filter by upload, period (e.g. 2023 Q4), and/or location (LGA)",
+      "Resolve one cell with Use this on any listed dataset (current analytics shows Keeping this)",
+      "Pick a winner for the current filter — that dataset’s own number wins on every clash cell it reported; cells it did not report stay unchanged",
+      "With an upload selected: bulk Use stored column or Use upload column for the filtered rows",
+      "See stale resolutions when a winning dataset was later archived or retracted",
     ],
     steps: [
       {
-        title: "Select the upload dataset",
-        detail: "The dropdown lists datasets that triggered conflicts — usually the newer file.",
+        title: "Narrow the queue",
+        detail: "Upload, Period, and Location only scope the view and bulk actions. They do not pick a winner by themselves.",
       },
       {
-        title: "Narrow by period if helpful",
-        detail: "Bulk actions respect the period filter; row buttons always affect one row.",
+        title: "Pick a winner for the slice (optional)",
+        detail: "When any filter is on, the winner picker lists datasets that reported in that view. Choose one and click Use as winner. Each cell keeps that dataset’s own value — this does not copy one LGA’s number onto others.",
       },
       {
-        title: "Choose Stored or Upload",
-        detail: "Stored = keep what charts already show. Upload = replace with the new file's value.",
+        title: "Or pick per cell",
+        detail: "Each row lists every dataset that reported that cell. Current analytics is marked. Click Use this on the number that should win.",
       },
       {
-        title: "Load analytics when queue is empty",
-        detail: "After all open conflicts for that upload are resolved, go to Warehouse or the dataset page to load.",
+        title: "Stored / Upload column (upload selected)",
+        detail: "Use stored column keeps the values already in analytics. Use upload column prefers that file’s values. Both respect the period and location filters.",
       },
     ],
     whatHappensNext: [
-      "Use Stored → analytics value unchanged; upload row skipped on warehouse publish for that cell",
-      "Use Upload → analytics value updates immediately for that cell",
-      "All conflicts resolved → warehouse load allowed for that dataset",
-      "Archive or retract a participant → open conflicts close automatically; old resolutions may show as stale",
+      "Use this / Use as winner → that cell’s analytics value updates immediately to the chosen dataset’s number",
+      "Use stored column → charts stay as they are for those cells",
+      "Use upload column → charts update to that file’s numbers for those cells",
+      "Retract the winner → the other live source’s value returns to charts",
+      "Archive or retract a participant → open clashes close; leftover warehouse rows fall back to the other live source",
     ],
     scenarios: [
       {
-        if: "New DHIS file fixes last quarter",
-        then: "Filter to that period, bulk Use upload for the slice.",
+        if: "New DHIS file should win last quarter",
+        then: "Filter to that period, choose the DHIS dataset in the winner picker, then Use as winner.",
       },
       {
-        if: "Upload looks like a data entry error",
-        then: "Use stored on those rows — keep the trusted analytics value.",
+        if: "One LGA’s upload looks wrong",
+        then: "Filter to that location and Use stored column, or Use this on the trusted dataset per cell.",
       },
       {
         if: "Stale resolved banner appears",
@@ -318,7 +320,7 @@ export const INGESTION_OPS_TAB_HELP: Record<IngestionOpsTabId, IngestionOpsTabHe
     steps: [
       {
         title: "Confirm prerequisites",
-        detail: "Pipeline finished, aliases clear, conflicts resolved, dataset published to catalogue.",
+        detail: "Pipeline finished, aliases clear, dataset published to catalogue. Clashes do not block load.",
       },
       {
         title: "Load when status is Ready",
@@ -340,8 +342,8 @@ export const INGESTION_OPS_TAB_HELP: Record<IngestionOpsTabId, IngestionOpsTabHe
     ],
     scenarios: [
       {
-        if: "Load button disabled — open conflicts",
-        then: "Finish Conflicts tab for that upload first.",
+        if: "Warehouse shows clashes under a loaded dataset",
+        then: "Open Conflicts and pick a winner. Charts already show the current analytics number for those cells.",
       },
       {
         if: "Load failed",
@@ -385,7 +387,7 @@ export const INGESTION_OPS_TAB_HELP: Record<IngestionOpsTabId, IngestionOpsTabHe
     ],
     whatHappensNext: [
       "Compare is read-only — it does not change data",
-      "Use results to decide whether to prefer Stored or Upload in conflict resolution",
+      "Use results to decide which dataset should win those cells in Conflicts",
     ],
     scenarios: [
       {

@@ -19,9 +19,22 @@ import type { LucideIcon } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { useAdminAccess } from "@/lib/hooks/useAdminAccess";
 import {
+  ReplaceGisLayerDialog,
+  type GisLayerUploadRequest,
+} from "@/components/admin/replace-gis-layer-dialog";
+import { GisWardConfirmDialog } from "@/components/admin/gis-ward-confirm-dialog";
+import {
+  GisGazetteerRebuildStatus,
+  GisLayerUploadStatus,
+  GIS_PENDING_REBUILD_KEY,
+  type GisPendingRebuild,
+  type GisPendingUpload,
+} from "@/components/admin/gis-gazetteer-rebuild-banner";
+import {
   useGisReferenceLayers,
   useRebuildCanonicalWards,
   useGisResolutionReports,
+  useUploadGisReferenceLayer,
 } from "@/lib/hooks/useGisReference";
 import {
   GIS_REFERENCE_SLOTS,
@@ -83,13 +96,6 @@ import {
 import { formatDate } from "@/lib/utils/date";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-import { ReplaceGisLayerDialog } from "@/components/admin/replace-gis-layer-dialog";
-import { GisWardConfirmDialog } from "@/components/admin/gis-ward-confirm-dialog";
-import {
-  GisGazetteerRebuildStatus,
-  GIS_PENDING_REBUILD_KEY,
-  type GisPendingRebuild,
-} from "@/components/admin/gis-gazetteer-rebuild-banner";
 import type { GisUploadResult } from "@/lib/api/gis-reference";
 
 const RECONCILABLE_SLOT_META: Record<GisReconcilableSlot, { tone: MetricTone }> = {
@@ -267,12 +273,14 @@ function ActiveLayersList({
   onEdit,
   pendingRebuild,
   onClearRebuild,
+  pendingUpload,
 }: {
   layers: GisReferenceLayer[] | undefined;
   isLoading: boolean;
   onEdit: (slot: GisReferenceSlot) => void;
   pendingRebuild: GisPendingRebuild | null;
   onClearRebuild: () => void;
+  pendingUpload: GisPendingUpload | null;
 }) {
   if (isLoading) {
     return (
@@ -306,6 +314,9 @@ function ActiveLayersList({
               const displayName = layerDisplayName(layer);
               const rebuilding =
                 pendingRebuild?.slot === slot ? pendingRebuild : null;
+              const uploading =
+                pendingUpload?.slot === slot ? pendingUpload : null;
+              const rowBusy = !!rebuilding || !!uploading;
 
               return (
                 <Fragment key={slot}>
@@ -320,7 +331,12 @@ function ActiveLayersList({
                       </div>
                     </TableCell>
                     <TableCell>
-                      {rebuilding ? (
+                      {uploading ? (
+                        <Badge className="gap-1 border-info/30 bg-info/10 text-info">
+                          <Loader2 className="size-3 animate-spin" />
+                          Uploading
+                        </Badge>
+                      ) : rebuilding ? (
                         <Badge className="gap-1 border-info/30 bg-info/10 text-info">
                           <Loader2 className="size-3 animate-spin" />
                           Rebuilding
@@ -370,7 +386,7 @@ function ActiveLayersList({
                           size="sm"
                           variant={configured ? "outline" : "default"}
                           onClick={() => onEdit(slot)}
-                          disabled={!!rebuilding}
+                          disabled={rowBusy}
                         >
                           <Pencil className="size-3.5" />
                           {configured ? "Replace" : "Upload layer"}
@@ -386,7 +402,13 @@ function ActiveLayersList({
                       </div>
                     </TableCell>
                   </TableRow>
-                  {rebuilding ? (
+                  {uploading ? (
+                    <TableRow className="hover:bg-transparent">
+                      <TableCell colSpan={5} className="bg-info/4 py-2">
+                        <GisLayerUploadStatus pending={uploading} />
+                      </TableCell>
+                    </TableRow>
+                  ) : rebuilding ? (
                     <TableRow className="hover:bg-transparent">
                       <TableCell colSpan={5} className="bg-info/4 py-2">
                         <GisGazetteerRebuildStatus
@@ -413,11 +435,14 @@ function ActiveLayersList({
           const tone = METRIC_TONE[meta.tone];
           const rebuilding =
             pendingRebuild?.slot === slot ? pendingRebuild : null;
+          const uploading =
+            pendingUpload?.slot === slot ? pendingUpload : null;
+          const rowBusy = !!rebuilding || !!uploading;
 
           return (
             <div
               key={slot}
-              className={cn("space-y-3 p-4", !configured && !rebuilding && tone.card)}
+              className={cn("space-y-3 p-4", !configured && !rowBusy && tone.card)}
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="flex items-start gap-3">
@@ -427,7 +452,12 @@ function ActiveLayersList({
                     <p className="mt-0.5 text-xs text-muted-foreground">{meta.description}</p>
                   </div>
                 </div>
-                {rebuilding ? (
+                {uploading ? (
+                  <Badge className="shrink-0 gap-1 border-info/30 bg-info/10 text-info">
+                    <Loader2 className="size-3 animate-spin" />
+                    Uploading
+                  </Badge>
+                ) : rebuilding ? (
                   <Badge className="shrink-0 gap-1 border-info/30 bg-info/10 text-info">
                     <Loader2 className="size-3 animate-spin" />
                     Rebuilding
@@ -462,7 +492,9 @@ function ActiveLayersList({
                 ) : null}
               </div>
 
-              {rebuilding ? (
+              {uploading ? (
+                <GisLayerUploadStatus pending={uploading} />
+              ) : rebuilding ? (
                 <GisGazetteerRebuildStatus
                   pending={rebuilding}
                   onClear={onClearRebuild}
@@ -474,7 +506,7 @@ function ActiveLayersList({
                   size="sm"
                   variant={configured ? "outline" : "default"}
                   onClick={() => onEdit(slot)}
-                  disabled={!!rebuilding}
+                  disabled={rowBusy}
                 >
                   <Pencil className="size-3.5" />
                   {configured ? "Replace" : "Upload layer"}
@@ -495,10 +527,12 @@ export default function GisReferenceLayersPage() {
 
   const { data: layers, isLoading } = useGisReferenceLayers();
   const rebuildMutation = useRebuildCanonicalWards();
+  const uploadMutation = useUploadGisReferenceLayer();
 
   const [helpOpen, setHelpOpen] = useState(false);
   const [editingSlot, setEditingSlot] = useState<GisReferenceSlot | null>(null);
   const [pendingRebuild, setPendingRebuild] = useState<GisPendingRebuild | null>(null);
+  const [pendingUpload, setPendingUpload] = useState<GisPendingUpload | null>(null);
   const [reportSlot, setReportSlot] = useState<GisReconcilableSlot | null>(null);
   const [visitedReportSlots, setVisitedReportSlots] = useState<
     Set<GisReconcilableSlot>
@@ -598,6 +632,40 @@ export default function GisReferenceLayersPage() {
     }
   };
 
+  const handleStartUpload = (request: GisLayerUploadRequest) => {
+    setPendingUpload({
+      slot: request.slot,
+      fileName: request.file.name,
+      percent: 0,
+    });
+    void uploadMutation
+      .mutateAsync({
+        slot: request.slot,
+        file: request.file,
+        label: request.label,
+        onUploadProgress: (percent) => {
+          setPendingUpload((prev) =>
+            prev?.slot === request.slot ? { ...prev, percent } : prev,
+          );
+        },
+      })
+      .then((result) => {
+        setPendingUpload(null);
+        handleLayerUploaded(result);
+        if (result.rebuildStatus === "queued" && result.jobId) {
+          toast.success(
+            `${GIS_SLOT_LABELS[request.slot]} uploaded — gazetteer rebuild running in the background`,
+          );
+        } else {
+          toast.success(`Layer replaced for ${GIS_SLOT_LABELS[request.slot]}`);
+        }
+      })
+      .catch(() => {
+        setPendingUpload(null);
+        toast.error("Upload failed — check file type and try again");
+      });
+  };
+
   if (!canManage) {
     return (
       <EmptyState
@@ -661,13 +729,13 @@ export default function GisReferenceLayersPage() {
             onClick={handleRebuild}
             disabled={rebuildMutation.isPending}
           >
-            {rebuildMutation.isPending ? (
-              <Loader2 className="size-4 animate-spin" />
-            ) : (
-              <RotateCcw className="size-4" />
-            )}
+          {rebuildMutation.isPending ? (
+            <Loader2 className="size-4 animate-spin" />
+          ) : (
+            <RotateCcw className="size-4" />
+          )}
             Rebuild canonical wards
-          </Button>
+        </Button>
           <HelpTip content={GIS_REFERENCE_REBUILD_TIP} label="About rebuild canonical wards" />
         </div>
       </div>
@@ -719,7 +787,7 @@ export default function GisReferenceLayersPage() {
           tone="info"
           tip={GIS_REFERENCE_METRIC_TIPS.matchRate}
         />
-      </div>
+            </div>
 
       <Panel
         title="Active map layers"
@@ -734,6 +802,7 @@ export default function GisReferenceLayersPage() {
           onEdit={setEditingSlot}
           pendingRebuild={pendingRebuild}
           onClearRebuild={clearPendingRebuild}
+          pendingUpload={pendingUpload}
         />
       </Panel>
 
@@ -778,7 +847,7 @@ export default function GisReferenceLayersPage() {
                       value={slot}
                       className={cn(ADMIN_TAB_TRIGGER_BASE, tabToneClass(meta.tone))}
                     >
-                      {GIS_SLOT_LABELS[slot]}
+                  {GIS_SLOT_LABELS[slot]}
                       <AdminTabCount count={unmatchedCount} active={isActive} />
                     </TabsTrigger>
                     {isActive ? (
@@ -787,7 +856,7 @@ export default function GisReferenceLayersPage() {
                         label={`About ${GIS_SLOT_LABELS[slot]}`}
                       />
                     ) : null}
-                  </div>
+                </div>
                 );
               })}
             </AdminSectionTabsNav>
@@ -827,7 +896,7 @@ export default function GisReferenceLayersPage() {
           currentLayer={layers?.find((l) => l.slot === editingSlot)}
           open={!!editingSlot}
           onClose={() => setEditingSlot(null)}
-          onUploaded={handleLayerUploaded}
+          onStartUpload={handleStartUpload}
         />
       )}
 

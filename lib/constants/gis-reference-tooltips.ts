@@ -46,7 +46,7 @@ export const GIS_REFERENCE_REVIEW_QUEUE_TIP =
   "Opens Ingestion Ops filtered to this ward name — use when the spelling needs alias review rather than a one-off confirm.";
 
 export const GIS_REFERENCE_REPLACE_LAYER_TIP =
-  "Upload a new GeoPackage or spreadsheet for this slot. The previous source is replaced; ward-related uploads may trigger gazetteer rebuild.";
+  "Upload a new GeoPackage or spreadsheet for this slot. The dialog closes immediately; send progress and any gazetteer rebuild show on this row.";
 
 export const GIS_REFERENCE_UPLOAD_LAYER_TIP =
   "Assign the first source file for this slot. Accepted formats are shown in the row — GeoPackage for boundaries and points, CSV/Excel for population.";

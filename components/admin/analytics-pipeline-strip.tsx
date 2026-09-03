@@ -1,8 +1,9 @@
 "use client";
 
-import { CheckCircle2, Circle, Loader2, XCircle } from "lucide-react";
+import { CheckCircle2, Circle, Loader2, PauseCircle, XCircle } from "lucide-react";
 import { HelpTip } from "@/components/admin/help-tip";
 import { ANALYTICS_PIPELINE_STEP_TIPS } from "@/lib/constants/dataset-tooltips";
+import { publicAnalyticsMessage } from "@/lib/utils/analytics-publish-ui";
 import { cn } from "@/lib/utils";
 import type {
   AnalyticsPipelineStepState,
@@ -16,7 +17,28 @@ const STEP_LABELS = [
   { key: "analyticsLoaded" as const, label: "Analytics loaded", tip: ANALYTICS_PIPELINE_STEP_TIPS.analyticsLoaded },
 ];
 
-function StepIcon({ state }: { state: AnalyticsPipelineStepState }) {
+const FAILURE_BLOCK_REASONS = new Set(["ingestion_failed"]);
+
+function stepIsFailure(
+  status: AnalyticsPublishStatus,
+  key: (typeof STEP_LABELS)[number]["key"],
+  state: AnalyticsPipelineStepState,
+): boolean {
+  if (state !== "blocked") return false;
+  if (status.phase === "failed") return key === "analyticsLoaded";
+  if (status.blockReason && FAILURE_BLOCK_REASONS.has(status.blockReason)) {
+    return key === "ingested" || key === "analyticsLoaded";
+  }
+  return false;
+}
+
+function StepIcon({
+  state,
+  failed,
+}: {
+  state: AnalyticsPipelineStepState;
+  failed: boolean;
+}) {
   if (state === "done") {
     return <CheckCircle2 className="size-4 text-emerald-600" aria-hidden />;
   }
@@ -24,32 +46,47 @@ function StepIcon({ state }: { state: AnalyticsPipelineStepState }) {
     return <Loader2 className="size-4 animate-spin text-primary" aria-hidden />;
   }
   if (state === "blocked") {
-    return <XCircle className="size-4 text-destructive" aria-hidden />;
+    if (failed) {
+      return <XCircle className="size-4 text-destructive" aria-hidden />;
+    }
+    return (
+      <PauseCircle className="size-4 text-amber-600 dark:text-warning" aria-hidden />
+    );
   }
   return <Circle className="size-4 text-muted-foreground/50" aria-hidden />;
 }
 
 function phaseMessage(status: AnalyticsPublishStatus): string | null {
   switch (status.phase) {
+    case "retracting":
+      return (
+        publicAnalyticsMessage(status.workerHint) ??
+        "Removing this dataset from the analytics warehouse…"
+      );
     case "loading":
     case "updating":
-      return status.workerHint
-        ? status.workerHint
-        : status.phase === "updating" && status.unpublishedRows > 0
-          ? `Updating analytics with ${status.unpublishedRows.toLocaleString()} newly resolved rows…`
-          : "Loading resolved rows into the analytics warehouse…";
+      return (
+        publicAnalyticsMessage(status.workerHint) ??
+        (status.queueState === "delayed"
+          ? "Previous attempt failed — waiting to retry…"
+          : status.queueState === "waiting"
+            ? "Job is queued — waiting for a worker…"
+            : status.phase === "updating" && status.unpublishedRows > 0
+              ? `Updating analytics with ${status.unpublishedRows.toLocaleString()} newly resolved rows…`
+              : "Loading resolved rows into the analytics warehouse…")
+      );
     case "ready":
       return status.unpublishedRows > 0
         ? `${status.unpublishedRows.toLocaleString()} rows ready to load into the analytics warehouse.`
         : "Ready to load into analytics.";
     case "failed":
-      return status.lastError ?? "Analytics load failed.";
+      return publicAnalyticsMessage(status.lastError) ?? "Analytics load failed.";
     case "blocked":
       if (status.blockReason === "pending_aliases") {
-        return `${status.pendingAliases} alias${status.pendingAliases === 1 ? "" : "es"} still pending.`;
+        return `${status.pendingAliases} alias${status.pendingAliases === 1 ? "" : "es"} still pending — analytics waits until they are cleared.`;
       }
       if (status.blockReason === "open_conflicts") {
-        return `${status.openConflicts.toLocaleString()} Stored vs Upload conflict${status.openConflicts === 1 ? "" : "s"} — resolve in Ingestion Ops → Conflicts before analytics can load.`;
+        return `${status.openConflicts.toLocaleString()} Stored vs Upload clash${status.openConflicts === 1 ? "" : "es"} — unique rows still load; charts keep stored values until you pick in Conflicts.`;
       }
       if (status.blockReason === "catalogue_not_published") {
         return "Publish to the catalogue when ready — use the button below (not automatic).";
@@ -66,6 +103,9 @@ function phaseMessage(status: AnalyticsPublishStatus): string | null {
       if (status.blockReason === "publish_in_flight") {
         return "Analytics warehouse load is already in progress.";
       }
+      if (status.blockReason === "retract_in_flight") {
+        return "Analytics retract is in progress.";
+      }
       if (status.blockReason === "nothing_to_publish") {
         return "No new resolved rows are waiting to load into analytics.";
       }
@@ -74,6 +114,9 @@ function phaseMessage(status: AnalyticsPublishStatus): string | null {
       }
       return "Analytics is blocked.";
     case "loaded":
+      if (status.openConflicts > 0) {
+        return `Loaded. ${status.openConflicts.toLocaleString()} clash${status.openConflicts === 1 ? "" : "es"} — charts keep stored values until you pick in Conflicts.`;
+      }
       return status.unpublishedRows > 0
         ? `Loaded. ${status.unpublishedRows.toLocaleString()} additional rows will load when org/indicator mapping completes.`
         : "Analytics warehouse is up to date.";
@@ -106,6 +149,7 @@ export function AnalyticsPipelineStrip({
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
         {STEP_LABELS.map(({ key, label, tip }, index) => {
           const state = status.steps[key];
+          const failed = stepIsFailure(status, key, state);
           return (
             <div key={key} className="flex items-center gap-2">
               {index > 0 ? (
@@ -116,13 +160,16 @@ export function AnalyticsPipelineStrip({
                   →
                 </span>
               ) : null}
-              <StepIcon state={state} />
+              <StepIcon state={state} failed={failed} />
               <span
                 className={cn(
                   "inline-flex items-center gap-0.5 text-xs font-medium",
                   state === "done" && "text-foreground",
                   state === "active" && "text-primary",
-                  state === "blocked" && "text-destructive",
+                  state === "blocked" &&
+                    (failed
+                      ? "text-destructive"
+                      : "text-amber-800 dark:text-warning"),
                   state === "pending" && "text-muted-foreground",
                 )}
               >
@@ -138,8 +185,12 @@ export function AnalyticsPipelineStrip({
           className={cn(
             "mt-2 text-xs text-muted-foreground",
             status.phase === "failed" && "text-destructive",
-            (status.phase === "loading" || status.phase === "updating") &&
-              status.workerHint &&
+            (status.phase === "loading" ||
+              status.phase === "updating" ||
+              status.phase === "retracting") &&
+              (status.workerHint ||
+                status.queueState === "waiting" ||
+                status.queueState === "delayed") &&
               "text-amber-800 dark:text-amber-200",
           )}
         >

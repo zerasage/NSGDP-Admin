@@ -5,7 +5,7 @@ export const GOVERNANCE_METRIC_TIPS = {
   total: "Every dataset record on the platform regardless of workflow status.",
   pending: "Datasets awaiting approval, review, or publish — not yet fully live in the catalogue.",
   overdue: "Published datasets past their scheduled update date — partners may be late submitting refreshes.",
-  conflicts: "Published datasets with open Stored vs Upload disagreements — resolve in Ingestion Ops before charts trust the numbers.",
+  conflicts: "Open Stored vs Upload disagreements — unique rows still load; charts keep stored values until you pick in Ingestion Ops.",
 } as const;
 
 export const GOVERNANCE_PANEL_TIPS = {

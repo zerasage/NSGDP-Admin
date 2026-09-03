@@ -93,7 +93,7 @@ export function IngestionFitnessBanner({ fitness }: { fitness: IngestionFitness 
 
   return (
     <div
-      role="alert"
+      role={tone === "info" ? "status" : "alert"}
       className={cn("rounded-2xl border px-4 py-4 sm:px-5", toneBorderClass(tone))}
     >
       <div className="flex gap-3">

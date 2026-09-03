@@ -33,27 +33,30 @@ import { HelpTip } from "@/components/admin/help-tip";
 import { DataTableShell, MetricCard, Panel } from "@/components/admin/admin-analytics-ui";
 import {
   useConflictDatasetSummaries,
+  useConflictLocationOptions,
   useConflictPeriodOptions,
-  useObservationConflicts,
+  useConflictSourceOptions,
+  useObservationConflictCells,
   useResolveObservationConflicts,
   useStaleResolvedConflictSummary,
   useStaleResolvedConflicts,
 } from "@/lib/hooks/useIngestionOps";
 import type {
+  ConflictCell,
   ConflictPeriodOption,
   ConflictPrecedence,
-  ObservationConflictRow,
+  ConflictSourceOption,
   StaleResolvedConflictRow,
 } from "@/lib/api/ingestion-ops";
 import {
+  CONFLICTS_LOCATION_TIP,
   CONFLICTS_PERIOD_TIP,
+  CONFLICTS_PERIOD_WINNER_TIP,
   CONFLICTS_RESOLVE_TIPS,
-  CONFLICTS_STORED_TIP,
   CONFLICTS_TAB_TIP,
   CONFLICTS_UPLOAD_TIP,
 } from "@/lib/constants/ingestion-ops-tooltips";
 import { toast } from "sonner";
-import { cn } from "@/lib/utils";
 
 const PAGE_SIZE = 25;
 
@@ -124,7 +127,11 @@ function periodLabel(filter: PeriodFilter): string | null {
   return String(filter.periodYear);
 }
 
-function formatPeriod(row: ObservationConflictRow): string {
+function formatPeriod(row: {
+  periodYear: number;
+  periodMonth: number | null;
+  periodQuarter: number | null;
+}): string {
   if (row.periodMonth != null) {
     return `${row.periodYear}-${String(row.periodMonth).padStart(2, "0")}`;
   }
@@ -134,38 +141,73 @@ function formatPeriod(row: ObservationConflictRow): string {
   return String(row.periodYear);
 }
 
-function formatLocation(row: ObservationConflictRow): string {
+function formatLocation(row: {
+  facilityName: string | null;
+  wardName: string | null;
+  lgaName: string | null;
+}): string {
   if (row.facilityName) return row.facilityName;
   if (row.wardName) return row.wardName;
   if (row.lgaName) return row.lgaName;
   return "—";
 }
 
-type BulkResolveTarget = {
-  precedence: ConflictPrecedence;
-  datasetBId: string;
-  datasetTitle: string;
-  count: number;
-  periodLabel: string | null;
-  periodFilter: PeriodFilter;
-};
+type BulkResolveTarget =
+  | {
+      kind: "precedence";
+      precedence: ConflictPrecedence;
+      datasetBId: string;
+      datasetTitle: string;
+      count: number;
+      periodLabel: string | null;
+      periodFilter: PeriodFilter;
+      lgaId?: string;
+    }
+  | {
+      kind: "winner";
+      winnerDatasetId: string;
+      datasetTitle: string;
+      count: number;
+      scopeLabel: string;
+      periodFilter: PeriodFilter;
+      datasetBId?: string;
+      lgaId?: string;
+    };
 
 export function ConflictsTab() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const datasetFromUrl = searchParams.get("datasetBId") ?? "";
+  const lgaFromUrl = searchParams.get("lgaId") ?? "";
   const periodFromUrl = parsePeriodFromSearchParams(searchParams);
 
   const [datasetBId, setDatasetBId] = useState(datasetFromUrl);
+  const [lgaId, setLgaId] = useState(lgaFromUrl);
   const [periodFilter, setPeriodFilter] = useState<PeriodFilter>(periodFromUrl);
   const [page, setPage] = useState(1);
   const [bulkTarget, setBulkTarget] = useState<BulkResolveTarget | null>(null);
+  const [periodWinnerId, setPeriodWinnerId] = useState("");
 
   const summaries = useConflictDatasetSummaries();
-  const periods = useConflictPeriodOptions(datasetBId || undefined);
-  const conflicts = useObservationConflicts({
+  const periods = useConflictPeriodOptions(
+    datasetBId || undefined,
+    lgaId || undefined
+  );
+  const locations = useConflictLocationOptions({
     datasetBId: datasetBId || undefined,
     ...periodFilter,
+  });
+  const sources = useConflictSourceOptions({
+    periodYear: periodFilter.periodYear,
+    periodMonth: periodFilter.periodMonth,
+    periodQuarter: periodFilter.periodQuarter,
+    datasetBId: datasetBId || undefined,
+    lgaId: lgaId || undefined,
+  });
+  const cells = useObservationConflictCells({
+    datasetBId: datasetBId || undefined,
+    ...periodFilter,
+    lgaId: lgaId || undefined,
     page,
     limit: PAGE_SIZE,
   });
@@ -177,41 +219,74 @@ export function ConflictsTab() {
 
   useEffect(() => {
     setDatasetBId(datasetFromUrl);
+    setLgaId(lgaFromUrl);
     setPeriodFilter(periodFromUrl);
     setPage(1);
-  }, [datasetFromUrl, searchParams]);
+  }, [datasetFromUrl, lgaFromUrl, searchParams]);
 
   const datasets = summaries.data ?? [];
   const periodOptions = periods.data ?? [];
+  const locationOptions = locations.data ?? [];
+  const sourceOptions = sources.data ?? [];
   const selectedSummary = useMemo(
     () => datasets.find((d) => d.datasetId === datasetBId),
     [datasets, datasetBId]
   );
-  const filteredCount = conflicts.data?.meta.total ?? 0;
-  const sampleRow = conflicts.data?.data[0];
+  const selectedLocation = useMemo(
+    () => locationOptions.find((l) => l.lgaId === lgaId),
+    [locationOptions, lgaId]
+  );
+  const selectedPeriodWinner = useMemo(
+    () => sourceOptions.find((d) => d.datasetId === periodWinnerId),
+    [sourceOptions, periodWinnerId]
+  );
+
+  useEffect(() => {
+    if (datasetBId) setPeriodWinnerId(datasetBId);
+  }, [datasetBId]);
+
+  useEffect(() => {
+    if (!lgaId || locationOptions.length === 0) return;
+    if (!locationOptions.some((l) => l.lgaId === lgaId)) {
+      setLgaId("");
+    }
+  }, [lgaId, locationOptions]);
+
+  useEffect(() => {
+    if (!periodWinnerId || sourceOptions.length === 0) return;
+    if (!sourceOptions.some((d) => d.datasetId === periodWinnerId)) {
+      setPeriodWinnerId("");
+    }
+  }, [periodWinnerId, sourceOptions]);
+  const filteredCount = cells.data?.meta.total ?? 0;
   const datasetSelectLabel = useMemo(() => {
     if (!datasetBId) return "All datasets";
-    return (
-      selectedSummary?.title ??
-      sampleRow?.datasetBTitle ??
-      "Loading dataset…"
-    );
-  }, [datasetBId, selectedSummary, sampleRow]);
+    return selectedSummary?.title ?? "Loading dataset…";
+  }, [datasetBId, selectedSummary]);
   const periodSelectLabel = periodLabel(periodFilter) ?? "All periods";
-  const warehouseSourceLabel =
-    sampleRow?.datasetATitle ?? "dataset already in storage";
-  const uploadSourceLabel =
-    selectedSummary?.title ?? sampleRow?.datasetBTitle ?? "selected upload";
+  const locationSelectLabel = selectedLocation?.lgaName ?? (lgaId ? "Loading location…" : "All locations");
+  const winnerScopeLabel =
+    [selectedSummary?.title, periodLabel(periodFilter), selectedLocation?.lgaName]
+      .filter(Boolean)
+      .join(" · ") || "this view";
+  const showWinnerPicker =
+    periodFilter.periodYear != null || Boolean(datasetBId) || Boolean(lgaId);
   const totalOpen = useMemo(
     () => datasets.reduce((sum, d) => sum + d.openConflicts, 0),
     [datasets]
   );
 
-  const syncUrl = (nextDataset: string, nextPeriod: PeriodFilter) => {
+  const syncUrl = (
+    nextDataset: string,
+    nextPeriod: PeriodFilter,
+    nextLgaId: string
+  ) => {
     const params = new URLSearchParams(searchParams.toString());
     params.set("tab", "conflicts");
     if (nextDataset) params.set("datasetBId", nextDataset);
     else params.delete("datasetBId");
+    if (nextLgaId) params.set("lgaId", nextLgaId);
+    else params.delete("lgaId");
     periodFilterToSearchParams(nextPeriod, params);
     const qs = params.toString();
     router.replace(qs ? `/ingestion-ops?${qs}` : "/ingestion-ops?tab=conflicts");
@@ -220,9 +295,9 @@ export function ConflictsTab() {
   const setDatasetFilter = (value: string) => {
     const next = value === "all" ? "" : value;
     setDatasetBId(next);
-    setPeriodFilter({});
+    setPeriodWinnerId(next);
     setPage(1);
-    syncUrl(next, {});
+    syncUrl(next, periodFilter, lgaId);
   };
 
   const setPeriodSelect = (value: string) => {
@@ -239,19 +314,27 @@ export function ConflictsTab() {
             };
           })();
     setPeriodFilter(next);
+    setPeriodWinnerId(datasetBId);
     setPage(1);
-    syncUrl(datasetBId, next);
+    syncUrl(datasetBId, next, lgaId);
   };
 
-  const resolveOne = (conflictId: string, precedence: ConflictPrecedence) => {
+  const setLocationSelect = (value: string) => {
+    const next = value === "all" ? "" : value;
+    setLgaId(next);
+    setPage(1);
+    syncUrl(datasetBId, periodFilter, next);
+  };
+
+  const resolveCell = (cell: ConflictCell, winnerDatasetId: string) => {
     resolveMutation.mutate(
-      { conflictIds: [conflictId], precedence },
+      { conflictIds: cell.conflictIds, winnerDatasetId },
       {
         onSuccess: (result) =>
           toast.success(
             result.resolved === 1
-              ? "Conflict resolved"
-              : `${result.resolved} conflicts resolved`
+              ? "Winner recorded for this cell"
+              : `${result.resolved} source rows resolved`
           ),
         onError: (error: unknown) =>
           toast.error(error instanceof Error ? error.message : "Failed to resolve"),
@@ -261,22 +344,44 @@ export function ConflictsTab() {
 
   const resolveBulk = () => {
     if (!bulkTarget) return;
-    resolveMutation.mutate(
-      {
-        datasetBId: bulkTarget.datasetBId,
-        precedence: bulkTarget.precedence,
-        ...bulkTarget.periodFilter,
+    const body =
+      bulkTarget.kind === "winner"
+        ? {
+            winnerDatasetId: bulkTarget.winnerDatasetId,
+            datasetBId: bulkTarget.datasetBId,
+            lgaId: bulkTarget.lgaId,
+            ...bulkTarget.periodFilter,
+          }
+        : {
+            datasetBId: bulkTarget.datasetBId,
+            precedence: bulkTarget.precedence,
+            lgaId: bulkTarget.lgaId,
+            ...bulkTarget.periodFilter,
+          };
+    resolveMutation.mutate(body, {
+      onSuccess: (result) => {
+        toast.success(`Resolved ${result.resolved.toLocaleString()} conflict(s)`);
+        setBulkTarget(null);
+        setPeriodWinnerId("");
+        setPage(1);
       },
-      {
-        onSuccess: (result) => {
-          toast.success(`Resolved ${result.resolved.toLocaleString()} conflict(s)`);
-          setBulkTarget(null);
-          setPage(1);
-        },
-        onError: (error: unknown) =>
-          toast.error(error instanceof Error ? error.message : "Failed to resolve"),
-      }
-    );
+      onError: (error: unknown) =>
+        toast.error(error instanceof Error ? error.message : "Failed to resolve"),
+    });
+  };
+
+  const confirmViewWinner = (source: ConflictSourceOption) => {
+    if (periodFilter.periodYear == null && !datasetBId && !lgaId) return;
+    setBulkTarget({
+      kind: "winner",
+      winnerDatasetId: source.datasetId,
+      datasetTitle: source.title,
+      count: source.openCells,
+      scopeLabel: winnerScopeLabel,
+      periodFilter,
+      datasetBId: datasetBId || undefined,
+      lgaId: lgaId || undefined,
+    });
   };
 
   if (summaries.isLoading) {
@@ -311,13 +416,7 @@ export function ConflictsTab() {
         <MetricCard
           label="In current filter"
           value={filteredCount.toLocaleString()}
-          hint={
-            periodLabel(periodFilter)
-              ? `${periodLabel(periodFilter)}${datasetBId ? "" : " · all datasets"}`
-              : datasetBId
-                ? selectedSummary?.title
-                : "All datasets"
-          }
+          hint={winnerScopeLabel}
           icon={ArrowLeftRight}
           tone="info"
         />
@@ -355,35 +454,18 @@ export function ConflictsTab() {
 
       <div className="rounded-xl border border-border/80 bg-muted/30 px-4 py-3 text-sm text-muted-foreground">
         <p>
-          <span className="font-medium text-foreground">How to choose:</span> filters only narrow
-          which rows you see. When you resolve, you pick which{" "}
-          <span className="font-medium text-foreground">column value</span> wins — the number in
-          the <span className="font-medium text-foreground">Stored</span> column or the{" "}
-          <span className="font-medium text-foreground">Upload</span> column. That choice updates
-          analytics and clears the block on warehouse load for that cell.
+          <span className="font-medium text-foreground">How to choose:</span> each
+          row is one place, indicator, and period. Every dataset that reported a
+          different number is listed. Charts keep the{" "}
+          <span className="font-medium text-foreground">current analytics</span>{" "}
+          value until you pick a winner.
         </p>
-        {datasetBId && sampleRow ? (
-          <p className="mt-2">
-            For this filter:{" "}
-            <span className="font-medium text-foreground">Use stored</span> keeps values from{" "}
-            <span className="font-medium text-foreground">{warehouseSourceLabel}</span> (Stored
-            column).{" "}
-            <span className="font-medium text-foreground">Use upload</span> keeps values from{" "}
-            <span className="font-medium text-foreground">{uploadSourceLabel}</span> (Upload
-            column).
-          </p>
-        ) : (
-          <p className="mt-2">
-            Select an incoming upload to see which datasets each column refers to. Stored is
-            usually an older dataset already in analytics; Upload is the newer file that clashed.
-          </p>
-        )}
       </div>
 
       <Panel
         title="Conflict queue"
         titleTip={CONFLICTS_TAB_TIP}
-        description="Filter by incoming dataset and period, then resolve row-by-row or in bulk for that slice."
+        description="Each row is one cell. Pick which dataset’s number should be truth for analytics."
         icon={ShieldAlert}
         tone="destructive"
         action={
@@ -396,12 +478,14 @@ export function ConflictsTab() {
                 title={CONFLICTS_RESOLVE_TIPS.stored}
                 onClick={() =>
                   setBulkTarget({
+                    kind: "precedence",
                     precedence: "warehouse",
                     datasetBId,
                     datasetTitle: selectedSummary.title,
                     count: filteredCount,
                     periodLabel: periodLabel(periodFilter),
                     periodFilter,
+                    lgaId: lgaId || undefined,
                   })
                 }
               >
@@ -415,12 +499,14 @@ export function ConflictsTab() {
                 title={CONFLICTS_RESOLVE_TIPS.upload}
                 onClick={() =>
                   setBulkTarget({
+                    kind: "precedence",
                     precedence: "incoming",
                     datasetBId,
                     datasetTitle: selectedSummary.title,
                     count: filteredCount,
                     periodLabel: periodLabel(periodFilter),
                     periodFilter,
+                    lgaId: lgaId || undefined,
                   })
                 }
               >
@@ -431,7 +517,7 @@ export function ConflictsTab() {
           ) : null
         }
       >
-        <div className="mb-4 grid gap-3 md:grid-cols-2">
+        <div className="mb-4 grid gap-3 md:grid-cols-3">
           <div className="min-w-0">
             <label className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
               Upload in conflict
@@ -522,7 +608,131 @@ export function ConflictsTab() {
               </SelectContent>
             </Select>
           </div>
+          <div className="min-w-0">
+            <label className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+              Location
+              <HelpTip content={CONFLICTS_LOCATION_TIP} />
+            </label>
+            <Select
+              value={lgaId || "all"}
+              onValueChange={(v) => v && setLocationSelect(v)}
+              disabled={locations.isLoading}
+            >
+              <SelectTrigger className="h-10 w-full min-w-0">
+                <SelectValue placeholder="All locations">
+                  {locationSelectLabel}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent
+                align="start"
+                alignItemWithTrigger={false}
+                className="!w-auto min-w-[max(var(--anchor-width),16rem)] max-w-[min(28rem,calc(100vw-2rem))]"
+              >
+                <SelectItem
+                  value="all"
+                  className="items-start py-2 pr-10 **:whitespace-normal"
+                >
+                  <span className="font-medium leading-snug">All locations</span>
+                </SelectItem>
+                {locationOptions.map((loc) => (
+                  <SelectItem
+                    key={loc.lgaId}
+                    value={loc.lgaId}
+                    className="items-start py-2 pr-10 **:whitespace-normal"
+                  >
+                    <span className="flex w-full items-center justify-between gap-3 text-left">
+                      <span className="font-medium leading-snug">{loc.lgaName}</span>
+                      <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
+                        {loc.openCells.toLocaleString()}
+                      </span>
+                    </span>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
+        {showWinnerPicker ? (
+          <div className="mb-4 rounded-xl border border-border/80 bg-muted/20 px-3 py-3">
+            <div className="flex flex-wrap items-end gap-3">
+              <div className="min-w-[16rem] flex-1">
+                <label className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                  Winner for {winnerScopeLabel}
+                  <HelpTip content={CONFLICTS_PERIOD_WINNER_TIP} />
+                </label>
+                {sources.isLoading ? (
+                  <Skeleton className="h-10 w-full rounded-md" />
+                ) : sourceOptions.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                    No reporting datasets in this period.
+                  </p>
+                ) : (
+                  <Select
+                    value={periodWinnerId || "none"}
+                    onValueChange={(v) =>
+                      setPeriodWinnerId(!v || v === "none" ? "" : v)
+                    }
+                  >
+                    <SelectTrigger className="h-10 w-full min-w-0">
+                      <SelectValue placeholder="Choose a dataset">
+                        {selectedPeriodWinner?.title ?? "Choose a dataset"}
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent
+                      align="start"
+                      alignItemWithTrigger={false}
+                      className="!w-auto min-w-[max(var(--anchor-width),20rem)] max-w-[min(36rem,calc(100vw-2rem))]"
+                    >
+                      <SelectItem
+                        value="none"
+                        className="items-start py-2 pr-10 **:whitespace-normal"
+                      >
+                        <span className="font-medium leading-snug">
+                          Choose a dataset
+                        </span>
+                      </SelectItem>
+                      {sourceOptions.map((source) => (
+                        <SelectItem
+                          key={source.datasetId}
+                          value={source.datasetId}
+                          className="items-start py-2 pr-10 **:whitespace-normal"
+                        >
+                          <span className="flex flex-col gap-0.5 text-left">
+                            <span className="font-medium leading-snug">
+                              {source.title}
+                            </span>
+                            <span className="text-xs text-muted-foreground">
+                              {source.openCells.toLocaleString()} cell
+                              {source.openCells === 1 ? "" : "s"} · {source.slug}
+                            </span>
+                          </span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              </div>
+              <Button
+                size="sm"
+                disabled={
+                  !selectedPeriodWinner ||
+                  selectedPeriodWinner.openCells === 0 ||
+                  resolveMutation.isPending
+                }
+                onClick={() =>
+                  selectedPeriodWinner && confirmViewWinner(selectedPeriodWinner)
+                }
+              >
+                Use as winner
+                {winnerScopeLabel !== "this view" ? ` · ${winnerScopeLabel}` : ""}
+              </Button>
+            </div>
+            <p className="mt-2 text-xs text-muted-foreground">
+              Each cell keeps that dataset’s own number. Cells it did not report stay
+              unchanged.
+            </p>
+          </div>
+        ) : null}
         {selectedSummary ? (
           <div className="mb-4 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
               <Badge variant="outline">{selectedSummary.ingestionStatus ?? "unknown"}</Badge>
@@ -542,9 +752,9 @@ export function ConflictsTab() {
             </div>
         ) : null}
 
-        {conflicts.isLoading ? (
+        {cells.isLoading ? (
           <Skeleton className="h-48 w-full rounded-xl" />
-        ) : !conflicts.data || conflicts.data.data.length === 0 ? (
+        ) : !cells.data || cells.data.data.length === 0 ? (
           <EmptyState title="No conflicts in this view" />
         ) : (
           <>
@@ -555,93 +765,66 @@ export function ConflictsTab() {
                     <TableHead>Indicator</TableHead>
                     <TableHead>Location</TableHead>
                     <TableHead>Period</TableHead>
-                    <TableHead className="text-right">
-                      <span className="inline-flex flex-col items-end gap-0.5">
-                        <span className="inline-flex items-center gap-1">
-                          Stored
-                          <HelpTip content={CONFLICTS_STORED_TIP} />
-                        </span>
-                        {sampleRow ? (
-                          <span className="max-w-[8rem] truncate text-[10px] font-normal text-muted-foreground">
-                            {sampleRow.datasetATitle}
-                          </span>
-                        ) : null}
-                      </span>
-                    </TableHead>
-                    <TableHead className="text-right">
-                      <span className="inline-flex flex-col items-end gap-0.5">
-                        <span className="inline-flex items-center gap-1">
-                          Upload
-                          <HelpTip content={CONFLICTS_UPLOAD_TIP} />
-                        </span>
-                        {sampleRow ? (
-                          <span className="max-w-[8rem] truncate text-[10px] font-normal text-muted-foreground">
-                            {sampleRow.datasetBTitle}
-                          </span>
-                        ) : null}
-                      </span>
-                    </TableHead>
-                    <TableHead>Sources</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
+                    <TableHead>Reported values</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {conflicts.data.data.map((row) => (
-                    <TableRow key={row.id}>
-                      <TableCell className="max-w-[180px]">
-                        <p className="truncate font-medium">{row.indicatorName}</p>
+                  {cells.data.data.map((cell) => (
+                    <TableRow key={cell.cellKey}>
+                      <TableCell className="max-w-[180px] align-top">
+                        <p className="truncate font-medium">{cell.indicatorName}</p>
                         <p className="truncate text-xs text-muted-foreground">
-                          {row.indicatorSlug}
+                          {cell.indicatorSlug}
                         </p>
                       </TableCell>
-                      <TableCell className="max-w-[140px] truncate text-sm">
-                        {formatLocation(row)}
+                      <TableCell className="max-w-[140px] truncate align-top text-sm">
+                        {formatLocation(cell)}
                       </TableCell>
-                      <TableCell className="tabular-nums text-sm">
-                        {formatPeriod(row)}
+                      <TableCell className="align-top tabular-nums text-sm">
+                        {formatPeriod(cell)}
                       </TableCell>
-                      <TableCell className="text-right font-mono text-sm tabular-nums">
-                        {row.valueA ?? "—"}
-                      </TableCell>
-                      <TableCell
-                        className={cn(
-                          "text-right font-mono text-sm tabular-nums",
-                          row.valueA !== row.valueB && "font-semibold text-destructive"
-                        )}
-                      >
-                        {row.valueB ?? "—"}
-                      </TableCell>
-                      <TableCell className="max-w-[200px] text-xs text-muted-foreground">
-                        <p className="truncate" title={row.datasetATitle}>
-                          A: {row.datasetATitle}
-                        </p>
-                        <p className="truncate" title={row.datasetBTitle}>
-                          B: {row.datasetBTitle}
-                        </p>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex justify-end gap-1">
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            className="h-8 px-2 text-xs"
-                            disabled={resolveMutation.isPending}
-                            title={`Keep stored value (${row.datasetATitle})`}
-                            onClick={() => resolveOne(row.id, "warehouse")}
-                          >
-                            Stored
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            className="h-8 px-2 text-xs"
-                            disabled={resolveMutation.isPending}
-                            title={`Keep upload value (${row.datasetBTitle})`}
-                            onClick={() => resolveOne(row.id, "incoming")}
-                          >
-                            Upload
-                          </Button>
-                        </div>
+                      <TableCell>
+                        <ul className="space-y-2">
+                          {cell.candidates.map((candidate) => (
+                            <li
+                              key={candidate.datasetId}
+                              className="flex flex-wrap items-center justify-between gap-2"
+                            >
+                              <div className="min-w-0">
+                                <p className="truncate text-sm font-medium">
+                                  {candidate.title}
+                                </p>
+                                <p className="font-mono text-sm tabular-nums">
+                                  {candidate.value ?? "—"}
+                                  {candidate.isLiveWarehouse ? (
+                                    <span className="ml-2 text-xs font-sans font-medium text-emerald-700 dark:text-emerald-300">
+                                      current analytics
+                                    </span>
+                                  ) : null}
+                                </p>
+                              </div>
+                              <Button
+                                size="sm"
+                                variant={
+                                  candidate.isLiveWarehouse ? "outline" : "ghost"
+                                }
+                                className="h-8 px-2 text-xs"
+                                disabled={
+                                  resolveMutation.isPending ||
+                                  candidate.isLiveWarehouse
+                                }
+                                title={`Use ${candidate.title} as truth for this cell`}
+                                onClick={() =>
+                                  resolveCell(cell, candidate.datasetId)
+                                }
+                              >
+                                {candidate.isLiveWarehouse
+                                  ? "Keeping this"
+                                  : "Use this"}
+                              </Button>
+                            </li>
+                          ))}
+                        </ul>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -651,14 +834,14 @@ export function ConflictsTab() {
 
             <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-sm text-muted-foreground">
               <span>
-                Page {conflicts.data.meta.page} of {conflicts.data.meta.totalPages} ·{" "}
-                {conflicts.data.meta.total.toLocaleString()} key(s)
+                Page {cells.data.meta.page} of {cells.data.meta.totalPages} ·{" "}
+                {cells.data.meta.total.toLocaleString()} cell(s)
               </span>
               <div className="flex gap-2">
                 <Button
                   size="sm"
                   variant="outline"
-                  disabled={!conflicts.data.meta.hasPrevPage || resolveMutation.isPending}
+                  disabled={!cells.data.meta.hasPrevPage || resolveMutation.isPending}
                   onClick={() => setPage((p) => Math.max(1, p - 1))}
                 >
                   Previous
@@ -666,7 +849,7 @@ export function ConflictsTab() {
                 <Button
                   size="sm"
                   variant="outline"
-                  disabled={!conflicts.data.meta.hasNextPage || resolveMutation.isPending}
+                  disabled={!cells.data.meta.hasNextPage || resolveMutation.isPending}
                   onClick={() => setPage((p) => p + 1)}
                 >
                   Next
@@ -678,29 +861,34 @@ export function ConflictsTab() {
       </Panel>
 
       <p className="text-xs text-muted-foreground">
-        Resolving records your precedence choice; warehouse cells are not rewritten automatically.
+        Picking a winner updates that analytics cell immediately. Unique rows from
+        other datasets stay loaded.
       </p>
 
       <ConfirmDialog
         open={!!bulkTarget}
         onOpenChange={(open) => !open && setBulkTarget(null)}
         title={
-          bulkTarget?.periodLabel
-            ? `Resolve conflicts for ${bulkTarget.periodLabel}?`
-            : "Resolve all conflicts for this filter?"
+          bulkTarget?.kind === "winner"
+            ? `Use ${bulkTarget.datasetTitle} as winner for ${bulkTarget.scopeLabel}?`
+            : bulkTarget?.periodLabel
+              ? `Resolve conflicts for ${bulkTarget.periodLabel}?`
+              : "Resolve all conflicts for this filter?"
         }
         description={
-          bulkTarget
-            ? `Mark ${bulkTarget.count.toLocaleString()} row(s) for “${bulkTarget.datasetTitle}”${
-                bulkTarget.periodLabel ? ` in ${bulkTarget.periodLabel}` : ""
-              } as resolved, using ${
-                bulkTarget.precedence === "warehouse"
-                  ? "the Stored column values (already in analytics)."
-                  : "the Upload column values (from that upload)."
-              }`
-            : ""
+          !bulkTarget
+            ? ""
+            : bulkTarget.kind === "winner"
+              ? `Charts will use “${bulkTarget.datasetTitle}” on ${bulkTarget.count.toLocaleString()} cell(s) in ${bulkTarget.scopeLabel}. Each cell keeps that dataset’s own value. Cells it did not report are left unchanged.`
+              : `Mark ${bulkTarget.count.toLocaleString()} row(s) for “${bulkTarget.datasetTitle}”${
+                  bulkTarget.periodLabel ? ` in ${bulkTarget.periodLabel}` : ""
+                } as resolved, using ${
+                  bulkTarget.precedence === "warehouse"
+                    ? "the Stored column values (already in analytics)."
+                    : "the Upload column values (from that upload)."
+                }`
         }
-        confirmLabel="Resolve all"
+        confirmLabel={bulkTarget?.kind === "winner" ? "Use as winner" : "Resolve all"}
         loading={resolveMutation.isPending}
         onConfirm={resolveBulk}
       />

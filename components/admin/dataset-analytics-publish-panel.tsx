@@ -5,7 +5,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { AnalyticsPipelineStrip } from "@/components/admin/analytics-pipeline-strip";
 import { publishDataset, publishDatasetAnalytics, unpublishDataset } from "@/lib/api/admin";
-import { useAnalyticsPublishStatus } from "@/lib/hooks/useIngestionReview";
+import { invalidateDatasetWorkspace, useAnalyticsPublishStatus } from "@/lib/hooks/useIngestionReview";
 import {
   isAnalyticsLoadInFlight,
   shouldShowLoadAnalyticsButton,
@@ -46,8 +46,7 @@ export function DatasetAnalyticsPublishPanel({
       toast.success(
         "Published to catalogue — analytics loads automatically when aliases are clear.",
       );
-      queryClient.invalidateQueries({ queryKey: ["dataset", slug] });
-      queryClient.invalidateQueries({ queryKey: ["analytics-publish-status"] });
+      invalidateDatasetWorkspace(queryClient, { slug, datasetId });
     },
     onError: (error: unknown) =>
       toast.error(
@@ -59,8 +58,7 @@ export function DatasetAnalyticsPublishPanel({
     mutationFn: () => publishDatasetAnalytics(slug),
     onSuccess: () => {
       toast.success("Analytics load started — this page will update automatically.");
-      queryClient.invalidateQueries({ queryKey: ["dataset", slug] });
-      queryClient.invalidateQueries({ queryKey: ["analytics-publish-status"] });
+      invalidateDatasetWorkspace(queryClient, { slug, datasetId });
     },
     onError: (error: unknown) =>
       toast.error(
@@ -72,8 +70,7 @@ export function DatasetAnalyticsPublishPanel({
     mutationFn: () => unpublishDataset(slug),
     onSuccess: () => {
       toast.success("Dataset unpublished from the catalogue");
-      queryClient.invalidateQueries({ queryKey: ["dataset", slug] });
-      queryClient.invalidateQueries({ queryKey: ["analytics-publish-status"] });
+      invalidateDatasetWorkspace(queryClient, { slug, datasetId });
     },
     onError: (error: unknown) =>
       toast.error(

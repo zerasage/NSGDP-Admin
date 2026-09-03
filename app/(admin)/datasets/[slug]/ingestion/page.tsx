@@ -51,7 +51,7 @@ import {
   resolveIngestionDisplayStatus,
   type IngestionStatus,
 } from "@/lib/utils/ingestion-status";
-import { isCatalogueOnlyFitness } from "@/lib/utils/ingestion-fitness";
+import { isAnalyticsNotApplicable } from "@/lib/utils/ingestion-fitness";
 import { toast } from "sonner";
 
 type IngestionTab = "report" | "aliases" | "related";
@@ -386,9 +386,9 @@ export default function DatasetIngestionPage({
       <IngestionFitnessBanner fitness={ingestionReport?.fitness} />
 
       {(dataset.format === "csv" || dataset.format === "excel") &&
-        !(
-          ingestionReport?.fitness &&
-          isCatalogueOnlyFitness(ingestionReport.fitness)
+        !isAnalyticsNotApplicable(
+          ingestionReport?.fitness,
+          ingestionReport?.report,
         ) && (
           <DatasetAnalyticsPublishPanel
             slug={slug}

@@ -205,7 +205,7 @@ export function IngestionMetricsTab() {
             value={data.openConflictsTotal}
             hint={
               data.openConflictsTotal > 0
-                ? "Distinct keys — resolve in Conflicts (Stored vs Upload)"
+                ? "Distinct keys — charts keep stored values until you pick in Conflicts"
                 : "No stored vs upload disagreements"
             }
             tip={METRICS_CARD_TIPS.open_conflicts}

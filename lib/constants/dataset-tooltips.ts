@@ -12,7 +12,7 @@ export const DATASET_PAGE_TIPS = {
   load_analytics:
     "Copy resolved staging rows into the analytics warehouse. Required before charts show this data.",
   retract_analytics:
-    "Remove this dataset's rows from portal charts. The catalogue file stays unless you unpublish.",
+    "Remove this dataset's rows from portal charts. The spreadsheet stays on the dataset — retract never deletes the file.",
 } as const;
 
 export const ANALYTICS_PIPELINE_STEP_TIPS = {

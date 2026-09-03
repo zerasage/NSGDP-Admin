@@ -165,7 +165,10 @@ export type AnalyticsPublishPhase =
   | 'loading'
   | 'loaded'
   | 'updating'
+  | 'retracting'
   | 'failed';
+
+export type AnalyticsQueueState = 'none' | 'active' | 'waiting' | 'delayed';
 
 export interface AnalyticsPublishStatus {
   phase: AnalyticsPublishPhase;
@@ -178,6 +181,9 @@ export interface AnalyticsPublishStatus {
   lastError: string | null;
   publishingSince: string | null;
   workerHint: string | null;
+  queueState?: AnalyticsQueueState;
+  queueAttemptsMade?: number;
+  queueMaxAttempts?: number;
   ingestionInProgress: boolean;
   steps: {
     ingested: AnalyticsPipelineStepState;
@@ -224,6 +230,7 @@ export interface AnalyticsWarehouseSourceRow {
   canLoad: boolean;
   pendingAliases: number;
   publishableRows: number;
+  openConflicts: number;
   blockReason: string | null;
 }
 

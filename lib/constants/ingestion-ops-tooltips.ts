@@ -88,7 +88,7 @@ export const METRICS_CARD_TIPS = {
   review_queue_p50:
     "How long alias review items sit before someone acts. p95 is the slow tail.",
   open_conflicts:
-    "Distinct rows where an upload disagrees with a value already stored in analytics. Resolve in the Conflicts tab — archived or retracted datasets auto-close their open conflicts; resolved choices stay for audit but only apply while both datasets remain catalogue-active.",
+    "Distinct rows where an upload disagrees with a value already stored in analytics. Unique rows still load; charts keep the stored number until you pick a winner in Conflicts.",
   resolution_target: "Long-term goal for automatic indicator matching without human review.",
   cache_hit_rate:
     "Repeated AI prompts served from cache instead of billed API calls. Higher saves money.",
@@ -139,22 +139,28 @@ export const COMPARE_TAB_TIP =
   "Pick two datasets and compare values on shared keys. Portal view matches public charts (live sources only); raw warehouse mode includes retracted or archived sources for forensics.";
 
 export const CONFLICTS_TAB_TIP =
-  "Same indicator, location, and period — two different numbers. Resolving picks Stored or Upload and updates analytics. Archiving or retracting a participating dataset closes its open conflicts; resolved rows remain for audit.";
+  "Each row is one LGA/indicator/period. Every live dataset that reported a different number is listed — pick the winner. Charts keep the current analytics value until you do.";
 
 export const CONFLICTS_STORED_TIP =
-  "Stored column — the value already in analytics for that cell. Choosing it keeps that number in charts and skips the upload value on the next warehouse load.";
+  "Stored column — the value already in analytics for that cell. Choosing it keeps that number in charts.";
 
 export const CONFLICTS_UPLOAD_TIP =
-  "Upload column — the value from the file that clashed during ingestion. Choosing it overwrites the stored analytics value for that cell.";
+  "Limit the table and bulk actions to clashes that involve this upload. Same idea as Period — it only scopes the view. Who wins is the picker below.";
 
 export const CONFLICTS_PERIOD_TIP =
-  "Limit the table and bulk actions to one reporting period (year, quarter, or month). Row actions always affect a single row.";
+  "Limit the table and bulk actions to one reporting period. Same idea as the upload filter — it only scopes the view. Who wins is the picker below.";
+
+export const CONFLICTS_LOCATION_TIP =
+  "Limit the table and bulk actions to one LGA (including its wards and facilities). Same idea as Upload and Period — it only scopes the view.";
+
+export const CONFLICTS_PERIOD_WINNER_TIP =
+  "Applies that dataset’s own number to every clash cell it reported in the current filter (upload, period, location, or any mix). Cells it did not report are left unchanged. Each cell keeps its own value — this does not copy one LGA’s number onto others.";
 
 export const CONFLICTS_RESOLVE_TIPS = {
   stored:
-    "Use stored column — keep the value already in analytics. The cell stays as-is in disease_burden and the upload row is skipped on publish.",
+    "Keep the value already in analytics. Charts stay as they are for that cell.",
   upload:
-    "Use upload column — keep the value from the filtered upload. Updates disease_burden immediately and wins on the next warehouse load.",
+    "Use the new file's value. Charts update immediately for that cell.",
 } as const;
 
 export const INDICATOR_DETAIL_PAGE_TIP =

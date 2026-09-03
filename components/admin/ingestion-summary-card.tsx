@@ -28,7 +28,7 @@ import { cn } from "@/lib/utils";
 import {
   fitnessDisplayTone,
   fitnessVerdictLabel,
-  isCatalogueOnlyFitness,
+  isAnalyticsNotApplicable,
   needsFitnessAttention,
 } from "@/lib/utils/ingestion-fitness";
 import { toast } from "sonner";
@@ -102,6 +102,11 @@ export function IngestionSummaryCard({
     );
   };
 
+  const catalogueOnly = isAnalyticsNotApplicable(
+    report?.fitness,
+    report?.report,
+  );
+
   const helperCopy = (() => {
     if (displayStatus === "uploaded") {
       return "Ingestion is queued. Progress updates below as the worker claims the job.";
@@ -118,12 +123,8 @@ export function IngestionSummaryCard({
     if (pendingAliases > 0) {
       return `${pendingAliases} unresolved string${pendingAliases === 1 ? "" : "s"} need a human decision before publish is clean.`;
     }
-    if (
-      displayStatus === "processed_pending_approval" &&
-      report?.fitness &&
-      isCatalogueOnlyFitness(report.fitness)
-    ) {
-      return "Ingestion finished with no analytics grid rows. This file can still be published to the catalogue — it may be a different type of health data.";
+    if (catalogueOnly) {
+      return "This file is not an indicator grid, so there is no analytics pipeline. Catalogue publish is the outcome.";
     }
     return "Workbook resolution summary for this dataset.";
   })();
@@ -145,9 +146,11 @@ export function IngestionSummaryCard({
               className="gap-1.5 text-[11px] font-semibold uppercase"
             >
               {inFlight ? <Loader2 className="size-3 animate-spin" aria-hidden /> : null}
-              {INGESTION_STATUS_LABEL[displayStatus]}
+              {catalogueOnly && !inFlight && displayStatus !== "failed"
+                ? "Catalogue only"
+                : INGESTION_STATUS_LABEL[displayStatus]}
             </Badge>
-            {needsFitnessAttention(report?.fitness) && (
+            {needsFitnessAttention(report?.fitness) && !catalogueOnly && (
               <Badge
                 variant="outline"
                 className={cn(
@@ -199,6 +202,7 @@ export function IngestionSummaryCard({
         </div>
       ) : null}
 
+      {catalogueOnly ? null : (
       <div className="grid gap-3 p-4 sm:grid-cols-4 sm:p-5">
         {(
           [
@@ -243,6 +247,7 @@ export function IngestionSummaryCard({
           </div>
         ))}
       </div>
+      )}
     </section>
   );
 }

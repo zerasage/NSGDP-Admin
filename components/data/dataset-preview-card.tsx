@@ -190,11 +190,20 @@ function PreviewBody({
     return <PdfPreviewFrame slug={slug} expanded={expanded} />;
   }
 
-  if (preview.type === "tabular") {
-    if (!preview.rows || preview.rows.length === 0) {
+  const hasAttributeTable =
+    Array.isArray(preview.columns) &&
+    Array.isArray(preview.rows) &&
+    preview.rows.length > 0;
+
+  if (preview.type === "tabular" || hasAttributeTable) {
+    if (!hasAttributeTable) {
       return <p className="text-sm text-muted-foreground">{preview.message || "No rows to preview."}</p>;
     }
-    const visibleRows = expanded ? preview.rows : preview.rows.slice(0, 20);
+    const visibleRows = expanded ? preview.rows! : preview.rows!.slice(0, 20);
+    const featureHint =
+      typeof preview.totalFeatures === "number"
+        ? ` · ${preview.totalFeatures.toLocaleString()} mapped feature${preview.totalFeatures === 1 ? "" : "s"} in this preview`
+        : "";
     return (
       <div className="space-y-2">
         <div className={expanded ? "overflow-auto rounded-xl border" : "max-h-80 overflow-auto rounded-lg border"}>
@@ -218,8 +227,9 @@ function PreviewBody({
           </table>
         </div>
         <p className="text-xs text-muted-foreground">
-          Showing {visibleRows.length} of {preview.totalRows ?? preview.rows.length} rows
+          Showing {visibleRows.length} of {preview.totalRows ?? preview.rows!.length} rows
           {preview.isPartialPreview ? " (partial preview — file too large to load in full)" : ""}
+          {featureHint}
         </p>
       </div>
     );

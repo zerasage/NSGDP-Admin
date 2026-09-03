@@ -1,6 +1,7 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { useEffect } from 'react';
 import * as api from '../api/ingestion-review';
+import { isLiveAnalyticsStatus } from '../utils/analytics-publish-ui';
 
 const REVIEW_QUEUE_KEY = 'ingestion-review-queue';
 const REPORT_KEY = 'ingestion-report';
@@ -11,6 +12,33 @@ const COVERAGE_KEY = 'ingestion-coverage';
 const RELATED_KEY = 'ingestion-related-datasets';
 export const INGESTION_PROGRESS_KEY = 'ingestion-progress';
 export const IN_FLIGHT_JOBS_KEY = 'ingestion-jobs-in-flight';
+
+export function invalidateDatasetWorkspace(
+  queryClient: QueryClient,
+  opts: { slug?: string; datasetId?: string } = {},
+) {
+  if (opts.slug) {
+    queryClient.invalidateQueries({ queryKey: ['dataset', opts.slug] });
+  } else {
+    queryClient.invalidateQueries({ queryKey: ['dataset'] });
+  }
+  queryClient.invalidateQueries({
+    queryKey: opts.datasetId
+      ? [ANALYTICS_PUBLISH_STATUS_KEY, opts.datasetId]
+      : [ANALYTICS_PUBLISH_STATUS_KEY],
+  });
+  queryClient.invalidateQueries({ queryKey: [ANALYTICS_WAREHOUSE_KEY] });
+  queryClient.invalidateQueries({
+    queryKey: opts.datasetId
+      ? [INGESTION_PROGRESS_KEY, opts.datasetId]
+      : [INGESTION_PROGRESS_KEY],
+  });
+  queryClient.invalidateQueries({ queryKey: [REPORT_KEY] });
+  queryClient.invalidateQueries({ queryKey: [REVIEW_QUEUE_KEY] });
+  queryClient.invalidateQueries({ queryKey: [PIPELINE_ATTENTION_KEY] });
+  queryClient.invalidateQueries({ queryKey: [IN_FLIGHT_JOBS_KEY] });
+  queryClient.invalidateQueries({ queryKey: ['admin', 'datasets'] });
+}
 
 function isActiveProgressStatus(status: api.IngestionJobStatus | undefined): boolean {
   return status === 'pending' || status === 'validating' || status === 'processing';
@@ -49,12 +77,8 @@ export function useAnalyticsPublishStatus(datasetId: string | undefined) {
     queryKey: [ANALYTICS_PUBLISH_STATUS_KEY, datasetId],
     queryFn: () => api.getAnalyticsPublishStatus(datasetId!),
     enabled: !!datasetId,
-    refetchInterval: (query) => {
-      const data = query.state.data;
-      if (data?.phase === 'loading' || data?.phase === 'updating') return 2000;
-      if (data?.ingestionInProgress) return 2000;
-      return false;
-    },
+    refetchInterval: (query) =>
+      isLiveAnalyticsStatus(query.state.data) ? 1500 : false,
   });
 }
 
@@ -74,11 +98,12 @@ export function useAnalyticsWarehouse(
         (row) =>
           row.phase === 'loading' ||
           row.phase === 'updating' ||
+          row.phase === 'retracting' ||
           row.ingestionStatus === 'retracting' ||
           row.publicationStatus === 'publishing' ||
           row.publicationStatus === 'retracting',
       );
-      return active ? 3000 : false;
+      return active ? 2000 : false;
     },
   });
 }
@@ -110,7 +135,7 @@ export function useIngestionProgress(
     enabled: !!datasetId,
     refetchInterval: (q) => {
       if (!pollWhileActive) return false;
-      return isActiveProgressStatus(q.state.data?.status) ? 2000 : false;
+      return isActiveProgressStatus(q.state.data?.status) ? 1500 : false;
     },
   });
 
@@ -231,13 +256,7 @@ export function useRunDatasetIngestion(datasetId?: string) {
       return api.runDatasetIngestion(datasetId, opts);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [REPORT_KEY, datasetId] });
-      queryClient.invalidateQueries({ queryKey: [REVIEW_QUEUE_KEY, datasetId] });
-      queryClient.invalidateQueries({ queryKey: [INGESTION_PROGRESS_KEY, datasetId] });
-      queryClient.invalidateQueries({ queryKey: [ANALYTICS_PUBLISH_STATUS_KEY, datasetId] });
-      queryClient.invalidateQueries({ queryKey: [IN_FLIGHT_JOBS_KEY] });
-      queryClient.invalidateQueries({ queryKey: [PIPELINE_ATTENTION_KEY] });
-      queryClient.invalidateQueries({ queryKey: ['dataset'] });
+      invalidateDatasetWorkspace(queryClient, { datasetId });
     },
   });
 }
@@ -250,13 +269,7 @@ export function useCancelDatasetIngestion(datasetId?: string) {
       return api.cancelDatasetIngestion(datasetId);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [REPORT_KEY, datasetId] });
-      queryClient.invalidateQueries({ queryKey: [REVIEW_QUEUE_KEY, datasetId] });
-      queryClient.invalidateQueries({ queryKey: [INGESTION_PROGRESS_KEY, datasetId] });
-      queryClient.invalidateQueries({ queryKey: [ANALYTICS_PUBLISH_STATUS_KEY, datasetId] });
-      queryClient.invalidateQueries({ queryKey: [IN_FLIGHT_JOBS_KEY] });
-      queryClient.invalidateQueries({ queryKey: [PIPELINE_ATTENTION_KEY] });
-      queryClient.invalidateQueries({ queryKey: ['dataset'] });
+      invalidateDatasetWorkspace(queryClient, { datasetId });
     },
   });
 }
