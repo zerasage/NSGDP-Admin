@@ -32,6 +32,10 @@ const TYPE_LABELS: Record<NotificationType, string> = {
   new_organisation: "New Organisation",
   new_user: "New User",
   admin_invited: "Org Admin Invited",
+  dataset_archive_requested: "Retract Request",
+  dataset_archive_completed: "Dataset Archived",
+  capability_granted: "Capability Granted",
+  capability_revoked: "Capability Revoked",
 };
 
 const TYPE_DOT_CLASS: Record<NotificationType, string> = {
@@ -46,6 +50,10 @@ const TYPE_DOT_CLASS: Record<NotificationType, string> = {
   new_organisation: "bg-blue-500",
   new_user: "bg-teal-500",
   admin_invited: "bg-amber-500",
+  dataset_archive_requested: "bg-amber-500",
+  dataset_archive_completed: "bg-emerald-500",
+  capability_granted: "bg-emerald-500",
+  capability_revoked: "bg-orange-500",
 };
 
 const TABS: Array<{ key: "all" | "unread"; label: string; tip?: string }> = [

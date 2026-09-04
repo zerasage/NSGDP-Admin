@@ -84,6 +84,12 @@ export const API_ROUTES = {
       reject: (id: string) => `/admin/datasets/${id}/reject`,
       revise: (id: string) => `/admin/datasets/${id}/revise`,
     },
+    cleanup: {
+      datasets: '/admin/cleanup/datasets',
+      permanentlyDelete: (slug: string) =>
+        `/admin/cleanup/datasets/${encodeURIComponent(slug)}`,
+      bulkDelete: '/admin/cleanup/datasets/bulk-delete',
+    },
     audit: {
       logs: '/admin/audit-logs',
       export: '/admin/audit-logs/export',

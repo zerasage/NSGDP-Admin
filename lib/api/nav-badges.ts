@@ -2,6 +2,7 @@ import { adminApi } from "./admin";
 import { getDocumentReviewQueue } from "./documents";
 import { getAccessRequests } from "./access-requests";
 import { getPartnerInterests } from "./partner-interest";
+import { getArchiveRequestsPendingCount } from "./archive-requests";
 import { getContactMessageStats } from "./contact";
 
 interface PaginatedMeta {
@@ -35,6 +36,10 @@ export async function fetchDocumentReviewBadgeCount(): Promise<number> {
 export async function fetchAccessRequestsBadgeCount(): Promise<number> {
   const result = await getAccessRequests({ status: "pending", page: 1, limit: 1 });
   return result.meta.total;
+}
+
+export async function fetchArchiveRequestsBadgeCount(): Promise<number> {
+  return getArchiveRequestsPendingCount();
 }
 
 export async function fetchPartnerInterestBadgeCount(): Promise<number> {

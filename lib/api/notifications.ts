@@ -21,7 +21,11 @@ export type NotificationType =
   | 'dataset_published'
   | 'new_organisation'
   | 'new_user'
-  | 'admin_invited';
+  | 'admin_invited'
+  | 'dataset_archive_requested'
+  | 'dataset_archive_completed'
+  | 'capability_granted'
+  | 'capability_revoked';
 
 export interface Notification {
   id: string;

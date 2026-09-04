@@ -1,6 +1,7 @@
 import { apiClient } from './client';
+import { API_ROUTES } from './routes';
 import type { PaginatedResponse } from '../types/common';
-import type { Dataset as BackendDataset } from './datasets';
+import type { Dataset as BackendDataset, DatasetStatus } from './datasets';
 import type { UserRole } from '@/types';
 
 // Use the Dataset type from datasets.ts for the review queue
@@ -470,6 +471,88 @@ interface DashboardStatsResponse {
  */
 export async function deleteDataset(datasetSlug: string): Promise<void> {
   await apiClient.delete(`/admin/datasets/${datasetSlug}`);
+}
+
+export const PERMANENT_DELETE_CONFIRM_PHRASE = "PERMANENTLY DELETE";
+
+export interface CleanupDatasetRow {
+  id: string;
+  title: string;
+  slug: string;
+  status: DatasetStatus;
+  format: string;
+  organisationId: string;
+  organisationName: string | null;
+  deletedAt: string | null;
+  publishedAt: string | null;
+  analyticsPublishedAt: string | null;
+  ingestionStatus: string;
+  gisSlot: string | null;
+  fileSize: number | null;
+}
+
+export interface CleanupDatasetPage {
+  data: CleanupDatasetRow[];
+  meta: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+    hasNextPage: boolean;
+    hasPrevPage: boolean;
+  };
+}
+
+export interface PermanentlyDeletedDataset {
+  id: string;
+  slug: string;
+  title: string;
+  storageObjectsRemoved: number;
+}
+
+export interface BulkPermanentlyDeleteResult {
+  succeeded: PermanentlyDeletedDataset[];
+  failed: Array<{ slug: string; error: string }>;
+}
+
+export async function listCleanupDatasets(params: {
+  page?: number;
+  limit?: number;
+  search?: string;
+}): Promise<CleanupDatasetPage> {
+  const response = await apiClient.get<ApiResponse<CleanupDatasetPage>>(
+    API_ROUTES.admin.cleanup.datasets,
+    {
+      params: {
+        page: params.page ?? 1,
+        limit: params.limit ?? 20,
+        search: params.search || undefined,
+      },
+    },
+  );
+  return response.data.data;
+}
+
+export async function permanentlyDeleteDataset(
+  slug: string,
+  confirmSlug: string,
+): Promise<PermanentlyDeletedDataset> {
+  const response = await apiClient.delete<ApiResponse<PermanentlyDeletedDataset>>(
+    API_ROUTES.admin.cleanup.permanentlyDelete(slug),
+    { body: { confirmSlug } },
+  );
+  return response.data.data;
+}
+
+export async function bulkPermanentlyDeleteDatasets(
+  slugs: string[],
+  confirmPhrase: string,
+): Promise<BulkPermanentlyDeleteResult> {
+  const response = await apiClient.post<ApiResponse<BulkPermanentlyDeleteResult>>(
+    API_ROUTES.admin.cleanup.bulkDelete,
+    { slugs, confirmPhrase },
+  );
+  return response.data.data;
 }
 
 export interface ArchiveDatasetPayload {

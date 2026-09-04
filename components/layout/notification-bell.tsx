@@ -20,6 +20,10 @@ const TYPE_DOT_CLASS: Record<NotificationType, string> = {
   new_organisation: "bg-blue-500",
   new_user: "bg-teal-500",
   admin_invited: "bg-amber-500",
+  dataset_archive_requested: "bg-amber-500",
+  dataset_archive_completed: "bg-emerald-500",
+  capability_granted: "bg-emerald-500",
+  capability_revoked: "bg-orange-500",
 };
 
 export function NotificationBell() {

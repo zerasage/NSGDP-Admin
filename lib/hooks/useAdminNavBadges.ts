@@ -5,6 +5,7 @@ import { useAuth } from "@/lib/auth";
 import { useAdminAccess } from "@/lib/hooks/useAdminAccess";
 import {
   fetchAccessRequestsBadgeCount,
+  fetchArchiveRequestsBadgeCount,
   fetchContactMessagesBadgeCount,
   fetchDatasetReviewBadgeCount,
   fetchDocumentReviewBadgeCount,
@@ -17,6 +18,7 @@ export type AdminNavBadgeKey =
   | "datasetReviewQueue"
   | "documentReviewQueue"
   | "accessRequests"
+  | "archiveRequests"
   | "partnerInterest"
   | "contactMessages";
 
@@ -34,6 +36,7 @@ export function useAdminNavBadges(): {
   const canDocumentQueue = isSuperAdmin || can("manage:documents");
   const canAccessRequests =
     isSuperAdmin || canAny("view:access-requests", "approve:access-requests");
+  const canArchiveRequests = isSuperAdmin;
   const canPartnerInterest =
     isSuperAdmin || canAny("view:partner-interest", "review:partner-interest");
   const canContact =
@@ -59,6 +62,13 @@ export function useAdminNavBadges(): {
         queryKey: ["admin-nav-badge", "accessRequests"],
         queryFn: fetchAccessRequestsBadgeCount,
         enabled: canAccessRequests,
+        staleTime: BADGE_STALE_MS,
+        refetchInterval: BADGE_STALE_MS,
+      },
+      {
+        queryKey: ["admin-nav-badge", "archiveRequests"],
+        queryFn: fetchArchiveRequestsBadgeCount,
+        enabled: canArchiveRequests,
         staleTime: BADGE_STALE_MS,
         refetchInterval: BADGE_STALE_MS,
       },
@@ -89,11 +99,14 @@ export function useAdminNavBadges(): {
   if (canAccessRequests && (results[2].data ?? 0) > 0) {
     counts.accessRequests = results[2].data;
   }
-  if (canPartnerInterest && (results[3].data ?? 0) > 0) {
-    counts.partnerInterest = results[3].data;
+  if (canArchiveRequests && (results[3].data ?? 0) > 0) {
+    counts.archiveRequests = results[3].data;
   }
-  if (canContact && (results[4].data ?? 0) > 0) {
-    counts.contactMessages = results[4].data;
+  if (canPartnerInterest && (results[4].data ?? 0) > 0) {
+    counts.partnerInterest = results[4].data;
+  }
+  if (canContact && (results[5].data ?? 0) > 0) {
+    counts.contactMessages = results[5].data;
   }
 
   return {

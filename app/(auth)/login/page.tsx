@@ -47,7 +47,7 @@ export default function LoginPage() {
         <Card>
           <CardHeader className="space-y-1 text-center">
             <CardTitle className="text-3xl font-bold">Agency Portal</CardTitle>
-            <CardDescription>Super Admin Access Only</CardDescription>
+            <CardDescription>Sign in to access the admin dashboard</CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">

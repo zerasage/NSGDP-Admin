@@ -105,14 +105,14 @@ export function MetricCard({
           </div>
         ) : null}
       </div>
-      <p
+      <div
         className={cn(
           "mt-2 text-xl font-bold tabular-nums tracking-tight sm:text-2xl",
           t.value
         )}
       >
         {value}
-      </p>
+      </div>
       {hint ? <p className="mt-1 text-xs text-muted-foreground">{hint}</p> : null}
     </div>
   );
