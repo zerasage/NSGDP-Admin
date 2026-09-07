@@ -4,11 +4,13 @@ import { useState } from "react";
 import Link from "next/link";
 import {
   Activity,
+  CheckCircle2,
   ExternalLink,
   GitBranch,
   Loader2,
   RotateCcw,
 } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -26,6 +28,7 @@ import {
   MetricCard,
   Panel,
   DataTableShell,
+  type MetricTone,
 } from "@/components/admin/admin-analytics-ui";
 import { HelpTip } from "@/components/admin/help-tip";
 import {
@@ -36,8 +39,10 @@ import {
 import {
   IN_FLIGHT_JOBS_KEY,
   PIPELINE_ATTENTION_KEY,
+  PIPELINE_COMPLETED_KEY,
   useInFlightIngestionJobs,
   usePipelineAttention,
+  usePipelineCompleted,
 } from "@/lib/hooks/useIngestionReview";
 import type { PipelineAttentionFilter } from "@/lib/api/ingestion-review";
 import { runDatasetIngestion } from "@/lib/api/ingestion-review";
@@ -49,10 +54,11 @@ import { formatDate } from "@/lib/utils/date";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
-type PipelineView = "running" | "needs_attention";
+type PipelineView = "running" | "completed" | "needs_attention";
 
 const VIEW_OPTIONS: { value: PipelineView; label: string; tip: string }[] = [
   { value: "running", label: "Running", tip: PIPELINE_VIEW_TIPS.running },
+  { value: "completed", label: "Completed", tip: PIPELINE_VIEW_TIPS.completed },
   {
     value: "needs_attention",
     label: "Needs attention",
@@ -113,13 +119,20 @@ export function PipelineTab() {
   const [retryingId, setRetryingId] = useState<string | null>(null);
   const queryClient = useQueryClient();
 
+  // All three stay warm so switching views is instant (no skeleton flash) and
+  // the panel doesn't reflow while a freshly-enabled query loads. While any job
+  // is in flight the outcome tabs poll fast so a row moving between tabs shows
+  // up right away.
   const runningQuery = useInFlightIngestionJobs();
+  const anyJobRunning = (runningQuery.data?.length ?? 0) > 0;
+  const completedQuery = usePipelineCompleted({ activePoll: anyJobRunning });
   const attentionQuery = usePipelineAttention(attentionFilter, {
-    enabled: view === "needs_attention",
+    activePoll: anyJobRunning,
   });
 
   const invalidatePipeline = () => {
     queryClient.invalidateQueries({ queryKey: [PIPELINE_ATTENTION_KEY] });
+    queryClient.invalidateQueries({ queryKey: [PIPELINE_COMPLETED_KEY] });
     queryClient.invalidateQueries({ queryKey: [IN_FLIGHT_JOBS_KEY] });
   };
 
@@ -144,6 +157,18 @@ export function PipelineTab() {
         toast.warning(result.reason ?? "Ingestion was not enqueued");
       }
       invalidatePipeline();
+      // The worker may take a beat to claim the job — nudge the in-flight list
+      // a couple more times so it appears without waiting for the poll.
+      window.setTimeout(
+        () =>
+          queryClient.invalidateQueries({ queryKey: [IN_FLIGHT_JOBS_KEY] }),
+        2000,
+      );
+      window.setTimeout(
+        () =>
+          queryClient.invalidateQueries({ queryKey: [IN_FLIGHT_JOBS_KEY] }),
+        5000,
+      );
     },
     onError: (error: unknown) =>
       toast.error(
@@ -153,72 +178,114 @@ export function PipelineTab() {
 
   const runningCount = runningQuery.data?.length ?? 0;
   const attentionSummary = attentionQuery.data?.summary;
+  const completedSummary = completedQuery.data?.summary;
   const isRunningView = view === "running";
-  const isLoading = isRunningView
-    ? runningQuery.isLoading
-    : attentionQuery.isLoading;
+  const isCompletedView = view === "completed";
+  const isAttentionView = view === "needs_attention";
+  const activeQuery = isRunningView
+    ? runningQuery
+    : isCompletedView
+      ? completedQuery
+      : attentionQuery;
+  const isLoading = activeQuery.isLoading;
+
+  type MetricSpec = {
+    label: string;
+    value: number;
+    icon: LucideIcon;
+    tone: MetricTone;
+    tip?: string;
+  };
+  const metricCards: MetricSpec[] = isRunningView
+    ? [
+        {
+          label: "Running now",
+          value: runningCount,
+          icon: Loader2,
+          tone: "info",
+        },
+      ]
+    : isCompletedView
+      ? [
+          {
+            label: "Ready for review",
+            value: completedSummary?.readyForReview ?? 0,
+            icon: CheckCircle2,
+            tone: "info",
+          },
+          {
+            label: "Published",
+            value: completedSummary?.published ?? 0,
+            icon: CheckCircle2,
+            tone: "success",
+          },
+          {
+            label: "Retracted",
+            value: completedSummary?.retracted ?? 0,
+            icon: RotateCcw,
+            tone: "warning",
+          },
+        ]
+      : [
+          {
+            label: "Failed",
+            value: attentionSummary?.failed ?? 0,
+            icon: Activity,
+            tone: "destructive",
+            tip: PIPELINE_ISSUE_TIPS.failed,
+          },
+          {
+            label: "Not started",
+            value: attentionSummary?.notStarted ?? 0,
+            icon: RotateCcw,
+            tone: "warning",
+            tip: PIPELINE_ISSUE_TIPS.not_started,
+          },
+          {
+            label: "Stuck",
+            value: attentionSummary?.stuck ?? 0,
+            icon: Loader2,
+            tone: "warning",
+            tip: PIPELINE_ISSUE_TIPS.stuck,
+          },
+          {
+            label: "Queued",
+            value: attentionSummary?.queued ?? 0,
+            icon: RotateCcw,
+            tone: "info",
+            tip: PIPELINE_ISSUE_TIPS.queued,
+          },
+        ];
 
   return (
     <div className="space-y-4">
-      {isRunningView ? (
-        runningCount > 0 ? (
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <MetricCard
-              label="Running now"
-              value={runningCount}
-              icon={Loader2}
-              tone="info"
-            />
-          </div>
-        ) : isLoading ? (
-          <Skeleton className="h-20 rounded-2xl sm:max-w-xs" />
-        ) : null
-      ) : attentionSummary ? (
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <MetricCard
-            label="Failed"
-            value={attentionSummary.failed}
-            tip={PIPELINE_ISSUE_TIPS.failed}
-            icon={Activity}
-            tone="destructive"
-          />
-          <MetricCard
-            label="Not started"
-            value={attentionSummary.notStarted}
-            tip={PIPELINE_ISSUE_TIPS.not_started}
-            icon={RotateCcw}
-            tone="warning"
-          />
-          <MetricCard
-            label="Stuck"
-            value={attentionSummary.stuck}
-            tip={PIPELINE_ISSUE_TIPS.stuck}
-            icon={Loader2}
-            tone="warning"
-          />
-          <MetricCard
-            label="Queued"
-            value={attentionSummary.queued}
-            tip={PIPELINE_ISSUE_TIPS.queued}
-            icon={RotateCcw}
-            tone="info"
-          />
-        </div>
-      ) : isLoading ? (
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          {Array.from({ length: 4 }).map((_, i) => (
-            <Skeleton key={i} className="h-20 rounded-2xl" />
-          ))}
-        </div>
-      ) : null}
+      {/* Fixed one-row height so the panel below doesn't jump between views. */}
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        {isLoading
+          ? Array.from({ length: metricCards.length }).map((_, i) => (
+              <Skeleton key={i} className="h-20 rounded-2xl" />
+            ))
+          : metricCards.map((card) => (
+              <MetricCard
+                key={card.label}
+                label={card.label}
+                value={card.value}
+                icon={card.icon}
+                tone={card.tone}
+                tip={card.tip}
+              />
+            ))}
+      </div>
 
       <Panel
         title="Canonicalization pipeline"
-        titleTip={PIPELINE_VIEW_TIPS[isRunningView ? "running" : "needs_attention"]}
+        titleTip={PIPELINE_VIEW_TIPS[view]}
         description={
           isRunningView
             ? "Workbook uploads queued or running through the Reader pipeline."
-            : "Datasets where canonicalization failed, stalled, or never started. Retry before loading into analytics."
+            : isCompletedView
+              ? "Analytics-shaped datasets whose canonicalization has finished. Blank templates and line lists are hidden."
+              : "Datasets where canonicalization failed, stalled, or never started. Retry before loading into analytics."
         }
         icon={GitBranch}
         tone="info"
@@ -244,28 +311,41 @@ export function PipelineTab() {
                 </div>
               ))}
             </div>
-            {!isRunningView ? (
-              <div className="flex flex-wrap gap-1 rounded-lg border bg-muted/20 p-1">
-                {ATTENTION_SUBFILTERS.map((opt) => (
-                  <div key={opt.value} className="inline-flex items-center gap-0.5">
-                    <Button
-                      size="sm"
-                      variant={
-                        attentionFilter === opt.value ? "secondary" : "ghost"
-                      }
-                      className="h-7 text-xs"
-                      onClick={() => setAttentionFilter(opt.value)}
-                    >
-                      {opt.label}
-                    </Button>
-                    <HelpTip content={opt.tip} label={`About ${opt.label}`} />
-                  </div>
-                ))}
-              </div>
-            ) : null}
+            {/* Kept mounted (hidden when not on Needs attention) so the panel
+                body below keeps a constant offset across views. */}
+            <div
+              className={cn(
+                "flex flex-wrap gap-1 rounded-lg border bg-muted/20 p-1",
+                !isAttentionView && "invisible pointer-events-none",
+              )}
+              aria-hidden={!isAttentionView}
+            >
+              {ATTENTION_SUBFILTERS.map((opt) => (
+                <div key={opt.value} className="inline-flex items-center gap-0.5">
+                  <Button
+                    size="sm"
+                    variant={
+                      attentionFilter === opt.value ? "secondary" : "ghost"
+                    }
+                    className="h-7 text-xs"
+                    tabIndex={isAttentionView ? undefined : -1}
+                    onClick={() => setAttentionFilter(opt.value)}
+                  >
+                    {opt.label}
+                  </Button>
+                  <HelpTip content={opt.tip} label={`About ${opt.label}`} />
+                </div>
+              ))}
+            </div>
           </div>
         }
       >
+        <div
+          className={cn(
+            "min-h-64 transition-opacity",
+            activeQuery.isFetching && !isLoading && "opacity-60",
+          )}
+        >
         {isLoading ? (
           <Skeleton className="h-64 rounded-xl" />
         ) : isRunningView ? (
@@ -375,6 +455,112 @@ export function PipelineTab() {
               </Table>
             </DataTableShell>
           )
+        ) : isCompletedView ? (
+          !completedQuery.data?.items.length ? (
+            <EmptyState
+              title="Nothing completed yet"
+              description="Datasets appear here once their canonicalization run finishes — ready for review, published, or retracted."
+            />
+          ) : (
+            <DataTableShell>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Dataset</TableHead>
+                    <TableHead>Organisation</TableHead>
+                    <TableHead>Ingestion status</TableHead>
+                    <TableHead>Last run</TableHead>
+                    <TableHead>Warehouse</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {completedQuery.data.items.map((row) => (
+                    <TableRow key={row.datasetId}>
+                      <TableCell className="max-w-70">
+                        <Link
+                          href={`/datasets/${row.slug}/ingestion`}
+                          className="font-medium text-primary underline-offset-4 hover:underline"
+                        >
+                          {row.title}
+                        </Link>
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {orgLabel(
+                          row.organisationName,
+                          row.organisationAcronym,
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <Badge
+                          variant="outline"
+                          className={cn(
+                            "gap-1.5",
+                            row.ingestionStatus === "published" &&
+                              "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
+                            row.ingestionStatus === "retracted" &&
+                              "border-amber-500/30 bg-amber-500/10 text-amber-800 dark:text-amber-200",
+                          )}
+                        >
+                          <CheckCircle2 className="size-3" aria-hidden />
+                          {INGESTION_STATUS_LABEL[
+                            row.ingestionStatus as IngestionStatus
+                          ] ?? row.ingestionStatus}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        <div className="space-y-0.5">
+                          {row.lastJobStage ? (
+                            <p className="capitalize">{row.lastJobStage}</p>
+                          ) : null}
+                          {row.lastJobAt ? (
+                            <p className="text-xs">
+                              {formatDate(row.lastJobAt)}
+                            </p>
+                          ) : (
+                            "—"
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-sm">
+                        {row.analyticsPublishedAt ? (
+                          <span className="text-emerald-700 dark:text-emerald-300">
+                            Loaded {formatDate(row.analyticsPublishedAt)}
+                          </span>
+                        ) : row.warehouseEligible ? (
+                          <span className="text-amber-800 dark:text-amber-200">
+                            Ready to load
+                          </span>
+                        ) : (
+                          <div className="space-y-0.5 text-muted-foreground">
+                            <p>Not eligible</p>
+                            <p className="text-xs">
+                              {row.publishableRows === 0
+                                ? "0 resolvable rows — resolve aliases / org units first"
+                                : row.catalogueStatus !== "approved"
+                                  ? "awaiting catalogue approval"
+                                  : `${row.publishableRows.toLocaleString()} resolvable rows`}
+                            </p>
+                          </div>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex justify-end">
+                          <Link
+                            href={`/datasets/${row.slug}/ingestion`}
+                            className="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+                          >
+                            <ExternalLink className="size-3.5" />
+                            <span className="sr-only">Open ingestion</span>
+                          </Link>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </DataTableShell>
+          )
         ) : !attentionQuery.data?.items.length ? (
           <EmptyState
             title="No ingestion issues"
@@ -474,6 +660,10 @@ export function PipelineTab() {
                               onClick={() =>
                                 retryMutation.mutate({
                                   datasetId: row.datasetId,
+                                  // A failed run can leave a completed job row
+                                  // holding the file's idempotency key — force
+                                  // so the retry actually re-enqueues.
+                                  force: row.attentionKind === "failed",
                                 })
                               }
                             >
@@ -509,7 +699,7 @@ export function PipelineTab() {
             </Table>
           </DataTableShell>
         )}
-        {!isRunningView &&
+        {isAttentionView &&
         attentionQuery.data &&
         attentionQuery.data.total > attentionQuery.data.items.length ? (
           <p className="mt-3 text-xs text-muted-foreground">
@@ -517,6 +707,15 @@ export function PipelineTab() {
             {attentionQuery.data.total} datasets.
           </p>
         ) : null}
+        {isCompletedView &&
+        completedQuery.data &&
+        completedQuery.data.total > completedQuery.data.items.length ? (
+          <p className="mt-3 text-xs text-muted-foreground">
+            Showing {completedQuery.data.items.length} of{" "}
+            {completedQuery.data.total} datasets.
+          </p>
+        ) : null}
+        </div>
       </Panel>
     </div>
   );

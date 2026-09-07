@@ -32,6 +32,8 @@ export const OPS_TAB_TOOLTIPS = {
 export const PIPELINE_VIEW_TIPS = {
   running:
     "Workbooks currently queued or being parsed. Progress updates as each pipeline stage completes.",
+  completed:
+    "Canonicalization finished on analytics-shaped datasets. Blank templates, line lists and other non-analytics uploads are hidden.",
   needs_attention:
     "Canonicalization failed, stalled, or never started. Retry here — do not use Warehouse until these are cleared.",
 } as const;

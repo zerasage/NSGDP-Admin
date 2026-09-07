@@ -1,5 +1,5 @@
-import { useQuery, useMutation, useQueryClient, type QueryClient } from '@tanstack/react-query';
-import { useEffect } from 'react';
+import { keepPreviousData, useQuery, useMutation, useQueryClient, type QueryClient } from '@tanstack/react-query';
+import { useEffect, useRef } from 'react';
 import { toast } from 'sonner';
 import * as api from '../api/ingestion-review';
 import { isLiveAnalyticsStatus } from '../utils/analytics-publish-ui';
@@ -9,6 +9,7 @@ const REPORT_KEY = 'ingestion-report';
 export const ANALYTICS_PUBLISH_STATUS_KEY = 'analytics-publish-status';
 export const ANALYTICS_WAREHOUSE_KEY = 'analytics-warehouse';
 export const PIPELINE_ATTENTION_KEY = 'pipeline-attention';
+export const PIPELINE_COMPLETED_KEY = 'pipeline-completed';
 const COVERAGE_KEY = 'ingestion-coverage';
 const RELATED_KEY = 'ingestion-related-datasets';
 export const INGESTION_PROGRESS_KEY = 'ingestion-progress';
@@ -36,7 +37,9 @@ export function invalidateDatasetWorkspace(
   });
   queryClient.invalidateQueries({ queryKey: [REPORT_KEY] });
   queryClient.invalidateQueries({ queryKey: [REVIEW_QUEUE_KEY] });
+  queryClient.invalidateQueries({ queryKey: [COVERAGE_KEY] });
   queryClient.invalidateQueries({ queryKey: [PIPELINE_ATTENTION_KEY] });
+  queryClient.invalidateQueries({ queryKey: [PIPELINE_COMPLETED_KEY] });
   queryClient.invalidateQueries({ queryKey: [IN_FLIGHT_JOBS_KEY] });
   queryClient.invalidateQueries({ queryKey: ['admin', 'datasets'] });
 }
@@ -52,6 +55,8 @@ export function useReviewQueue(
     limit?: number;
     enabled?: boolean;
     mode?: api.ReviewQueueMode;
+    /** Poll every few seconds (e.g. while ingestion is running). */
+    activePoll?: boolean;
   }
 ) {
   const global = options?.global === true;
@@ -62,14 +67,21 @@ export function useReviewQueue(
       api.getReviewQueue(global ? undefined : datasetId, options?.limit, mode),
     enabled:
       options?.enabled !== false && (global || !!datasetId),
+    staleTime: 0,
+    refetchInterval: options?.activePoll ? 4000 : false,
   });
 }
 
-export function useIngestionReport(datasetId: string | undefined) {
+export function useIngestionReport(
+  datasetId: string | undefined,
+  options?: { activePoll?: boolean },
+) {
   return useQuery({
     queryKey: [REPORT_KEY, datasetId],
     queryFn: () => api.getIngestionReport(datasetId!),
     enabled: !!datasetId,
+    staleTime: 0,
+    refetchInterval: options?.activePoll ? 4000 : false,
   });
 }
 
@@ -91,6 +103,11 @@ export function useAnalyticsWarehouse(
     queryKey: [ANALYTICS_WAREHOUSE_KEY, filter],
     queryFn: () => api.listAnalyticsWarehouse({ filter, limit: 200 }),
     enabled: options?.enabled !== false,
+    staleTime: 0,
+    refetchOnWindowFocus: true,
+    // Hold the previous filter's rows/summary while the new filter loads so the
+    // panel doesn't flash a skeleton / collapse when switching tabs.
+    placeholderData: keepPreviousData,
     refetchInterval: (query) => {
       const data = query.state.data;
       if ((data?.summary.loading ?? 0) > 0) return 3000;
@@ -111,13 +128,35 @@ export function useAnalyticsWarehouse(
 
 export function usePipelineAttention(
   filter: api.PipelineAttentionFilter = 'all',
-  options?: { enabled?: boolean },
+  options?: { enabled?: boolean; activePoll?: boolean },
 ) {
   return useQuery({
     queryKey: [PIPELINE_ATTENTION_KEY, filter],
     queryFn: () => api.listPipelineAttention({ filter, limit: 200 }),
     enabled: options?.enabled !== false,
-    refetchInterval: 15_000,
+    // Ops board: always fresh on mount / focus, and poll faster while any
+    // ingestion job is in flight (rows move here the moment one fails).
+    staleTime: 0,
+    refetchOnWindowFocus: true,
+    refetchInterval: options?.activePoll ? 5_000 : 20_000,
+    // Keep the previous filter's rows/summary on screen while the new filter
+    // loads — no skeleton flash or count-to-zero flicker on sub-filter change.
+    placeholderData: keepPreviousData,
+  });
+}
+
+export function usePipelineCompleted(options?: {
+  enabled?: boolean;
+  activePoll?: boolean;
+}) {
+  return useQuery({
+    queryKey: [PIPELINE_COMPLETED_KEY],
+    queryFn: () => api.listPipelineCompleted({ limit: 200 }),
+    enabled: options?.enabled !== false,
+    staleTime: 0,
+    refetchOnWindowFocus: true,
+    refetchInterval: options?.activePoll ? 5_000 : 25_000,
+    placeholderData: keepPreviousData,
   });
 }
 
@@ -134,23 +173,37 @@ export function useIngestionProgress(
       return api.getIngestionProgress(datasetId);
     },
     enabled: !!datasetId,
+    staleTime: 0,
+    refetchOnWindowFocus: true,
+    // 1.5s while a run is active; otherwise a slow baseline so a run started
+    // from another page / by another admin is still noticed within ~10s.
     refetchInterval: (q) => {
       if (!pollWhileActive) return false;
-      return isActiveProgressStatus(q.state.data?.status) ? 1500 : false;
+      return isActiveProgressStatus(q.state.data?.status) ? 1500 : 10_000;
     },
   });
 
+  const prevStatusRef = useRef<string | undefined>(undefined);
   useEffect(() => {
     const status = query.data?.status;
+    const prev = prevStatusRef.current;
+    prevStatusRef.current = status;
+    // Only react to a real transition into a terminal state — not every poll.
     if (
-      status === 'failed' ||
-      status === 'cancelled' ||
-      status === 'completed'
+      status !== prev &&
+      (status === 'failed' || status === 'cancelled' || status === 'completed')
     ) {
       queryClient.invalidateQueries({ queryKey: ['dataset'] });
       queryClient.invalidateQueries({
         queryKey: [ANALYTICS_PUBLISH_STATUS_KEY, datasetId],
       });
+      queryClient.invalidateQueries({ queryKey: [REPORT_KEY] });
+      queryClient.invalidateQueries({ queryKey: [REVIEW_QUEUE_KEY] });
+      queryClient.invalidateQueries({ queryKey: [COVERAGE_KEY] });
+      queryClient.invalidateQueries({ queryKey: [ANALYTICS_WAREHOUSE_KEY] });
+      queryClient.invalidateQueries({ queryKey: [PIPELINE_COMPLETED_KEY] });
+      queryClient.invalidateQueries({ queryKey: [PIPELINE_ATTENTION_KEY] });
+      queryClient.invalidateQueries({ queryKey: [IN_FLIGHT_JOBS_KEY] });
     }
   }, [query.data?.status, datasetId, queryClient]);
 
@@ -158,13 +211,43 @@ export function useIngestionProgress(
 }
 
 export function useInFlightIngestionJobs(options?: { enabled?: boolean }) {
-  return useQuery({
+  const queryClient = useQueryClient();
+  const prevIdsRef = useRef<Set<string>>(new Set());
+
+  const query = useQuery({
     queryKey: [IN_FLIGHT_JOBS_KEY],
     queryFn: () => api.listInFlightIngestionJobs(50),
     enabled: options?.enabled !== false,
+    staleTime: 0,
+    refetchOnWindowFocus: true,
+    // 2s while jobs are running, 4s when idle so a freshly-enqueued or
+    // retried job shows up promptly.
     refetchInterval: (query) =>
-      (query.state.data?.length ?? 0) > 0 ? 2000 : 10_000,
+      (query.state.data?.length ?? 0) > 0 ? 2000 : 4000,
   });
+
+  // When a job drops out of the in-flight list it has finished or failed —
+  // push the Completed / Needs-attention / Warehouse views to refresh now
+  // instead of waiting for their own interval.
+  useEffect(() => {
+    const ids = new Set((query.data ?? []).map((job) => job.jobId));
+    const prev = prevIdsRef.current;
+    let left = false;
+    for (const id of prev) {
+      if (!ids.has(id)) {
+        left = true;
+        break;
+      }
+    }
+    prevIdsRef.current = ids;
+    if (left) {
+      queryClient.invalidateQueries({ queryKey: [PIPELINE_COMPLETED_KEY] });
+      queryClient.invalidateQueries({ queryKey: [PIPELINE_ATTENTION_KEY] });
+      queryClient.invalidateQueries({ queryKey: [ANALYTICS_WAREHOUSE_KEY] });
+    }
+  }, [query.data, queryClient]);
+
+  return query;
 }
 
 export function useCoverageRegister(datasetId: string) {
@@ -298,6 +381,20 @@ export function useRunDatasetIngestion(datasetId?: string) {
     },
     onSuccess: () => {
       invalidateDatasetWorkspace(queryClient, { datasetId });
+      // The worker takes a beat to claim the job and flip the status — nudge
+      // the progress / in-flight views so the run is tracked without waiting
+      // for a poll.
+      for (const ms of [1500, 4000]) {
+        window.setTimeout(() => {
+          queryClient.invalidateQueries({
+            queryKey: datasetId
+              ? [INGESTION_PROGRESS_KEY, datasetId]
+              : [INGESTION_PROGRESS_KEY],
+          });
+          queryClient.invalidateQueries({ queryKey: [IN_FLIGHT_JOBS_KEY] });
+          queryClient.invalidateQueries({ queryKey: ['dataset'] });
+        }, ms);
+      }
     },
   });
 }

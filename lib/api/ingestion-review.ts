@@ -461,6 +461,45 @@ export async function listPipelineAttention(params?: {
   return response.data.data;
 }
 
+export interface PipelineCompletedRow {
+  datasetId: string;
+  slug: string;
+  title: string;
+  catalogueStatus: string;
+  ingestionStatus: string;
+  organisationId: string | null;
+  organisationName: string | null;
+  organisationAcronym: string | null;
+  lastJobStatus: string | null;
+  lastJobStage: string | null;
+  lastJobAt: string | null;
+  analyticsPublishedAt: string | null;
+  fitnessVerdict: string | null;
+  publishableRows: number;
+  warehouseEligible: boolean;
+}
+
+export interface PipelineCompletedResult {
+  items: PipelineCompletedRow[];
+  total: number;
+  summary: {
+    readyForReview: number;
+    published: number;
+    retracted: number;
+  };
+}
+
+export async function listPipelineCompleted(params?: {
+  limit?: number;
+  offset?: number;
+}): Promise<PipelineCompletedResult> {
+  const response = await apiClient.get<ApiResponse<PipelineCompletedResult>>(
+    '/admin/governance/ingestion/pipeline-completed',
+    { params },
+  );
+  return response.data.data;
+}
+
 // Lists every status (pending/confirmed/rejected), scoped to one dataset,
 // with both dataset titles already joined in for display.
 export async function listRelations(params?: {

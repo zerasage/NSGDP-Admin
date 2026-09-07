@@ -91,6 +91,8 @@ export default function DatasetIngestionPage({
   const { data: dataset, isLoading, error } = useQuery({
     queryKey: ["dataset", slug],
     enabled: canView,
+    staleTime: 0,
+    refetchOnWindowFocus: true,
     queryFn: async () => {
       const response = await apiClient.get<{ data: Dataset }>(`/admin/datasets/${slug}`);
       return response.data.data;
@@ -115,18 +117,26 @@ export default function DatasetIngestionPage({
           return 3000;
         }
       }
-      return false;
+      // Slow baseline so a run started from another page / by another admin
+      // is picked up without a manual refresh.
+      return 12_000;
     },
   });
 
-  const { data: aliases } = useReviewQueue(
-    canView && dataset ? dataset.id : undefined
-  );
   const { data: progress } = useIngestionProgress(
     canView && dataset ? dataset.id : undefined
   );
+  // Keep the alias queue and report streaming while a run is active.
+  const ingestionActive =
+    isIngestionInFlight(dataset?.ingestion_status) ||
+    isProgressPipelineActive(progress);
+  const { data: aliases } = useReviewQueue(
+    canView && dataset ? dataset.id : undefined,
+    { activePoll: ingestionActive },
+  );
   const { data: ingestionReport } = useIngestionReport(
-    canView && dataset ? dataset.id : undefined
+    canView && dataset ? dataset.id : undefined,
+    { activePoll: ingestionActive },
   );
   const pendingAliases = aliases?.length ?? 0;
   const runMutation = useRunDatasetIngestion(dataset?.id);
@@ -214,7 +224,7 @@ export default function DatasetIngestionPage({
   if (error || !dataset) {
     return (
       <div className="space-y-6">
-        <Button variant="ghost" size="sm" onClick={() => router.push(`/datasets/${slug}`)}>
+        <Button variant="ghost" size="sm" onClick={() => router.back()}>
           <ArrowLeft className="size-4" />
           Back to dataset
         </Button>
@@ -237,7 +247,7 @@ export default function DatasetIngestionPage({
           variant="ghost"
           size="sm"
           className="-ml-3 gap-1.5"
-          onClick={() => router.push(`/datasets/${slug}`)}
+          onClick={() => router.back()}
         >
           <ArrowLeft className="size-4" aria-hidden />
           {dataset.title}
@@ -291,7 +301,7 @@ export default function DatasetIngestionPage({
           variant="ghost"
           size="sm"
           className="mb-3 -ml-3 gap-1.5"
-          onClick={() => router.push(`/datasets/${slug}`)}
+          onClick={() => router.back()}
         >
           <ArrowLeft className="size-4" aria-hidden />
           {dataset.title}

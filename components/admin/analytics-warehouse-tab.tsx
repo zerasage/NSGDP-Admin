@@ -175,44 +175,45 @@ export function AnalyticsWarehouseTab() {
 
   return (
     <div className="space-y-4">
-      {warehouseSummary ? (
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <MetricCard
-            label="In warehouse"
-            value={warehouseSummary.inWarehouse}
-            tip={WAREHOUSE_METRIC_TIPS.in_warehouse}
-            icon={Database}
-            tone="success"
-          />
-          <MetricCard
-            label="Ready to load"
-            value={warehouseSummary.readyToLoad}
-            tip={WAREHOUSE_METRIC_TIPS.ready_to_load}
-            icon={Activity}
-            tone="warning"
-          />
-          <MetricCard
-            label="Loading now"
-            value={warehouseSummary.loading}
-            tip={WAREHOUSE_METRIC_TIPS.loading_now}
-            icon={Loader2}
-            tone="info"
-          />
-          <MetricCard
-            label="Failed loads"
-            value={warehouseSummary.failed}
-            tip={WAREHOUSE_METRIC_TIPS.failed_loads}
-            icon={Activity}
-            tone="destructive"
-          />
-        </div>
-      ) : isLoading ? (
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          {Array.from({ length: 4 }).map((_, i) => (
+      {/* Fixed one-row height so the panel below doesn't jump between filters. */}
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        {isLoading || !warehouseSummary ? (
+          Array.from({ length: 4 }).map((_, i) => (
             <Skeleton key={i} className="h-20 rounded-2xl" />
-          ))}
-        </div>
-      ) : null}
+          ))
+        ) : (
+          <>
+            <MetricCard
+              label="In warehouse"
+              value={warehouseSummary.inWarehouse}
+              tip={WAREHOUSE_METRIC_TIPS.in_warehouse}
+              icon={Database}
+              tone="success"
+            />
+            <MetricCard
+              label="Ready to load"
+              value={warehouseSummary.readyToLoad}
+              tip={WAREHOUSE_METRIC_TIPS.ready_to_load}
+              icon={Activity}
+              tone="warning"
+            />
+            <MetricCard
+              label="Loading now"
+              value={warehouseSummary.loading}
+              tip={WAREHOUSE_METRIC_TIPS.loading_now}
+              icon={Loader2}
+              tone="info"
+            />
+            <MetricCard
+              label="Failed loads"
+              value={warehouseSummary.failed}
+              tip={WAREHOUSE_METRIC_TIPS.failed_loads}
+              icon={Activity}
+              tone="destructive"
+            />
+          </>
+        )}
+      </div>
 
       <Panel
         title="Analytics warehouse"
@@ -238,6 +239,12 @@ export function AnalyticsWarehouseTab() {
           </div>
         }
       >
+        <div
+          className={cn(
+            "min-h-64 transition-opacity",
+            warehouseQuery.isFetching && !isLoading && "opacity-60",
+          )}
+        >
         {isLoading ? (
           <Skeleton className="h-64 rounded-xl" />
         ) : !warehouseQuery.data?.items.length ? (
@@ -398,6 +405,7 @@ export function AnalyticsWarehouseTab() {
             Showing {data.items.length} of {data.total} datasets.
           </p>
         ) : null}
+        </div>
       </Panel>
 
       <ConfirmDialog

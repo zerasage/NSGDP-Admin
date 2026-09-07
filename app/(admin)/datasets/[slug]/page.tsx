@@ -178,14 +178,16 @@ export default function DatasetDetailPage({
   const { data: dataset, isLoading, error } = useQuery({
     queryKey: ['dataset', slug],
     enabled: canView,
+    staleTime: 0,
+    refetchOnWindowFocus: true,
     queryFn: async () => {
       const response = await apiClient.get<{ data: Dataset }>(`/admin/datasets/${slug}`);
       return response.data.data;
     },
-    // Publish/retract run async on the worker — keep this on a short poll
-    // while either is in flight so the status/tabs update without a manual
-    // refresh, same reasoning as the ingestion progress stream on the
-    // upload side.
+    // Publish/retract/ingestion run async on the worker — keep this on a short
+    // poll while anything is in flight so the status/tabs update without a
+    // manual refresh, and a slow baseline otherwise so a run started elsewhere
+    // is still picked up.
     refetchInterval: (query) => {
       const status = query.state.data?.ingestion_status;
       if (isIngestionInFlight(status)) return 1500;
@@ -201,7 +203,7 @@ export default function DatasetDetailPage({
         );
         if (isLiveAnalyticsStatus(analyticsStatus ?? undefined)) return 1500;
       }
-      return false;
+      return 15_000;
     },
   });
 
@@ -211,14 +213,19 @@ export default function DatasetDetailPage({
 
   const { data: versionHistory } = useDatasetVersions(slug);
   const { data: files } = useDatasetFiles(slug);
+  const ingestionActive =
+    isIngestionInFlight(dataset?.ingestion_status) ||
+    isProgressPipelineActive(ingestionProgress);
   const { data: aliasQueue } = useReviewQueue(
     canView && dataset && (hasIngestionActivity(dataset.ingestion_status) || needsIngestionCatchUp(dataset.ingestion_status))
       ? dataset.id
-      : undefined
+      : undefined,
+    { activePoll: ingestionActive }
   );
   const pendingAliases = aliasQueue?.length ?? 0;
   const { data: ingestionReport } = useIngestionReport(
-    canView && dataset ? dataset.id : undefined
+    canView && dataset ? dataset.id : undefined,
+    { activePoll: ingestionActive }
   );
   const isTabularDataset =
     dataset?.format === "csv" || dataset?.format === "excel";
