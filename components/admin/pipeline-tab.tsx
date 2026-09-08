@@ -6,6 +6,7 @@ import {
   Activity,
   CheckCircle2,
   ExternalLink,
+  FileText,
   GitBranch,
   Loader2,
   RotateCcw,
@@ -533,19 +534,30 @@ export function PipelineTab() {
                           </span>
                         ) : (
                           <div className="space-y-0.5 text-muted-foreground">
-                            <p>Not eligible</p>
+                            <p>Not ready</p>
                             <p className="text-xs">
-                              {row.publishableRows === 0
-                                ? "0 resolvable rows — resolve aliases / org units first"
-                                : row.catalogueStatus !== "approved"
-                                  ? "awaiting catalogue approval"
-                                  : `${row.publishableRows.toLocaleString()} resolvable rows`}
+                              {row.pendingAliases > 0
+                                ? `${row.pendingAliases.toLocaleString()} alias decision${row.pendingAliases === 1 ? "" : "s"} pending`
+                                : row.fitnessVerdict === "rejected_unusable"
+                                  ? "not an analytics grid"
+                                  : row.catalogueStatus !== "approved"
+                                    ? "awaiting catalogue approval"
+                                    : row.publishableRows === 0
+                                      ? "0 resolvable rows — resolve aliases / org units first"
+                                      : `${row.publishableRows.toLocaleString()} resolvable rows`}
                             </p>
                           </div>
                         )}
                       </TableCell>
                       <TableCell>
-                        <div className="flex justify-end">
+                        <div className="flex justify-end gap-1">
+                          <Link
+                            href={`/datasets/${row.slug}`}
+                            className="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+                          >
+                            <FileText className="size-3.5" />
+                            <span className="sr-only">Open dataset page</span>
+                          </Link>
                           <Link
                             href={`/datasets/${row.slug}/ingestion`}
                             className="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"

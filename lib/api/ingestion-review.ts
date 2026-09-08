@@ -154,6 +154,15 @@ export async function acceptAutoMatchedAliases(
   return response.data.data;
 }
 
+export async function rejectIndicatorAliases(
+  aliasIds: string[],
+): Promise<{ rejected: number; excluded: number; skipped: number }> {
+  const response = await apiClient.post<
+    ApiResponse<{ rejected: number; excluded: number; skipped: number }>
+  >('/admin/governance/ingestion/aliases/reject', { aliasIds });
+  return response.data.data;
+}
+
 export async function getIngestionReport(datasetId: string): Promise<IngestionReport> {
   const response = await apiClient.get<ApiResponse<IngestionReport>>(
     `/admin/governance/ingestion/datasets/${datasetId}/report`
@@ -476,6 +485,7 @@ export interface PipelineCompletedRow {
   analyticsPublishedAt: string | null;
   fitnessVerdict: string | null;
   publishableRows: number;
+  pendingAliases: number;
   warehouseEligible: boolean;
 }
 

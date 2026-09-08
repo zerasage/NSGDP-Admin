@@ -326,6 +326,46 @@ export function useRejectIndicatorAlias(datasetId?: string) {
   });
 }
 
+export function useRejectIndicatorAliases(datasetId?: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationKey: ['reject-indicator-aliases', datasetId ?? 'global'],
+    mutationFn: (aliasIds: string[]) => api.rejectIndicatorAliases(aliasIds),
+    onMutate: (aliasIds) => {
+      const n = aliasIds.length;
+      return {
+        toastId: toast.loading(
+          `Marking ${n.toLocaleString()} label${n === 1 ? "" : "s"} as not an indicator…`,
+        ),
+      };
+    },
+    onSuccess: (result, _aliasIds, context) => {
+      toast.success(
+        `${result.rejected.toLocaleString()} label${
+          result.rejected === 1 ? "" : "s"
+        } excluded` +
+          (result.skipped
+            ? ` — ${result.skipped.toLocaleString()} skipped`
+            : ""),
+        { id: context?.toastId },
+      );
+      queryClient.invalidateQueries({ queryKey: [REVIEW_QUEUE_KEY] });
+      queryClient.invalidateQueries({ queryKey: [REPORT_KEY, datasetId] });
+      queryClient.invalidateQueries({ queryKey: ['dataset'] });
+      queryClient.invalidateQueries({ queryKey: ['ingestion-observability'] });
+      queryClient.invalidateQueries({ queryKey: [ANALYTICS_PUBLISH_STATUS_KEY] });
+    },
+    onError: (error: unknown, _aliasIds, context) => {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Failed to mark selected labels as not an indicator",
+        { id: context?.toastId },
+      );
+    },
+  });
+}
+
 export function useAcceptAutoMatchedAliases(datasetId?: string) {
   const queryClient = useQueryClient();
   return useMutation({

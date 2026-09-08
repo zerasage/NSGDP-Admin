@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { CheckCircle2, Link2, Loader2, MapPin, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -19,6 +19,7 @@ import {
   useReviewQueue,
   useConfirmIndicatorAlias,
   useRejectIndicatorAlias,
+  useRejectIndicatorAliases,
   useAcceptAutoMatchedAliases,
 } from "@/lib/hooks/useIngestionReview";
 import type {
@@ -59,11 +60,13 @@ export function DataReviewQueueTab({
   });
   const confirmMutation = useConfirmIndicatorAlias(datasetId);
   const rejectMutation = useRejectIndicatorAlias(datasetId);
+  const rejectManyMutation = useRejectIndicatorAliases(datasetId);
   const acceptAutoMutation = useAcceptAutoMatchedAliases(datasetId);
   const [deciding, setDeciding] = useState<ReviewQueueItem | null>(null);
   const [orgunitItem, setOrgunitItem] = useState<ReviewQueueItem | null>(null);
   const [rejectTarget, setRejectTarget] = useState<ReviewQueueItem | null>(null);
   const [acceptSelectedOpen, setAcceptSelectedOpen] = useState(false);
+  const [rejectSelectedOpen, setRejectSelectedOpen] = useState(false);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [kindFilter, setKindFilter] = useState<MeasureKind | "all">("all");
 
@@ -75,25 +78,26 @@ export function DataReviewQueueTab({
       return detectMeasureKind(item.rawText).kind === kindFilter;
     });
   }, [items, kindFilter]);
-  const selectableAutoIds = useMemo(
+  // Auto mode: tick to Accept (needs a matched indicator). Pending mode: tick
+  // to bulk "not an indicator" (any indicator row qualifies).
+  const selectableIds = useMemo(
     () =>
-      queueMode === "auto"
-        ? filteredItems
-            .filter((item) => item.kind === "indicator" && item.indicatorId)
-            .map((item) => item.id)
-        : [],
+      filteredItems
+        .filter(
+          (item) =>
+            item.kind === "indicator" &&
+            (queueMode === "auto" ? Boolean(item.indicatorId) : true),
+        )
+        .map((item) => item.id),
     [queueMode, filteredItems],
   );
 
-  useEffect(() => {
-    if (queueMode !== "auto") {
-      setSelectedIds([]);
-      return;
-    }
-    setSelectedIds((current) =>
-      current.filter((id) => selectableAutoIds.includes(id)),
-    );
-  }, [queueMode, selectableAutoIds]);
+  // Ticks that no longer point at a selectable row (sub-filter changed, items
+  // refetched) are ignored rather than synced away in an effect.
+  const activeSelectedIds = useMemo(
+    () => selectedIds.filter((id) => selectableIds.includes(id)),
+    [selectedIds, selectableIds],
+  );
 
   const handleConfirm = (indicatorId: string) => {
     if (!deciding) return;
@@ -137,20 +141,43 @@ export function DataReviewQueueTab({
   const acceptingCount = acceptAutoMutation.variables?.length ?? 0;
 
   const handleAcceptSelectedAuto = () => {
-    if (selectedIds.length === 0 || accepting) return;
-    const ids = [...selectedIds];
+    if (activeSelectedIds.length === 0 || accepting) return;
+    const ids = [...activeSelectedIds];
     setAcceptSelectedOpen(false);
     acceptAutoMutation.mutate(ids, {
       onSuccess: () => setSelectedIds([]),
     });
   };
 
+  const handleAcceptOne = (id: string) => {
+    if (accepting) return;
+    acceptAutoMutation.mutate([id], {
+      onSuccess: () =>
+        setSelectedIds((current) => current.filter((item) => item !== id)),
+    });
+  };
+
+  const rejectingMany = rejectManyMutation.isPending;
+  const rejectingManyCount = rejectManyMutation.variables?.length ?? 0;
+  // A bulk accept/exclude in flight locks the whole list until it settles.
+  const listLocked = (accepting && queueMode === "auto") || rejectingMany;
+
+  const handleRejectSelected = () => {
+    if (activeSelectedIds.length === 0 || rejectingMany) return;
+    const ids = [...activeSelectedIds];
+    setRejectSelectedOpen(false);
+    rejectManyMutation.mutate(ids, {
+      onSuccess: () => setSelectedIds([]),
+    });
+  };
+
   const allSelectableChecked =
-    selectableAutoIds.length > 0 &&
-    selectableAutoIds.every((id) => selectedIds.includes(id));
+    selectableIds.length > 0 &&
+    selectableIds.every((id) => selectedIds.includes(id));
+  const selectedCount = activeSelectedIds.length;
 
   const toggleSelectAll = (checked: boolean) => {
-    setSelectedIds(checked ? selectableAutoIds : []);
+    setSelectedIds(checked ? selectableIds : []);
   };
 
   const toggleSelected = (id: string, checked: boolean) => {
@@ -205,7 +232,10 @@ export function DataReviewQueueTab({
           size="sm"
           variant={queueMode === "pending" ? "default" : "outline"}
           className="h-8"
-          onClick={() => setQueueMode("pending")}
+          onClick={() => {
+            setQueueMode("pending");
+            setSelectedIds([]);
+          }}
         >
           Pending ({pendingCount})
         </Button>
@@ -214,44 +244,73 @@ export function DataReviewQueueTab({
           size="sm"
           variant={queueMode === "auto" ? "default" : "outline"}
           className="h-8"
-          onClick={() => setQueueMode("auto")}
+          onClick={() => {
+            setQueueMode("auto");
+            setSelectedIds([]);
+          }}
         >
           Auto-matched ({autoCount})
         </Button>
-        {queueMode === "auto" && selectableAutoIds.length > 0 ? (
+        {selectableIds.length > 0 ? (
           <>
             <label className="flex h-8 items-center gap-2 rounded-md border border-input px-2.5 text-sm">
               <Checkbox
                 checked={allSelectableChecked}
-                disabled={accepting}
+                disabled={accepting || rejectingMany}
                 onCheckedChange={(checked) => toggleSelectAll(checked === true)}
-                aria-label="Mark all auto-matched in this view to accept"
+                aria-label={
+                  queueMode === "auto"
+                    ? "Mark all auto-matched in this view to accept"
+                    : "Mark all indicator rows in this view to exclude"
+                }
               />
               Mark all
             </label>
-            <Button
-              type="button"
-              size="sm"
-              className="h-8"
-              disabled={selectedIds.length === 0 || accepting}
-              onClick={() => setAcceptSelectedOpen(true)}
-            >
-              {accepting ? (
-                <Loader2 className="size-4 animate-spin" aria-hidden />
-              ) : (
-                <CheckCircle2 className="size-4" />
-              )}
-              {accepting
-                ? "Accepting…"
-                : `Accept selected${
-                    selectedIds.length > 0 ? ` (${selectedIds.length})` : ""
-                  }`}
-            </Button>
+            {queueMode === "auto" ? (
+              <Button
+                type="button"
+                size="sm"
+                className="h-8"
+                disabled={selectedCount === 0 || accepting}
+                onClick={() => setAcceptSelectedOpen(true)}
+              >
+                {accepting ? (
+                  <Loader2 className="size-4 animate-spin" aria-hidden />
+                ) : (
+                  <CheckCircle2 className="size-4" />
+                )}
+                {accepting
+                  ? "Accepting…"
+                  : `Accept selected${
+                      selectedCount > 0 ? ` (${selectedCount})` : ""
+                    }`}
+              </Button>
+            ) : (
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="h-8 text-muted-foreground hover:text-destructive"
+                disabled={selectedCount === 0 || rejectingMany}
+                onClick={() => setRejectSelectedOpen(true)}
+              >
+                {rejectingMany ? (
+                  <Loader2 className="size-4 animate-spin" aria-hidden />
+                ) : (
+                  <XCircle className="size-4" />
+                )}
+                {rejectingMany
+                  ? "Excluding…"
+                  : `Not an indicator${
+                      selectedCount > 0 ? ` (${selectedCount})` : ""
+                    }`}
+              </Button>
+            )}
           </>
         ) : null}
       </div>
 
-      {accepting ? (
+      {listLocked ? (
         <div
           className="flex items-center gap-2 rounded-lg border border-info/30 bg-info/6 px-3 py-2 text-sm"
           role="status"
@@ -259,9 +318,15 @@ export function DataReviewQueueTab({
         >
           <Loader2 className="size-4 shrink-0 animate-spin text-info" aria-hidden />
           <span>
-            Accepting {acceptingCount.toLocaleString()} auto-matched alias
-            {acceptingCount === 1 ? "" : "es"}. You can switch tabs or keep
-            working — this list stays locked until it finishes.
+            {rejectingMany
+              ? `Excluding ${rejectingManyCount.toLocaleString()} label${
+                  rejectingManyCount === 1 ? "" : "s"
+                }`
+              : `Accepting ${acceptingCount.toLocaleString()} auto-matched alias${
+                  acceptingCount === 1 ? "" : "es"
+                }`}
+            . You can switch tabs or keep working — this list stays locked
+            until it finishes.
           </span>
         </div>
       ) : null}
@@ -298,7 +363,7 @@ export function DataReviewQueueTab({
           }
           description={
             queueMode === "auto"
-              ? "Mark the matches you want to keep, then Accept selected. Remap or Not an indicator are separate — they do not use the ticks."
+              ? "Accept a match one row at a time, or tick several and use Accept selected. Remap or Not an indicator are for matches the auto-matcher got wrong."
               : global
                 ? "Confirm maps a string to a registry indicator, or create one. Mark as not an indicator for headers and layout labels. Location spellings from GIS layers are resolved in GIS Reference — only dataset orgunit aliases appear here."
                 : "Resolve indicator strings for this dataset, or exclude labels that are not programme metrics. Location strings that appear in this workbook can be confirmed here."
@@ -314,7 +379,7 @@ export function DataReviewQueueTab({
                 size="sm"
                 variant={kindFilter === filter.value ? "default" : "outline"}
                 className="h-8"
-                disabled={accepting && queueMode === "auto"}
+                disabled={listLocked}
                 onClick={() => setKindFilter(filter.value)}
               >
                 {filter.label}
@@ -325,10 +390,10 @@ export function DataReviewQueueTab({
           <div
             className={cn(
               "relative space-y-3",
-              accepting && queueMode === "auto" && "pointer-events-none opacity-60",
+              listLocked && "pointer-events-none opacity-60",
             )}
-            aria-busy={accepting && queueMode === "auto"}
-            aria-disabled={accepting && queueMode === "auto"}
+            aria-busy={listLocked}
+            aria-disabled={listLocked}
           >
             {filteredItems.length === 0 ? (
               <p className="rounded-xl border border-dashed px-4 py-8 text-center text-sm text-muted-foreground">
@@ -352,15 +417,23 @@ export function DataReviewQueueTab({
                           : "border-info/25 bg-info/[0.04]",
                     )}
                   >
-                    {queueMode === "auto" && item.kind === "indicator" ? (
+                    {item.kind === "indicator" ? (
                       <Checkbox
                         className="mt-1"
                         checked={selectedIds.includes(item.id)}
-                        disabled={!item.indicatorId || accepting}
+                        disabled={
+                          (queueMode === "auto" && !item.indicatorId) ||
+                          accepting ||
+                          rejectingMany
+                        }
                         onCheckedChange={(checked) =>
                           toggleSelected(item.id, checked === true)
                         }
-                        aria-label={`Mark ${item.rawText} to accept`}
+                        aria-label={
+                          queueMode === "auto"
+                            ? `Mark ${item.rawText} to accept`
+                            : `Mark ${item.rawText} to exclude`
+                        }
                       />
                     ) : null}
                     <div className="min-w-0 flex-1">
@@ -424,14 +497,24 @@ export function DataReviewQueueTab({
                     {item.kind === "indicator" ? (
                       <div className="flex shrink-0 items-center gap-2">
                         {queueMode === "auto" ? (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            disabled={accepting}
-                            onClick={() => setDeciding(item)}
-                          >
-                            Remap
-                          </Button>
+                          <>
+                            <Button
+                              size="sm"
+                              disabled={listLocked || !item.indicatorId}
+                              onClick={() => handleAcceptOne(item.id)}
+                            >
+                              <CheckCircle2 className="size-4" />
+                              Accept
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              disabled={listLocked}
+                              onClick={() => setDeciding(item)}
+                            >
+                              Remap
+                            </Button>
+                          </>
                         ) : (
                           <Button size="sm" onClick={() => setDeciding(item)}>
                             <CheckCircle2 className="size-4" />
@@ -443,7 +526,7 @@ export function DataReviewQueueTab({
                           variant="outline"
                           className="text-muted-foreground hover:text-destructive"
                           onClick={() => setRejectTarget(item)}
-                          disabled={rejectMutation.isPending || accepting}
+                          disabled={rejectMutation.isPending || listLocked}
                         >
                           <XCircle className="size-4" />
                           Not an indicator
@@ -505,14 +588,31 @@ export function DataReviewQueueTab({
         onOpenChange={setAcceptSelectedOpen}
         title="Accept selected auto-matches?"
         description={
-          selectedIds.length === 0
+          selectedCount === 0
             ? ""
-            : `This stamps ${selectedIds.length.toLocaleString()} marked alias${
-                selectedIds.length === 1 ? "" : "es"
+            : `This stamps ${selectedCount.toLocaleString()} marked alias${
+                selectedCount === 1 ? "" : "es"
               } as accepted, keeping the engine mapping. Pending aliases are not changed.`
         }
         confirmLabel="Accept selected"
         onConfirm={handleAcceptSelectedAuto}
+      />
+
+      <ConfirmDialog
+        open={rejectSelectedOpen}
+        onOpenChange={setRejectSelectedOpen}
+        title="Mark selected as not an indicator?"
+        description={
+          selectedCount === 0
+            ? ""
+            : `${selectedCount.toLocaleString()} marked label${
+                selectedCount === 1 ? "" : "s"
+              } will be excluded from analytics and removed from this queue. Use Remap on a row instead if a label should map to a different indicator.`
+        }
+        confirmLabel="Not an indicator"
+        variant="destructive"
+        loading={rejectingMany}
+        onConfirm={handleRejectSelected}
       />
     </div>
   );
