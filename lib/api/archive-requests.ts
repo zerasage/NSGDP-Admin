@@ -26,7 +26,7 @@ export interface DatasetArchiveRequest {
     title: string;
     slug: string;
     status: string;
-    organisation_id: string;
+    development_partner_id: string;
     published_at: string | null;
   } | null;
   requester?: {

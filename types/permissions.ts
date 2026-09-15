@@ -8,9 +8,9 @@ export type PermissionAction =
   | "approve:datasets"       // Advance dataset to Approved after QA checklist
   | "publish:datasets"       // Move approved dataset to Published
   | "invite:users"           // Invite new users (org-scoped)
-  | "promote:org-admin"      // Promote a user to admin within their own organisation
+  | "promote:org-admin"      // Promote a user to admin within their own development partner
   | "demote:org-admin"       // Demote an org admin back to contributor
-  | "remove:org-members"     // Detach a member from their organisation
+  | "remove:org-members"     // Detach a member from their development partner
   | "archive:datasets"       // Move datasets to Archived state
   | "view:restricted"        // View restricted-access datasets
   | "download:restricted"    // Download restricted-access datasets
@@ -24,17 +24,17 @@ export type PermissionAction =
   | "review:partner-interest" // Approve/decline partner interest submissions
   | "view:contact-messages"  // Read-only: see public contact-form inbox
   | "review:contact-messages" // Update contact-form status and staff notes
-  | "create:organisations"   // Register new organisations on the platform
-  | "edit:organisations"     // Update any organisation's profile
-  | "deactivate:organisations" // Enable/disable any organisation
-  | "delete:organisations"   // Soft-delete an organisation and everything it owns
-  | "manage:organisation-agreements" // Upload/replace/download data-sharing agreements
-  | "create:datasets"        // Upload a dataset on behalf of an organisation
+  | "create:development-partners"   // Register new development partners on the platform
+  | "edit:development-partners"     // Update any development partner's profile
+  | "deactivate:development-partners" // Enable/disable any development partner
+  | "delete:development-partners"   // Soft-delete a development partner and everything it owns
+  | "manage:development-partner-agreements" // Upload/replace/download data-sharing agreements
+  | "create:datasets"        // Upload a dataset on behalf of a development partner
   | "manage:documents"       // Create/edit/archive documents (SOPs, policies, reports)
   | "manage:groups"          // Create/edit/delete curated dataset/document groups
   | "manage:analytics"       // Force-refresh the platform analytics dashboard cache
   | "manage:gis-reference-data" // Choose active GIS layer datasets, reconcile ward names
-  | "manage:partner-api-keys" // Generate/revoke a partner organisation's programmatic API key
+  | "manage:partner-api-keys" // Generate/revoke a development partner's programmatic API key
   | "manage:indicators"; // Manage the canonical indicator registry, alias review queue, and AI-assisted resolution admin
 
 export const PROGRAM_PERMISSION_ACTIONS: PermissionAction[] = [
@@ -47,7 +47,7 @@ export const PROGRAM_PERMISSION_ACTIONS: PermissionAction[] = [
 export const POWERFUL_PERMISSION_ACTIONS = new Set<PermissionAction>([
   "promote:org-admin",
   "demote:org-admin",
-  "delete:organisations",
+  "delete:development-partners",
 ]);
 
 export const isPowerfulPermission = (action: PermissionAction) =>
@@ -73,11 +73,11 @@ export const PERMISSION_ACTION_LABELS: Record<PermissionAction, string> = {
   "review:partner-interest": "Review Partner Interest",
   "view:contact-messages": "View Contact Messages",
   "review:contact-messages": "Review Contact Messages",
-  "create:organisations": "Create Organisations",
-  "edit:organisations": "Edit Organisations",
-  "deactivate:organisations": "Deactivate Organisations",
-  "delete:organisations": "Delete Organisations",
-  "manage:organisation-agreements": "Manage Org Agreements",
+  "create:development-partners": "Create Development Partners",
+  "edit:development-partners": "Edit Development Partners",
+  "deactivate:development-partners": "Deactivate Development Partners",
+  "delete:development-partners": "Delete Development Partners",
+  "manage:development-partner-agreements": "Manage Development Partner Agreements",
   "create:datasets": "Upload Dataset for Org",
   "manage:documents": "Manage Documents",
   "manage:groups": "Manage Collections",
@@ -93,13 +93,13 @@ export const PERMISSION_ACTION_DESCRIPTIONS: Record<PermissionAction, string> = 
   "publish:datasets":
     "Can move a director-approved dataset to Published status in the public catalogue.",
   "invite:users":
-    "Can invite new users into their own organisation.",
+    "Can invite new users into their own development partner.",
   "promote:org-admin":
-    "Can promote a user to admin, scoped strictly to that user's own existing organisation — never cross-org, never to super_admin. Powerful: grant only to specific vetted staff, never seed by default.",
+    "Can promote a user to admin, scoped strictly to that user's own existing development partner — never cross-org, never to super_admin. Powerful: grant only to specific vetted staff, never seed by default.",
   "demote:org-admin":
-    "Can demote an org admin back to contributor, scoped to that admin's own organisation. Can't demote the last remaining admin of an org. Powerful: grant only to specific vetted staff, never seed by default.",
+    "Can demote an org admin back to contributor, scoped to that admin's own development partner. Can't demote the last remaining admin of an org. Powerful: grant only to specific vetted staff, never seed by default.",
   "remove:org-members":
-    "Can detach a member from their organisation without deleting their account.",
+    "Can detach a member from their development partner without deleting their account.",
   "archive:datasets":
     "Can mark obsolete datasets as Archived, removing them from the active catalogue.",
   "view:restricted":
@@ -121,23 +121,23 @@ export const PERMISSION_ACTION_DESCRIPTIONS: Record<PermissionAction, string> = 
   "view:partner-interest":
     "Can see the list of partner interest submissions (organisation, contact, message, status) without being able to approve or decline them.",
   "review:partner-interest":
-    "Can approve or decline partner interest submissions. Does not automatically create organisations or send invites — review stays a manual staff intent check.",
+    "Can approve or decline partner interest submissions. Does not automatically create development partners or send invites — review stays a manual staff intent check.",
   "view:contact-messages":
     "Can see messages submitted through the public contact form without changing their status.",
   "review:contact-messages":
     "Can mark contact messages as open or closed and add internal staff notes. Does not send a reply automatically.",
-  "create:organisations":
-    "Can register new organisations on the platform.",
-  "edit:organisations":
-    "Can update the profile of any organisation, not just one they belong to.",
-  "deactivate:organisations":
-    "Can enable or disable any organisation.",
-  "delete:organisations":
-    "Can soft-delete an organisation and everything it owns — members, datasets, and pending invites. Powerful: grant only to specific vetted staff, never seed by default.",
-  "manage:organisation-agreements":
-    "Can upload, replace, and download the signed data-sharing agreement for any organisation.",
+  "create:development-partners":
+    "Can register new development partners on the platform.",
+  "edit:development-partners":
+    "Can update the profile of any development partner, not just one they belong to.",
+  "deactivate:development-partners":
+    "Can enable or disable any development partner.",
+  "delete:development-partners":
+    "Can soft-delete a development partner and everything it owns — members, datasets, and pending invites. Powerful: grant only to specific vetted staff, never seed by default.",
+  "manage:development-partner-agreements":
+    "Can upload, replace, and download the signed data-sharing agreement for any development partner.",
   "create:datasets":
-    "Can upload a dataset on behalf of an organisation they aren't a member of.",
+    "Can upload a dataset on behalf of a development partner they aren't a member of.",
   "manage:documents":
     "Can create, edit, and archive documents (SOPs, policies, guidelines, reports, research) in the document repository.",
   "manage:groups":
@@ -147,7 +147,7 @@ export const PERMISSION_ACTION_DESCRIPTIONS: Record<PermissionAction, string> = 
   "manage:gis-reference-data":
     "Can choose which dataset backs each GIS map layer, rebuild the canonical ward table, and reconcile raw LGA/ward spellings.",
   "manage:partner-api-keys":
-    "Can generate and revoke a partner organisation's programmatic API key for pulling data outside the browser.",
+    "Can generate and revoke a development partner's programmatic API key for pulling data outside the browser.",
   "manage:indicators":
     "Can manage the canonical indicator registry (create/edit/activate), resolve pending indicator and org-unit aliases in the ingestion review queue, and run Stage 8 / calibration / AI admin tools.",
 };
@@ -170,13 +170,13 @@ export const PERMISSION_ACTION_GROUPS: Array<{ label: string; actions: Permissio
     ],
   },
   {
-    label: "Organisations",
+    label: "Development Partners",
     actions: [
-      "create:organisations",
-      "edit:organisations",
-      "deactivate:organisations",
-      "delete:organisations",
-      "manage:organisation-agreements",
+      "create:development-partners",
+      "edit:development-partners",
+      "deactivate:development-partners",
+      "delete:development-partners",
+      "manage:development-partner-agreements",
       "invite:users",
       "promote:org-admin",
       "demote:org-admin",

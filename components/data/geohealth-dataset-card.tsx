@@ -53,7 +53,7 @@ export function GeoHealthDatasetCard({
           </Link>
         </CardTitle>
         <CardDescription className="text-xs line-clamp-2">
-          {dataset.organisation.name}
+          {dataset.developmentPartner.name}
         </CardDescription>
       </CardHeader>
 

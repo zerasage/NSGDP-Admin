@@ -118,7 +118,7 @@ export const GIS_REFERENCE_HELP: Record<
     sectionLabel: "Map layers",
     tagline: "The five fixed reference slots",
     whatIsThis:
-      "Each slot accepts one active source file. Replacing a file updates the whole platform — there is no per-organisation copy. Ward boundaries, facilities, and settlements participate in spelling reconciliation; LGA boundaries and population do not.",
+      "Each slot accepts one active source file. Replacing a file updates the whole platform — there is no per-development-partner copy. Ward boundaries, facilities, and settlements participate in spelling reconciliation; LGA boundaries and population do not.",
     whatYouCanDo: [
       "Upload a missing layer or replace an outdated GeoPackage",
       "See which filename is active and when it was last updated",

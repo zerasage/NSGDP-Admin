@@ -5,7 +5,7 @@ export const UPLOAD_FIELD_TOOLTIPS = {
   datasetName:
     "A clear, descriptive title that helps users find your dataset in search results. E.g. 'Niger State Malaria Burden by LGA, 2024'.",
   organisation:
-    "The agency or organisation that owns or produced this dataset. Use your official organisation name.",
+    "The agency or development partner that owns or produced this dataset. Use your official development partner name.",
   responsibleDept:
     "The specific directorate, department, or unit responsible for managing this dataset. E.g. 'DPRS', 'Surveillance Unit'.",
   contactPerson:
@@ -44,12 +44,12 @@ export const UPLOAD_FIELD_TOOLTIPS = {
   // Legacy
   lgas: "Select all Local Government Areas covered by this dataset. Choose multiple if applicable.",
   visibility:
-    "Public datasets are open to all. Restricted requires approval. Private is visible only to your organisation.",
+    "Public datasets are open to all. Restricted requires approval. Private is visible only to your development partner.",
   files: "Supported formats include CSV, XLSX, JSON, and GeoPackage. Files upload when you submit — you can skip this step and attach files later from the dataset page.",
 } as const;
 
 export const UPLOAD_PAGE_TIP =
-  "Walk through five steps to register a dataset on behalf of a partner organisation. Submitting sends it to the review queue; save as draft to finish later.";
+  "Walk through five steps to register a dataset on behalf of a development partner. Submitting sends it to the review queue; save as draft to finish later.";
 
 export const UPLOAD_PAGE_AGENCY_TIP =
   "Register a dataset owned by the platform agency. Submitting sends it to the review queue; save as draft to finish later.";
@@ -58,7 +58,7 @@ export const UPLOAD_STEPS_PANEL_TIP =
   "Complete each step in order. You can click a completed step to go back and edit earlier answers.";
 
 export const UPLOAD_STEP_TIPS = {
-  basic: "Identify the owning organisation and describe the dataset so reviewers and catalogue users can find it.",
+  basic: "Identify the owning development partner and describe the dataset so reviewers and catalogue users can find it.",
   coverage: "Specify which LGAs and time period the data covers, plus the health indicators it tracks.",
   files: "Attach the data files now or skip and upload later from the dataset detail page.",
   governance: "Licensing and methodology help users understand how they may reuse the data and how it was collected.",

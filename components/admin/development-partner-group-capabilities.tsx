@@ -4,22 +4,22 @@ import { FolderKanban } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Checkbox } from "@/components/ui/checkbox";
 import { formatDate } from "@/lib/utils/date";
-import type { OrganisationGroup, OrganisationGroupCapability } from "@/lib/api/organisation-groups";
+import type { DevelopmentPartnerGroup, DevelopmentPartnerGroupCapability } from "@/lib/api/development-partner-groups";
 import {
-  useOrganisationGroup,
+  useDevelopmentPartnerGroup,
   useGrantCapability,
   useRevokeCapability,
-} from "@/lib/hooks/useOrganisationGroups";
+} from "@/lib/hooks/useDevelopmentPartnerGroups";
 import {
-  ORGANISATION_CAPABILITIES,
-  ORGANISATION_CAPABILITY_LABELS,
-  ORGANISATION_CAPABILITY_DESCRIPTIONS,
-  type OrganisationCapabilityKey,
+  DEVELOPMENT_PARTNER_CAPABILITIES,
+  DEVELOPMENT_PARTNER_CAPABILITY_LABELS,
+  DEVELOPMENT_PARTNER_CAPABILITY_DESCRIPTIONS,
+  type DevelopmentPartnerCapabilityKey,
 } from "@/types/organisation-capabilities";
 import { useToast } from "@/lib/hooks/use-toast";
 
-export function OrganisationGroupCapabilities({ group }: { group: OrganisationGroup }) {
-  const { data: detail, refetch } = useOrganisationGroup(group.id);
+export function DevelopmentPartnerGroupCapabilities({ group }: { group: DevelopmentPartnerGroup }) {
+  const { data: detail, refetch } = useDevelopmentPartnerGroup(group.id);
   const grant = useGrantCapability();
   const revoke = useRevokeCapability();
   const { toast } = useToast();
@@ -27,10 +27,10 @@ export function OrganisationGroupCapabilities({ group }: { group: OrganisationGr
   if (!detail) return <Skeleton className="h-40" />;
 
   const grantedCapabilities = new Map(
-    detail.capabilities.map((c: OrganisationGroupCapability) => [c.capability as OrganisationCapabilityKey, c.id] as const)
+    detail.capabilities.map((c: DevelopmentPartnerGroupCapability) => [c.capability as DevelopmentPartnerCapabilityKey, c.id] as const)
   );
 
-  const toggleCapability = (capability: OrganisationCapabilityKey) => {
+  const toggleCapability = (capability: DevelopmentPartnerCapabilityKey) => {
     const existingGrantId = grantedCapabilities.get(capability);
 
     if (existingGrantId) {
@@ -38,7 +38,7 @@ export function OrganisationGroupCapabilities({ group }: { group: OrganisationGr
         { groupId: group.id, capabilityId: existingGrantId },
         {
           onSuccess: () => {
-            toast({ title: `Revoked "${ORGANISATION_CAPABILITY_LABELS[capability]}" for ${group.name}` });
+            toast({ title: `Revoked "${DEVELOPMENT_PARTNER_CAPABILITY_LABELS[capability]}" for ${group.name}` });
             refetch();
           },
           onError: (error: unknown) =>
@@ -54,7 +54,7 @@ export function OrganisationGroupCapabilities({ group }: { group: OrganisationGr
         { groupId: group.id, capability },
         {
           onSuccess: () => {
-            toast({ title: `Granted "${ORGANISATION_CAPABILITY_LABELS[capability]}" for ${group.name}` });
+            toast({ title: `Granted "${DEVELOPMENT_PARTNER_CAPABILITY_LABELS[capability]}" for ${group.name}` });
             refetch();
           },
           onError: (error: unknown) =>
@@ -72,7 +72,7 @@ export function OrganisationGroupCapabilities({ group }: { group: OrganisationGr
     <>
       <div className="rounded-lg border bg-muted/30 p-4 space-y-5">
         <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-          Organisation Capabilities
+          Development Partner Capabilities
         </p>
         <div className="space-y-3">
           <div className="flex items-center justify-between">
@@ -81,7 +81,7 @@ export function OrganisationGroupCapabilities({ group }: { group: OrganisationGr
               Programmes
             </p>
           </div>
-          {ORGANISATION_CAPABILITIES.map((capability) => {
+          {DEVELOPMENT_PARTNER_CAPABILITIES.map((capability) => {
             const checked = grantedCapabilities.has(capability);
             return (
               <label key={capability} className="flex items-start gap-3 cursor-pointer group/cap">
@@ -93,10 +93,10 @@ export function OrganisationGroupCapabilities({ group }: { group: OrganisationGr
                 />
                 <div>
                   <p className="text-sm font-medium group-hover/cap:text-primary transition-colors">
-                    {ORGANISATION_CAPABILITY_LABELS[capability]}
+                    {DEVELOPMENT_PARTNER_CAPABILITY_LABELS[capability]}
                   </p>
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    {ORGANISATION_CAPABILITY_DESCRIPTIONS[capability]}
+                    {DEVELOPMENT_PARTNER_CAPABILITY_DESCRIPTIONS[capability]}
                   </p>
                 </div>
               </label>

@@ -240,7 +240,7 @@ export default function DatasetCleanupPage() {
                 />
               </TableHead>
               <TableHead className="h-11 px-4">Dataset</TableHead>
-              <TableHead className="h-11 px-4">Organisation</TableHead>
+              <TableHead className="h-11 px-4">Development Partner</TableHead>
               <TableHead className="h-11 px-4">Status</TableHead>
               <TableHead className="h-11 px-4">Deleted</TableHead>
               <TableHead className="h-11 px-4">GIS</TableHead>

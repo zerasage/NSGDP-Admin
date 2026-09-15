@@ -59,14 +59,14 @@ interface Dataset {
   status: DatasetStatus;
   license: string;
   geographic_coverage: string[];
-  organisation_id: string;
+  development_partner_id: string;
   category_id: string;
   owner_id: string;
   created_at: string;
   submitted_at?: string;
 }
 
-interface Organisation {
+interface DevelopmentPartner {
   id: string;
   name: string;
 }
@@ -108,15 +108,15 @@ export default function DatasetReviewScreenPage({
     },
   });
 
-  const { data: organisationsData } = useQuery({
-    queryKey: ["admin", "organisations"],
+  const { data: developmentPartnersData } = useQuery({
+    queryKey: ["admin", "development-partners"],
     queryFn: async () => {
-      const response = await adminApi.get<{ data: { data: Organisation[] } }>("/admin/organisations?page=1&limit=100");
+      const response = await adminApi.get<{ data: { data: DevelopmentPartner[] } }>("/admin/development-partners?page=1&limit=100");
       return response.data.data;
     },
   });
 
-  const organisation = organisationsData?.data?.find((o) => o.id === dataset?.organisation_id);
+  const developmentPartner = developmentPartnersData?.data?.find((o) => o.id === dataset?.development_partner_id);
 
   const { data: categoriesData } = useQuery({
     queryKey: ["categories"],
@@ -336,7 +336,7 @@ export default function DatasetReviewScreenPage({
             <CardContent>
               <dl className="divide-y text-sm">
                 {[
-                  ["Organisation", organisation?.name ?? "Not provided"],
+                  ["Development Partner", developmentPartner?.name ?? "Not provided"],
                   ["Category", category?.name ?? "Not provided"],
                   ["Format", dataset.format?.toUpperCase()],
                   ["License", dataset.license ?? "Not provided"],

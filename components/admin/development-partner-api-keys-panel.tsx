@@ -28,30 +28,30 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/feedback/empty-state";
 import { HelpTip } from "@/components/admin/help-tip";
 import { formatDate } from "@/lib/utils/date";
-import { ORGANISATION_API_KEYS_TIP } from "@/lib/constants/organisations-tooltips";
+import { DEVELOPMENT_PARTNER_API_KEYS_TIP } from "@/lib/constants/development-partner-tooltips";
 import {
-  useOrganisationApiKeys,
-  useCreateOrganisationApiKey,
-  useRevokeOrganisationApiKey,
-} from "@/lib/hooks/useOrganisationApiKeys";
-import type { GeneratedOrganisationApiKey } from "@/lib/api/organisation-api-keys";
+  useDevelopmentPartnerApiKeys,
+  useCreateDevelopmentPartnerApiKey,
+  useRevokeDevelopmentPartnerApiKey,
+} from "@/lib/hooks/useDevelopmentPartnerApiKeys";
+import type { GeneratedDevelopmentPartnerApiKey } from "@/lib/api/development-partner-api-keys";
 
-interface OrganisationApiKeysPanelProps {
-  organisationId: string;
+interface DevelopmentPartnerApiKeysPanelProps {
+  developmentPartnerId: string;
   canManage: boolean;
 }
 
-export function OrganisationApiKeysPanel({
-  organisationId,
+export function DevelopmentPartnerApiKeysPanel({
+  developmentPartnerId,
   canManage,
-}: OrganisationApiKeysPanelProps) {
-  const { data: keys, isLoading } = useOrganisationApiKeys(organisationId);
-  const createMutation = useCreateOrganisationApiKey(organisationId);
-  const revokeMutation = useRevokeOrganisationApiKey(organisationId);
+}: DevelopmentPartnerApiKeysPanelProps) {
+  const { data: keys, isLoading } = useDevelopmentPartnerApiKeys(developmentPartnerId);
+  const createMutation = useCreateDevelopmentPartnerApiKey(developmentPartnerId);
+  const revokeMutation = useRevokeDevelopmentPartnerApiKey(developmentPartnerId);
 
   const [createOpen, setCreateOpen] = useState(false);
   const [name, setName] = useState("");
-  const [revealedKey, setRevealedKey] = useState<GeneratedOrganisationApiKey | null>(null);
+  const [revealedKey, setRevealedKey] = useState<GeneratedDevelopmentPartnerApiKey | null>(null);
   const [revokeTarget, setRevokeTarget] = useState<{ id: string; name: string } | null>(null);
 
   const handleCreate = async () => {
@@ -80,7 +80,7 @@ export function OrganisationApiKeysPanel({
       <EmptyState
         icon={ShieldAlert}
         title="No access"
-        description="You don't have permission to manage this organisation's API keys."
+        description="You don't have permission to manage this development partner's API keys."
       />
     );
   }
@@ -91,10 +91,10 @@ export function OrganisationApiKeysPanel({
         <div>
           <h2 className="flex items-center gap-2 font-semibold">
             Partner API Keys
-            <HelpTip content={ORGANISATION_API_KEYS_TIP} label="About partner API keys" />
+            <HelpTip content={DEVELOPMENT_PARTNER_API_KEYS_TIP} label="About partner API keys" />
           </h2>
           <p className="text-sm text-muted-foreground">
-            Programmatic access for this organisation&apos;s own systems — scoped to the same
+            Programmatic access for this development partner&apos;s own systems — scoped to the same
             datasets they could already reach (their own data, the public catalogue, and any
             restricted dataset they hold an approved access request for).
           </p>
@@ -115,7 +115,7 @@ export function OrganisationApiKeysPanel({
         <EmptyState
           icon={KeyRound}
           title="No API keys yet"
-          description="Generate a key to let this organisation pull data programmatically."
+          description="Generate a key to let this development partner pull data programmatically."
         />
       ) : (
         <Table>

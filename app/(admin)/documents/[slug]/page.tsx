@@ -267,7 +267,7 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ slug:
           <DialogHeader>
             <DialogTitle>Reject document</DialogTitle>
             <DialogDescription>
-              The organisation will see this reason and can revise or abandon the submission.
+              The development partner will see this reason and can revise or abandon the submission.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-2">
@@ -299,7 +299,7 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ slug:
           <DialogHeader>
             <DialogTitle>Request revision</DialogTitle>
             <DialogDescription>
-              Returns the document to draft so the organisation can fix and resubmit.
+              Returns the document to draft so the development partner can fix and resubmit.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-2">
@@ -589,8 +589,8 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ slug:
             />
             <InfoRow label="Uploaded By" value={document.uploaded_by || "Unknown"} />
             <InfoRow label="Total Downloads" value={document.download_count.toString()} />
-            {document.organisation_id && (
-              <InfoRow label="Organisation" value={document.organisation_id} />
+            {document.development_partner_id && (
+              <InfoRow label="Development Partner" value={document.development_partner_id} />
             )}
             {document.programme_id && (
               <InfoRow label="Programme" value={document.programme_id} />

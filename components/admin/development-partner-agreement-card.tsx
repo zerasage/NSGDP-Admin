@@ -14,21 +14,21 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { useUploadAgreement } from "@/lib/hooks/useOrganisations";
+import { useUploadAgreement } from "@/lib/hooks/useDevelopmentPartners";
 import { HelpTip } from "@/components/admin/help-tip";
-import { getOrganisationAgreementUrl, type Organisation } from "@/lib/api/organisations";
-import { ORGANISATION_AGREEMENT_TIP } from "@/lib/constants/organisations-tooltips";
+import { getDevelopmentPartnerAgreementUrl, type DevelopmentPartner } from "@/lib/api/development-partners";
+import { DEVELOPMENT_PARTNER_AGREEMENT_TIP } from "@/lib/constants/development-partner-tooltips";
 import { formatDate } from "@/lib/utils/date";
 import { toast } from "sonner";
 
-interface OrganisationAgreementCardProps {
-  org: Organisation;
+interface DevelopmentPartnerAgreementCardProps {
+  org: DevelopmentPartner;
   orgId: string;
   slug: string;
   canManage: boolean;
 }
 
-export function OrganisationAgreementCard({ org, orgId, slug, canManage }: OrganisationAgreementCardProps) {
+export function DevelopmentPartnerAgreementCard({ org, orgId, slug, canManage }: DevelopmentPartnerAgreementCardProps) {
   const [open, setOpen] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [signedAt, setSignedAt] = useState("");
@@ -62,7 +62,7 @@ export function OrganisationAgreementCard({ org, orgId, slug, canManage }: Organ
   const handleDownload = async () => {
     setDownloading(true);
     try {
-      const { url } = await getOrganisationAgreementUrl(orgId);
+      const { url } = await getDevelopmentPartnerAgreementUrl(orgId);
       window.open(url, "_blank");
     } catch (error) {
       const err = error as { message?: string };
@@ -77,7 +77,7 @@ export function OrganisationAgreementCard({ org, orgId, slug, canManage }: Organ
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-base">
           Data-Sharing Agreement
-          <HelpTip content={ORGANISATION_AGREEMENT_TIP} label="About data-sharing agreement" />
+          <HelpTip content={DEVELOPMENT_PARTNER_AGREEMENT_TIP} label="About data-sharing agreement" />
         </CardTitle>
       </CardHeader>
       <CardContent>

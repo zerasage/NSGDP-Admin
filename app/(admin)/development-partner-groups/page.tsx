@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { Building2, Lock, Network, Plus, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { OrganisationGroupsPanel } from "@/components/admin/organisation-groups-panel";
+import { DevelopmentPartnerGroupsPanel } from "@/components/admin/development-partner-groups-panel";
 import { HelpTip } from "@/components/admin/help-tip";
 import { EmptyState } from "@/components/feedback/empty-state";
 import { MetricCard, Panel } from "@/components/admin/admin-analytics-ui";
@@ -12,16 +12,16 @@ import {
   ORG_GROUPS_NEW_GROUP_TIP,
   ORG_GROUPS_PAGE_TIP,
   ORG_GROUPS_WORKSPACE_PANEL_TIP,
-} from "@/lib/constants/organisation-groups-tooltips";
+} from "@/lib/constants/development-partner-groups-tooltips";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useAuth } from "@/lib/auth";
-import { useOrganisationGroups } from "@/lib/hooks/useOrganisationGroups";
+import { useDevelopmentPartnerGroups } from "@/lib/hooks/useDevelopmentPartnerGroups";
 import { Skeleton } from "@/components/ui/skeleton";
 
-export default function OrganisationGroupsPage() {
+export default function DevelopmentPartnerGroupsPage() {
   const { user } = useAuth();
   const [createOpen, setCreateOpen] = useState(false);
-  const { data: groups, isLoading } = useOrganisationGroups();
+  const { data: groups, isLoading } = useDevelopmentPartnerGroups();
 
   const stats = useMemo(() => {
     const list = groups ?? [];
@@ -38,7 +38,7 @@ export default function OrganisationGroupsPage() {
         <EmptyState
           icon={Lock}
           title="Access restricted"
-          description="Organisation groups can only be managed by super_admin. This ensures capability grants remain under central policy control."
+          description="Development partner groups can only be managed by super_admin. This ensures capability grants remain under central policy control."
         />
       </div>
     );
@@ -49,11 +49,11 @@ export default function OrganisationGroupsPage() {
     <div className="space-y-6">
       <div>
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
-          Organisation Groups
-          <HelpTip content={ORG_GROUPS_PAGE_TIP} label="About organisation groups" />
+          Development Partner Groups
+          <HelpTip content={ORG_GROUPS_PAGE_TIP} label="About development partner groups" />
         </h1>
         <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-          Manage groups of organisations, their membership, and the capabilities granted to them.
+          Manage groups of development partners, their membership, and the capabilities granted to them.
         </p>
       </div>
 
@@ -84,7 +84,7 @@ export default function OrganisationGroupsPage() {
           <MetricCard
             label="Total members"
             value={stats.members}
-            hint="Organisations across all groups"
+            hint="Development partners across all groups"
             icon={Users}
             tone="info"
             tip={ORG_GROUPS_METRIC_TIPS.members}
@@ -93,8 +93,8 @@ export default function OrganisationGroupsPage() {
       )}
 
       <Panel
-        title="Organisation capability workspace"
-        description="Configure which organisations can create programmes and other high-level actions."
+        title="Development partner capability workspace"
+        description="Configure which development partners can create programmes and other high-level actions."
         icon={Network}
         tone="primary"
         titleTip={ORG_GROUPS_WORKSPACE_PANEL_TIP}
@@ -108,7 +108,7 @@ export default function OrganisationGroupsPage() {
           </div>
         }
       >
-        <OrganisationGroupsPanel createOpen={createOpen} onCreateOpenChange={setCreateOpen} />
+        <DevelopmentPartnerGroupsPanel createOpen={createOpen} onCreateOpenChange={setCreateOpen} />
       </Panel>
     </div>
     </TooltipProvider>

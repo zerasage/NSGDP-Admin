@@ -19,7 +19,7 @@ export interface DownloadHistoryItem {
     title: string;
     format: string;
     version: number;
-    organisationId: string;
+    developmentPartnerId: string;
   };
 }
 

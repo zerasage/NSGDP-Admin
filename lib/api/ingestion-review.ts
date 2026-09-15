@@ -235,7 +235,7 @@ export interface AnalyticsWarehouseSourceRow {
   ingestionStatus: string;
   cataloguePublishedAt: string | null;
   analyticsPublishedAt: string | null;
-  organisationId: string | null;
+  developmentPartnerId: string | null;
   organisationName: string | null;
   organisationAcronym: string | null;
   burdenRowCount: number;
@@ -267,7 +267,7 @@ export interface AnalyticsWarehouseListResult {
 
 export async function listAnalyticsWarehouse(params?: {
   filter?: AnalyticsWarehouseFilter;
-  organisationId?: string;
+  developmentPartnerId?: string;
   limit?: number;
   offset?: number;
 }): Promise<AnalyticsWarehouseListResult> {
@@ -434,7 +434,7 @@ export interface PipelineAttentionRow {
   catalogueStatus: string;
   ingestionStatus: string;
   attentionKind: PipelineAttentionKind;
-  organisationId: string | null;
+  developmentPartnerId: string | null;
   organisationName: string | null;
   organisationAcronym: string | null;
   lastJobStatus: string | null;
@@ -476,7 +476,7 @@ export interface PipelineCompletedRow {
   title: string;
   catalogueStatus: string;
   ingestionStatus: string;
-  organisationId: string | null;
+  developmentPartnerId: string | null;
   organisationName: string | null;
   organisationAcronym: string | null;
   lastJobStatus: string | null;

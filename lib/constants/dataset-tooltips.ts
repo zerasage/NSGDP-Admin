@@ -96,7 +96,7 @@ export const INGESTION_PROGRESS_TIP =
 
 export const RELATED_DATASETS_TIPS = {
   panel:
-    "Another upload may describe the same study under a different name or organisation. Confirm to link them; reject if unrelated.",
+    "Another upload may describe the same study under a different name or development partner. Confirm to link them; reject if unrelated.",
   candidates: "Suggested links from automatic overlap detection.",
   pending: "Awaiting your confirm or reject decision.",
   confirmed: "Links you accepted — shown on both datasets.",

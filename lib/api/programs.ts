@@ -27,7 +27,7 @@ export interface AdminProgramme {
   status: ProgrammeStatus;
   start_date: string | null;
   end_date: string | null;
-  organisation_id: string | null;
+  development_partner_id: string | null;
   manager_id: string | null;
   target_lgas: string[] | null;
   covered_lgas: string[] | null;
@@ -50,7 +50,7 @@ export interface GetProgrammesParams {
   limit?: number;
   status?: ProgrammeStatus;
   type?: ProgrammeType;
-  organisationId?: string;
+  developmentPartnerId?: string;
   lga?: string;
   q?: string;
   sort?: 'recent' | 'alphabetical';
@@ -61,7 +61,7 @@ export interface CreateProgrammePayload {
   description: string;
   type?: ProgrammeType;
   code?: string;
-  organisationId?: string;
+  developmentPartnerId?: string;
   managerId?: string;
   targetLgas?: string[];
   coveredLgas?: string[];
@@ -93,7 +93,7 @@ export async function getProgrammes(
       limit: params?.limit ?? 20,
       status: params?.status,
       type: params?.type,
-      organisationId: params?.organisationId,
+      developmentPartnerId: params?.developmentPartnerId,
       lga: params?.lga,
       q: params?.q,
       sort: params?.sort,

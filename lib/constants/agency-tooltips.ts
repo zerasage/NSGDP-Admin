@@ -1,5 +1,5 @@
 export const AGENCY_PAGE_TIP =
-  "NSPHCDA is the platform-owning agency — separate from partner organisations (managed under Organisations). Staff belong here and receive admin capabilities through permission groups, not individual role picks. Super admin only.";
+  "NSPHCDA is the platform-owning agency — separate from development partners (managed under Development Partners). Staff belong here and receive admin capabilities through permission groups, not individual role picks. Super admin only.";
 
 export const AGENCY_METRIC_TIPS = {
   staff: "Agency staff accounts with the staff role — access comes from permission groups they belong to.",

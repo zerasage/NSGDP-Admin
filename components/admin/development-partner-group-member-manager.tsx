@@ -8,24 +8,24 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
-  useOrganisationGroup,
+  useDevelopmentPartnerGroup,
   useAddGroupMember,
   useRemoveGroupMember,
-} from "@/lib/hooks/useOrganisationGroups";
-import { useOrganisations } from "@/lib/hooks/useOrganisations";
+} from "@/lib/hooks/useDevelopmentPartnerGroups";
+import { useDevelopmentPartners } from "@/lib/hooks/useDevelopmentPartners";
 import { useToast } from "@/lib/hooks/use-toast";
 
-export function OrganisationGroupMemberManager({ groupId, disabled = false }: { groupId: string; disabled?: boolean }) {
-  const { data: group, isLoading } = useOrganisationGroup(groupId);
+export function DevelopmentPartnerGroupMemberManager({ groupId, disabled = false }: { groupId: string; disabled?: boolean }) {
+  const { data: group, isLoading } = useDevelopmentPartnerGroup(groupId);
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
-  const { data: orgsData, isLoading: orgsLoading, isFetching: orgsFetching, isError: orgsError } = useOrganisations(
+  const { data: orgsData, isLoading: orgsLoading, isFetching: orgsFetching, isError: orgsError } = useDevelopmentPartners(
     1,
     20,
     undefined,
     { search: debouncedSearch || undefined }
   );
-  const organisations = useMemo(() => orgsData?.data ?? [], [orgsData]);
+  const developmentPartners = useMemo(() => orgsData?.data ?? [], [orgsData]);
   const [actioningId, setActioningId] = useState<string | null>(null);
   const addMember = useAddGroupMember();
   const removeMember = useRemoveGroupMember();
@@ -52,13 +52,13 @@ export function OrganisationGroupMemberManager({ groupId, disabled = false }: { 
     };
 
     setActioningId(org.id);
-    addMember.mutate({ groupId, organisationId: org.id }, { onSuccess: onAdded, onError: onFailed });
+    addMember.mutate({ groupId, developmentPartnerId: org.id }, { onSuccess: onAdded, onError: onFailed });
   };
 
-  const handleRemove = (member: { organisation_id: string; organisation_name: string }) => {
+  const handleRemove = (member: { development_partner_id: string; development_partner_name: string }) => {
     const onRemoved = () => {
       setActioningId(null);
-      toast({ title: `Removed ${member.organisation_name}` });
+      toast({ title: `Removed ${member.development_partner_name}` });
     };
     const onFailed = (error: unknown) => {
       setActioningId(null);
@@ -69,18 +69,18 @@ export function OrganisationGroupMemberManager({ groupId, disabled = false }: { 
       });
     };
 
-    setActioningId(member.organisation_id);
-    removeMember.mutate({ groupId, organisationId: member.organisation_id }, { onSuccess: onRemoved, onError: onFailed });
+    setActioningId(member.development_partner_id);
+    removeMember.mutate({ groupId, developmentPartnerId: member.development_partner_id }, { onSuccess: onRemoved, onError: onFailed });
   };
 
   const existingIds = useMemo(
-    () => new Set((group?.members ?? []).map((m) => m.organisation_id)),
+    () => new Set((group?.members ?? []).map((m) => m.development_partner_id)),
     [group],
   );
 
   const candidates = useMemo(() => {
-    return organisations.filter((org) => !existingIds.has(org.id));
-  }, [organisations, existingIds]);
+    return developmentPartners.filter((org) => !existingIds.has(org.id));
+  }, [developmentPartners, existingIds]);
 
   if (isLoading || !group) {
     return <Skeleton className="h-24" />;
@@ -93,15 +93,15 @@ export function OrganisationGroupMemberManager({ groupId, disabled = false }: { 
           Members ({group.members.length})
         </p>
         {group.members.length === 0 ? (
-          <p className="text-sm text-muted-foreground italic">No member organisations yet.</p>
+          <p className="text-sm text-muted-foreground italic">No member development partners yet.</p>
         ) : (
           <ul className="space-y-1.5">
             {group.members.map((member) => (
               <li key={member.id} className="flex flex-col gap-2 rounded-xl border px-3 py-2 text-sm sm:flex-row sm:items-center sm:justify-between">
                 <div className="min-w-0">
-                  <Link href={`/organisations/${member.organisation_id}`} className="font-medium underline-offset-4 hover:underline focus-visible:outline-2">{member.organisation_name}</Link>
-                  {member.organisation_acronym && (
-                    <Badge variant="outline" className="ml-2 text-xs">{member.organisation_acronym}</Badge>
+                  <Link href={`/development-partners/${member.development_partner_id}`} className="font-medium underline-offset-4 hover:underline focus-visible:outline-2">{member.development_partner_name}</Link>
+                  {member.development_partner_acronym && (
+                    <Badge variant="outline" className="ml-2 text-xs">{member.development_partner_acronym}</Badge>
                   )}
                   <div className="mt-0.5 text-xs text-muted-foreground">
                     Added {new Date(member.joined_at).toLocaleDateString()}
@@ -112,10 +112,10 @@ export function OrganisationGroupMemberManager({ groupId, disabled = false }: { 
                   size="sm"
                   className="h-11 w-full shrink-0 text-destructive hover:bg-destructive/10 hover:text-destructive sm:h-8 sm:w-auto"
                   onClick={() => handleRemove(member)}
-                  disabled={disabled || actioningId === member.organisation_id || (removeMember.isPending && !actioningId)}
+                  disabled={disabled || actioningId === member.development_partner_id || (removeMember.isPending && !actioningId)}
                 >
                   <X className="size-3.5 mr-1" />
-                  {actioningId === member.organisation_id ? "Removing..." : "Remove"}
+                  {actioningId === member.development_partner_id ? "Removing..." : "Remove"}
                 </Button>
               </li>
             ))}
@@ -124,16 +124,16 @@ export function OrganisationGroupMemberManager({ groupId, disabled = false }: { 
       </div>
 
       <div>
-        <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Add organisations</p>
+        <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Add development partners</p>
         <p className="mb-2 flex items-start gap-1.5 text-xs text-muted-foreground">
           <Info className="size-3.5 mt-0.5 shrink-0" />
-          Organisations in this group gain all capabilities granted to the group. They can be added or removed as needed.
+          Development partners in this group gain all capabilities granted to the group. They can be added or removed as needed.
         </p>
 
-        {!orgsLoading && organisations.length === 0 ? (
+        {!orgsLoading && developmentPartners.length === 0 ? (
           <p className="rounded-md border border-dashed px-3 py-4 text-sm text-muted-foreground">
-            No organisations exist yet.{" "}
-            <Link href="/organisations" className="text-primary underline underline-offset-2">
+            No development partners exist yet.{" "}
+            <Link href="/development-partners" className="text-primary underline underline-offset-2">
               Create one
             </Link>{" "}
             first, then come back here to add them to a group.
@@ -143,16 +143,16 @@ export function OrganisationGroupMemberManager({ groupId, disabled = false }: { 
             <Input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search organisations by name..."
+              placeholder="Search development partners by name..."
               className="mb-2"
             />
             {orgsLoading || orgsFetching || search.trim() !== debouncedSearch ? (
               <Skeleton className="h-10" />
             ) : orgsError ? (
-              <p className="rounded-xl border border-destructive/40 p-3 text-sm text-destructive">Organisation matches could not be loaded. Try your search again.</p>
+              <p className="rounded-xl border border-destructive/40 p-3 text-sm text-destructive">Development partner matches could not be loaded. Try your search again.</p>
             ) : candidates.length === 0 ? (
               <p className="text-sm text-muted-foreground italic">
-                {search ? "No matching organisations." : "Every organisation is already in this group."}
+                {search ? "No matching development partners." : "Every development partner is already in this group."}
               </p>
             ) : (
               <ul className="space-y-1.5 max-h-72 overflow-y-auto">

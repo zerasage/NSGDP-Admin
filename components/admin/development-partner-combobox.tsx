@@ -2,7 +2,7 @@
 
 import { Building2 } from "lucide-react";
 import { Combobox } from "@/components/ui/combobox";
-import type { Organisation } from "@/lib/api/organisations";
+import type { DevelopmentPartner } from "@/lib/api/development-partners";
 
 const ORG_TYPE_LABELS: Record<string, string> = {
   government: "Government",
@@ -15,8 +15,8 @@ const ORG_TYPE_LABELS: Record<string, string> = {
   other: "Other",
 };
 
-interface OrganisationComboboxProps {
-  organisations: Organisation[];
+interface DevelopmentPartnerComboboxProps {
+  developmentPartners: DevelopmentPartner[];
   value: string;
   onValueChange: (id: string) => void;
   id?: string;
@@ -24,17 +24,17 @@ interface OrganisationComboboxProps {
   className?: string;
 }
 
-export function OrganisationCombobox({
-  organisations,
+export function DevelopmentPartnerCombobox({
+  developmentPartners,
   value,
   onValueChange,
   id,
   placeholder = "Search by name or acronym…",
   className,
-}: OrganisationComboboxProps) {
+}: DevelopmentPartnerComboboxProps) {
   return (
-    <Combobox<Organisation>
-      items={organisations}
+    <Combobox<DevelopmentPartner>
+      items={developmentPartners}
       value={value}
       onValueChange={onValueChange}
       getId={(org) => org.id}
@@ -64,7 +64,7 @@ export function OrganisationCombobox({
       )}
       id={id}
       placeholder={placeholder}
-      emptyMessage="No organisations match your search"
+      emptyMessage="No development partners match your search"
       className={className}
     />
   );

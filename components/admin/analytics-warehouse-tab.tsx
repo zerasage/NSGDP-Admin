@@ -270,7 +270,7 @@ export function AnalyticsWarehouseTab() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Dataset</TableHead>
-                  <TableHead>Organisation</TableHead>
+                  <TableHead>Development Partner</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="text-right">Burden rows</TableHead>
                   <TableHead className="text-right">Indicators</TableHead>

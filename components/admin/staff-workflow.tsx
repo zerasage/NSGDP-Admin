@@ -142,7 +142,7 @@ const STATUS_BADGE: Record<string, { label: string; variant: BadgeVariant }> = {
   revoked: { label: "Revoked", variant: "destructive" },
 };
 
-export function StaffWorkflow({ organisationId }: { organisationId: string }) {
+export function StaffWorkflow({ developmentPartnerId }: { developmentPartnerId: string }) {
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState("staff");
   const [staffPage, setStaffPage] = useState(1);
@@ -204,15 +204,15 @@ export function StaffWorkflow({ organisationId }: { organisationId: string }) {
     status: inviteStatus === "all" ? undefined : inviteStatus,
   });
   const datasetsQuery = useQuery({
-    queryKey: ["agency", "datasets", organisationId, datasetsPage, pageSize, datasetsDebouncedSearch, datasetsStatus],
+    queryKey: ["agency", "datasets", developmentPartnerId, datasetsPage, pageSize, datasetsDebouncedSearch, datasetsStatus],
     queryFn: async () => {
-      const params = new URLSearchParams({ page: String(datasetsPage), limit: String(pageSize), organisationId });
+      const params = new URLSearchParams({ page: String(datasetsPage), limit: String(pageSize), developmentPartnerId });
       if (datasetsDebouncedSearch) params.append("search", datasetsDebouncedSearch);
       if (datasetsStatus !== "all") params.append("status", datasetsStatus);
       const response = await adminApi.get<{ data: AgencyDatasetPage }>(`/admin/datasets?${params}`);
       return response.data.data;
     },
-    enabled: !!organisationId,
+    enabled: !!developmentPartnerId,
     placeholderData: keepPreviousData,
   });
   const groupsQuery = useQuery({ queryKey: ["permission-groups"], queryFn: getPermissionGroups });

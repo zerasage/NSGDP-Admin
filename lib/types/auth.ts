@@ -18,7 +18,7 @@ export interface UserProfile {
   phoneNumber?: string;
   role: UserRole;
   status: 'pending' | 'active' | 'suspended' | 'archived';
-  organisationId?: string;
+  developmentPartnerId?: string;
   lga?: string;
   ward?: string;
   avatarUrl?: string;

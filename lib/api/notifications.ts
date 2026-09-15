@@ -19,7 +19,7 @@ export type NotificationType =
   | 'new_dataset_available'
   | 'system_announcement'
   | 'dataset_published'
-  | 'new_organisation'
+  | 'new_development_partner'
   | 'new_user'
   | 'admin_invited'
   | 'dataset_archive_requested'

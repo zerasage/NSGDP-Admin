@@ -330,7 +330,7 @@ function Stage8ToolsTab() {
     {
       icon: Link2,
       title: "Cross-dataset relation matching",
-      description: "Finds the same study reported by a different organisation under different naming. Confirm/reject from each dataset's Related Datasets tab.",
+      description: "Finds the same study reported by a different development partner under different naming. Confirm/reject from each dataset's Related Datasets tab.",
       titleTip: STAGE8_TIPS.relations,
       mutation: relationMutation,
       label: "Run Relation Matching",

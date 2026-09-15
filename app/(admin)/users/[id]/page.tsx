@@ -24,7 +24,7 @@ import {
   useUpdateUserStatus,
   useUser,
 } from "@/lib/hooks/useAdmin";
-import { useOrganisations } from "@/lib/hooks/useOrganisations";
+import { useDevelopmentPartners } from "@/lib/hooks/useDevelopmentPartners";
 import type { AdminUser } from "@/lib/api/admin";
 import { RoleBadge } from "@/components/data/role-badge";
 import { EmptyState } from "@/components/feedback/empty-state";
@@ -66,12 +66,12 @@ export default function UserDetailPage({ params }: { params: Promise<{ id: strin
     );
   const [suspendConfirmOpen, setSuspendConfirmOpen] = useState(false);
   const { data: user, isLoading, isError, refetch } = useUser(id, canViewUsers);
-  const { data: organisationsData } = useOrganisations(1, 200);
+  const { data: developmentPartnersData } = useDevelopmentPartners(1, 200);
   const updateStatusMutation = useUpdateUserStatus();
   const deactivateMutation = useDeactivateUserDelegated();
 
-  const organisation = organisationsData?.data.find(
-    (candidate) => candidate.id === user?.organisation_id
+  const developmentPartner = developmentPartnersData?.data.find(
+    (candidate) => candidate.id === user?.development_partner_id
   );
   const canManageStatus = isSuperAdmin && user?.id !== currentUser?.id;
 
@@ -246,13 +246,13 @@ export default function UserDetailPage({ params }: { params: Promise<{ id: strin
               <InfoRow icon={MapPin} label="Location">
                 {[user.ward, user.lga].filter(Boolean).join(", ") || "Not provided"}
               </InfoRow>
-              <InfoRow icon={Building2} label="Organisation">
-                {organisation ? (
-                  <Link href={`/organisations/${organisation.slug}`} className="font-medium hover:underline">
-                    {organisation.name}
+              <InfoRow icon={Building2} label="Development Partner">
+                {developmentPartner ? (
+                  <Link href={`/development-partners/${developmentPartner.slug}`} className="font-medium hover:underline">
+                    {developmentPartner.name}
                   </Link>
                 ) : (
-                  "No organisation"
+                  "No development partner"
                 )}
               </InfoRow>
             </CardContent>

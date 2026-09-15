@@ -45,7 +45,7 @@ export const programFormSchema = z
     type: programmeTypeEnum,
     status: programmeStatusEnum.optional(),
     code: z.string(),
-    organisationId: z.string(),
+    developmentPartnerId: z.string(),
     targetLgas: z
       .array(z.string())
       .min(1, "Select at least one target LGA"),

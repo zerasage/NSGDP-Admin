@@ -17,7 +17,7 @@ const TYPE_DOT_CLASS: Record<NotificationType, string> = {
   new_dataset_available: "bg-blue-500",
   system_announcement: "bg-purple-500",
   dataset_published: "bg-emerald-500",
-  new_organisation: "bg-blue-500",
+  new_development_partner: "bg-blue-500",
   new_user: "bg-teal-500",
   admin_invited: "bg-amber-500",
   dataset_archive_requested: "bg-amber-500",

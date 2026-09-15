@@ -8,16 +8,16 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsTrigger } from "@/components/ui/tabs";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { EmptyState } from "@/components/feedback/empty-state";
-import { OrganisationGroupForm } from "./organisation-group-form";
-import { OrganisationGroupMemberManager } from "./organisation-group-member-manager";
-import { OrganisationGroupCapabilities } from "./organisation-group-capabilities";
+import { DevelopmentPartnerGroupForm } from "./development-partner-group-form";
+import { DevelopmentPartnerGroupMemberManager } from "./development-partner-group-member-manager";
+import { DevelopmentPartnerGroupCapabilities } from "./development-partner-group-capabilities";
 import {
-  useOrganisationGroups,
-  useCreateOrganisationGroup,
-  useUpdateOrganisationGroup,
-  useDeactivateOrganisationGroup,
-  useDeleteOrganisationGroup,
-} from "@/lib/hooks/useOrganisationGroups";
+  useDevelopmentPartnerGroups,
+  useCreateDevelopmentPartnerGroup,
+  useUpdateDevelopmentPartnerGroup,
+  useDeactivateDevelopmentPartnerGroup,
+  useDeleteDevelopmentPartnerGroup,
+} from "@/lib/hooks/useDevelopmentPartnerGroups";
 import {
   METRIC_TONE,
   tabToneClass,
@@ -31,12 +31,12 @@ import { HelpTip } from "@/components/admin/help-tip";
 import {
   ORG_GROUPS_CAPABILITIES_TAB_TIP,
   ORG_GROUPS_MEMBERS_TAB_TIP,
-} from "@/lib/constants/organisation-groups-tooltips";
+} from "@/lib/constants/development-partner-groups-tooltips";
 import { useToast } from "@/lib/hooks/use-toast";
 import { formatDate } from "@/lib/utils/date";
 import { cn } from "@/lib/utils";
 
-interface OrganisationGroupsPanelProps {
+interface DevelopmentPartnerGroupsPanelProps {
   createOpen: boolean;
   onCreateOpenChange: (open: boolean) => void;
 }
@@ -51,17 +51,17 @@ function GroupStatusBadge({ active }: { active: boolean }) {
   );
 }
 
-export function OrganisationGroupsPanel({ createOpen, onCreateOpenChange }: OrganisationGroupsPanelProps) {
-  const { data: groups, isLoading } = useOrganisationGroups();
+export function DevelopmentPartnerGroupsPanel({ createOpen, onCreateOpenChange }: DevelopmentPartnerGroupsPanelProps) {
+  const { data: groups, isLoading } = useDevelopmentPartnerGroups();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [detailTab, setDetailTab] = useState("members");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [deactivatingId, setDeactivatingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
-  const create = useCreateOrganisationGroup();
-  const update = useUpdateOrganisationGroup();
-  const deactivate = useDeactivateOrganisationGroup();
-  const deleteGroup = useDeleteOrganisationGroup();
+  const create = useCreateDevelopmentPartnerGroup();
+  const update = useUpdateDevelopmentPartnerGroup();
+  const deactivate = useDeactivateDevelopmentPartnerGroup();
+  const deleteGroup = useDeleteDevelopmentPartnerGroup();
   const { toast } = useToast();
 
   const handleCreate = (payload: { name: string; description?: string }) => {
@@ -155,7 +155,7 @@ export function OrganisationGroupsPanel({ createOpen, onCreateOpenChange }: Orga
     return (
       <div>
         {createOpen ? (
-          <OrganisationGroupForm
+          <DevelopmentPartnerGroupForm
             onSave={handleCreate}
             onCancel={() => onCreateOpenChange(false)}
             isSaving={create.isPending}
@@ -163,8 +163,8 @@ export function OrganisationGroupsPanel({ createOpen, onCreateOpenChange }: Orga
         ) : (
           <EmptyState
             icon={Network}
-            title="No organisation groups yet"
-            description="Create groups to grant capabilities to multiple organisations at once."
+            title="No development partner groups yet"
+            description="Create groups to grant capabilities to multiple development partners at once."
             action={{ label: "New group", onClick: () => onCreateOpenChange(true) }}
           />
         )}
@@ -174,7 +174,7 @@ export function OrganisationGroupsPanel({ createOpen, onCreateOpenChange }: Orga
 
   if (createOpen) {
     return (
-      <OrganisationGroupForm
+      <DevelopmentPartnerGroupForm
         onSave={handleCreate}
         onCancel={() => onCreateOpenChange(false)}
         isSaving={create.isPending}
@@ -184,7 +184,7 @@ export function OrganisationGroupsPanel({ createOpen, onCreateOpenChange }: Orga
 
   if (editingId && editingGroup) {
     return (
-      <OrganisationGroupForm
+      <DevelopmentPartnerGroupForm
         initial={editingGroup}
         onSave={(payload) => handleUpdate(editingId, payload)}
         onCancel={() => setEditingId(null)}
@@ -333,13 +333,13 @@ export function OrganisationGroupsPanel({ createOpen, onCreateOpenChange }: Orga
             </div>
           </AdminSectionTabsNav>
           <TabsContent value="members" className="mt-4 space-y-4">
-            <OrganisationGroupMemberManager
+            <DevelopmentPartnerGroupMemberManager
               groupId={selectedGroup.id}
               disabled={!selectedGroup.is_active}
             />
           </TabsContent>
           <TabsContent value="capabilities" className="mt-4 space-y-4">
-            <OrganisationGroupCapabilities group={selectedGroup} />
+            <DevelopmentPartnerGroupCapabilities group={selectedGroup} />
           </TabsContent>
         </Tabs>
       </div>
@@ -348,7 +348,7 @@ export function OrganisationGroupsPanel({ createOpen, onCreateOpenChange }: Orga
         open={!!deactivatingId}
         onOpenChange={(open) => !open && setDeactivatingId(null)}
         title="Deactivate group?"
-        description={`Deactivating "${deactivatingGroup?.name}" will prevent all member organisations from using granted capabilities. Members are preserved and the group can be reactivated later.`}
+        description={`Deactivating "${deactivatingGroup?.name}" will prevent all member development partners from using granted capabilities. Members are preserved and the group can be reactivated later.`}
         confirmLabel="Deactivate"
         loading={deactivate.isPending}
         onConfirm={handleDeactivate}

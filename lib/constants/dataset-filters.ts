@@ -46,7 +46,7 @@ export const PROGRAM_FILTER_OPTIONS = [
 
 export const DEFAULT_PORTAL_FILTERS: Record<string, string[]> = {
   categories: [],
-  organisations: [],
+  developmentPartners: [],
   lgas: [],
   formats: [],
   diseases: [],

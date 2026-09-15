@@ -1,4 +1,4 @@
-// Mirrors backend OrganisationType (src/modules/organisations/entities/organisation.entity.ts)
+// Mirrors backend DevelopmentPartnerType (src/modules/development-partners/entities/development-partner.entity.ts)
 export const ORG_TYPES = [
   { value: "government", label: "Government Agency" },
   { value: "healthcare", label: "Healthcare Provider" },

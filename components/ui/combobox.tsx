@@ -27,7 +27,7 @@ interface ComboboxProps<T> {
  * Generic searchable single-select, built on @base-ui/react's Combobox (the
  * same library the plain Select component already uses) — for any list
  * long enough that scrolling a flat dropdown becomes the bottleneck.
- * Wrap it with entity-specific rendering (see OrganisationCombobox,
+ * Wrap it with entity-specific rendering (see DevelopmentPartnerCombobox,
  * CategoryCombobox) rather than using it bare for anything user-facing.
  */
 export function Combobox<T>({

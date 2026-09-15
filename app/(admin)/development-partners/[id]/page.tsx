@@ -10,22 +10,21 @@ import {
   Search, ShieldCheck, Trash2, Upload, UserCog, UserPlus, Users, XCircle,
 } from "lucide-react";
 import { toast } from "sonner";
-import { useOrganisationBySlug } from "@/lib/hooks/useOrganisationBySlug";
-import { useDeleteOrganisation, useToggleOrganisationStatus } from "@/lib/hooks/useOrganisations";
+import { useDevelopmentPartnerBySlug, useDeleteDevelopmentPartner, useToggleDevelopmentPartnerStatus } from "@/lib/hooks/useDevelopmentPartners";
 import {
   archiveDataset, deleteDataset, demoteFromOrgAdmin,
   getUsers, promoteToOrgAdmin, removeOrgMember, updateUserStatus,
 } from "@/lib/api/admin";
 import {
-  deleteInvite, getOrganisationInvites, resendInvite, revokeInvite,
+  deleteInvite, getDevelopmentPartnerInvites, resendInvite, revokeInvite,
 } from "@/lib/api/invites";
 import { useAuth } from "@/lib/auth";
 import { useAdminAccess } from "@/lib/hooks/useAdminAccess";
 import { InviteMemberModal } from "@/components/admin/invite-member-modal";
 import { HelpTip } from "@/components/admin/help-tip";
-import { OrganisationAgreementCard } from "@/components/admin/organisation-agreement-card";
-import { EditOrganisationModal } from "@/components/admin/edit-organisation-modal";
-import { OrganisationApiKeysPanel } from "@/components/admin/organisation-api-keys-panel";
+import { DevelopmentPartnerAgreementCard } from "@/components/admin/development-partner-agreement-card";
+import { EditDevelopmentPartnerModal } from "@/components/admin/edit-development-partner-modal";
+import { DevelopmentPartnerApiKeysPanel } from "@/components/admin/development-partner-api-keys-panel";
 import { EmptyState } from "@/components/feedback/empty-state";
 import { StatusBadge } from "@/components/data/status-badge";
 import { Badge } from "@/components/ui/badge";
@@ -41,18 +40,18 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import { formatDate } from "@/lib/utils/date";
 import {
-  ORGANISATION_CONTACT_PANEL_TIP,
-  ORGANISATION_DATASETS_PANEL_TIP,
-  ORGANISATION_DETAIL_PAGE_TIP,
-  ORGANISATION_INVITES_PANEL_TIP,
-  ORGANISATION_MEMBERS_PANEL_TIP,
-  ORGANISATION_SUMMARY_TIPS,
-  ORGANISATION_WORKSPACE_TIP,
-} from "@/lib/constants/organisations-tooltips";
+  DEVELOPMENT_PARTNER_CONTACT_PANEL_TIP,
+  DEVELOPMENT_PARTNER_DATASETS_PANEL_TIP,
+  DEVELOPMENT_PARTNER_DETAIL_PAGE_TIP,
+  DEVELOPMENT_PARTNER_INVITES_PANEL_TIP,
+  DEVELOPMENT_PARTNER_MEMBERS_PANEL_TIP,
+  DEVELOPMENT_PARTNER_SUMMARY_TIPS,
+  DEVELOPMENT_PARTNER_WORKSPACE_TIP,
+} from "@/lib/constants/development-partner-tooltips";
 import { TooltipProvider } from "@/components/ui/tooltip";
 
 type Member = Awaited<ReturnType<typeof getUsers>>["data"][number];
-type Invite = Awaited<ReturnType<typeof getOrganisationInvites>>[number];
+type Invite = Awaited<ReturnType<typeof getDevelopmentPartnerInvites>>[number];
 type Dataset = {
   id: string; slug: string; title: string; format?: string | null; status?: string | null;
   downloadCount?: number | null; created_at: string;
@@ -60,7 +59,7 @@ type Dataset = {
 type Target = { slug: string; title: string } | null;
 const DATASET_STATUSES = ["draft", "pending", "under_review", "approved", "rejected", "archived"] as const;
 
-export default function OrganisationDetailPage({ params }: { params: Promise<{ id: string }> }) {
+export default function DevelopmentPartnerDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id: slug } = use(params);
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -75,10 +74,10 @@ export default function OrganisationDetailPage({ params }: { params: Promise<{ i
     "demote:org-admin",
     "remove:org-members",
   );
-  const canEdit = can("edit:organisations");
-  const canDeactivate = can("deactivate:organisations");
-  const canDeleteOrg = can("delete:organisations");
-  const canAgreement = can("manage:organisation-agreements");
+  const canEdit = can("edit:development-partners");
+  const canDeactivate = can("deactivate:development-partners");
+  const canDeleteOrg = can("delete:development-partners");
+  const canAgreement = can("manage:development-partner-agreements");
   const canInvite = can("invite:users");
   const canViewInvites = canInvite;
   const canUpload = can("create:datasets");
@@ -102,18 +101,18 @@ export default function OrganisationDetailPage({ params }: { params: Promise<{ i
   const [activeTab, setActiveTab] = useState("members");
   const directoryRef = useRef<HTMLDivElement>(null);
 
-  const organisationQuery = useOrganisationBySlug(slug);
-  const org = organisationQuery.data?.organisation;
+  const developmentPartnerQuery = useDevelopmentPartnerBySlug(slug);
+  const org = developmentPartnerQuery.data?.developmentPartner;
   const orgId = org?.id;
-  const datasets = useMemo(() => (organisationQuery.data?.datasets ?? []) as Dataset[], [organisationQuery.data?.datasets]);
+  const datasets = useMemo(() => (developmentPartnerQuery.data?.datasets ?? []) as Dataset[], [developmentPartnerQuery.data?.datasets]);
   const membersQuery = useQuery({
     queryKey: ["org-members", orgId],
-    queryFn: () => getUsers({ organisationId: orgId!, limit: 100 }),
+    queryFn: () => getUsers({ developmentPartnerId: orgId!, limit: 100 }),
     enabled: !!orgId && canViewMembers,
   });
   const invitesQuery = useQuery({
     queryKey: ["org-invites", orgId],
-    queryFn: () => getOrganisationInvites(orgId!),
+    queryFn: () => getDevelopmentPartnerInvites(orgId!),
     enabled: !!orgId && canViewInvites,
   });
   const members = useMemo(() => membersQuery.data?.data ?? [], [membersQuery.data?.data]);
@@ -123,8 +122,8 @@ export default function OrganisationDetailPage({ params }: { params: Promise<{ i
     const candidate = error as { response?: { data?: { message?: string } }; message?: string };
     return candidate.response?.data?.message || candidate.message || "Please try again";
   };
-  const useActionMutation = <T,>(fn: (value: T) => Promise<unknown>, success: string, key: "members" | "invites" | "organisation") =>
-    useMutation({ mutationFn: fn, onSuccess: () => { toast.success(success); queryClient.invalidateQueries({ queryKey: key === "organisation" ? ["organisation", slug] : [`org-${key}`, orgId] }); }, onError: (e) => toast.error(errorText(e)) });
+  const useActionMutation = <T,>(fn: (value: T) => Promise<unknown>, success: string, key: "members" | "invites" | "developmentPartner") =>
+    useMutation({ mutationFn: fn, onSuccess: () => { toast.success(success); queryClient.invalidateQueries({ queryKey: key === "developmentPartner" ? ["development-partner", slug] : [`org-${key}`, orgId] }); }, onError: (e) => toast.error(errorText(e)) });
   // Hooks are intentionally declared unconditionally; every action retains its original endpoint.
   const revoke = useActionMutation((id: string) => revokeInvite(orgId!, id), "Invite revoked", "invites");
   const resend = useActionMutation((id: string) => resendInvite(orgId!, id), "Invite resent", "invites");
@@ -134,10 +133,10 @@ export default function OrganisationDetailPage({ params }: { params: Promise<{ i
   const promote = useActionMutation(promoteToOrgAdmin, "Member promoted to org admin", "members");
   const demote = useActionMutation(demoteFromOrgAdmin, "Member demoted to contributor", "members");
   const removeMember = useActionMutation((id: string) => removeOrgMember(orgId!, id), "Member removed", "members");
-  const archive = useActionMutation(archiveDataset, "Dataset archived", "organisation");
-  const removeDataset = useActionMutation(deleteDataset, "Dataset deleted", "organisation");
-  const toggleStatus = useToggleOrganisationStatus(slug);
-  const deleteOrganisation = useDeleteOrganisation();
+  const archive = useActionMutation(archiveDataset, "Dataset archived", "developmentPartner");
+  const removeDataset = useActionMutation(deleteDataset, "Dataset deleted", "developmentPartner");
+  const toggleStatus = useToggleDevelopmentPartnerStatus(slug);
+  const deleteDevelopmentPartner = useDeleteDevelopmentPartner();
 
   const filteredMembers = useMemo(() => members.filter((member) => {
     const text = `${member.first_name} ${member.last_name} ${member.email}`.toLowerCase();
@@ -156,9 +155,9 @@ export default function OrganisationDetailPage({ params }: { params: Promise<{ i
     if (activeTab === "invites" && !canViewInvites) setActiveTab("datasets");
   }, [permissionsLoading, activeTab, canViewMembers, canViewInvites]);
 
-  if (organisationQuery.isLoading) return <PageSkeleton />;
-  if (organisationQuery.isError) return <LoadFailure title="Could not load organisation" retry={() => organisationQuery.refetch()} />;
-  if (!org) return <LoadFailure title="Organisation not found" description="The record may have been removed or the URL may be incorrect." retry={() => organisationQuery.refetch()} />;
+  if (developmentPartnerQuery.isLoading) return <PageSkeleton />;
+  if (developmentPartnerQuery.isError) return <LoadFailure title="Could not load development partner" retry={() => developmentPartnerQuery.refetch()} />;
+  if (!org) return <LoadFailure title="Development partner not found" description="The record may have been removed or the URL may be incorrect." retry={() => developmentPartnerQuery.refetch()} />;
 
   const pendingInvites = canViewInvites
     ? invites.filter((invite) => invite.status === "pending").length
@@ -183,19 +182,19 @@ export default function OrganisationDetailPage({ params }: { params: Promise<{ i
   return (
     <TooltipProvider delay={200}>
   <div className="space-y-5">
-    <InviteMemberModal open={inviteOpen} onClose={() => setInviteOpen(false)} organisationId={orgId ?? ""} organisationName={org.name} />
-    <EditOrganisationModal open={editOpen} onClose={() => setEditOpen(false)} org={org} slug={slug} />
-    <ConfirmDialog open={!!removeTarget} onOpenChange={(open) => !open && setRemoveTarget(null)} title="Remove member?" description={`Remove “${removeTarget?.name}” from this organisation? Their account will remain intact.`} confirmLabel="Remove" variant="destructive" loading={removeMember.isPending} onConfirm={() => removeTarget && removeMember.mutate(removeTarget.id, { onSuccess: () => setRemoveTarget(null) })} />
+    <InviteMemberModal open={inviteOpen} onClose={() => setInviteOpen(false)} developmentPartnerId={orgId ?? ""} developmentPartnerName={org.name} />
+    <EditDevelopmentPartnerModal open={editOpen} onClose={() => setEditOpen(false)} org={org} slug={slug} />
+    <ConfirmDialog open={!!removeTarget} onOpenChange={(open) => !open && setRemoveTarget(null)} title="Remove member?" description={`Remove “${removeTarget?.name}” from this development partner? Their account will remain intact.`} confirmLabel="Remove" variant="destructive" loading={removeMember.isPending} onConfirm={() => removeTarget && removeMember.mutate(removeTarget.id, { onSuccess: () => setRemoveTarget(null) })} />
     <ConfirmDialog open={!!archiveTarget} onOpenChange={(open) => !open && setArchiveTarget(null)} title="Archive dataset?" description={`Archive “${archiveTarget?.title}”?`} confirmLabel="Archive" loading={archive.isPending} onConfirm={() => archiveTarget && archive.mutate(archiveTarget.slug, { onSuccess: () => setArchiveTarget(null) })} />
     <ConfirmDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)} title="Delete dataset?" description={`Delete “${deleteTarget?.title}”? It will be soft deleted.`} confirmLabel="Delete" variant="destructive" loading={removeDataset.isPending} onConfirm={() => deleteTarget && removeDataset.mutate(deleteTarget.slug, { onSuccess: () => setDeleteTarget(null) })} />
-    <ConfirmDialog open={statusOpen} onOpenChange={setStatusOpen} title={`${org.is_active ? "Deactivate" : "Activate"} organisation?`} description={org.is_active ? "The organisation will be hidden from public listings. Approved datasets must be archived or transferred first." : "The organisation will become visible in public listings."} confirmLabel={org.is_active ? "Deactivate" : "Activate"} variant={org.is_active ? "destructive" : "default"} loading={toggleStatus.isPending} onConfirm={() => toggleStatus.mutate({ id: orgId!, isActive: !org.is_active }, { onSuccess: () => { toast.success(`Organisation ${org.is_active ? "deactivated" : "activated"}`); setStatusOpen(false); }, onError: (e) => toast.error(errorText(e)) })} />
-    <ConfirmDialog open={deleteOrgOpen} onOpenChange={setDeleteOrgOpen} title="Delete organisation?" description={`Delete “${org.name}” and soft-delete its related records? This cannot be undone in the UI.`} confirmLabel="Delete" variant="destructive" loading={deleteOrganisation.isPending} onConfirm={() => deleteOrganisation.mutate(orgId!, { onSuccess: () => { toast.success("Organisation deleted"); router.push("/organisations"); }, onError: (e) => toast.error(errorText(e)) })} />
+    <ConfirmDialog open={statusOpen} onOpenChange={setStatusOpen} title={`${org.is_active ? "Deactivate" : "Activate"} development partner?`} description={org.is_active ? "The development partner will be hidden from public listings. Approved datasets must be archived or transferred first." : "The development partner will become visible in public listings."} confirmLabel={org.is_active ? "Deactivate" : "Activate"} variant={org.is_active ? "destructive" : "default"} loading={toggleStatus.isPending} onConfirm={() => toggleStatus.mutate({ id: orgId!, isActive: !org.is_active }, { onSuccess: () => { toast.success(`Development Partner ${org.is_active ? "deactivated" : "activated"}`); setStatusOpen(false); }, onError: (e) => toast.error(errorText(e)) })} />
+    <ConfirmDialog open={deleteOrgOpen} onOpenChange={setDeleteOrgOpen} title="Delete development partner?" description={`Delete “${org.name}” and soft-delete its related records? This cannot be undone in the UI.`} confirmLabel="Delete" variant="destructive" loading={deleteDevelopmentPartner.isPending} onConfirm={() => deleteDevelopmentPartner.mutate(orgId!, { onSuccess: () => { toast.success("Development Partner deleted"); router.push("/development-partners"); }, onError: (e) => toast.error(errorText(e)) })} />
 
     <header className="overflow-hidden rounded-2xl border bg-card">
-      <div className="border-b px-4 py-3 sm:px-5"><Link href="/organisations" className={cn(buttonVariants({ variant: "ghost" }), "-ml-3 h-11 sm:h-8")}><ArrowLeft className="size-4" />Organisations</Link></div>
+      <div className="border-b px-4 py-3 sm:px-5"><Link href="/development-partners" className={cn(buttonVariants({ variant: "ghost" }), "-ml-3 h-11 sm:h-8")}><ArrowLeft className="size-4" />Development Partners</Link></div>
       <div className="flex flex-col gap-4 p-4 sm:p-5 lg:flex-row lg:items-start lg:justify-between">
-        <div className="flex min-w-0 gap-3"><div className="flex size-12 shrink-0 items-center justify-center rounded-xl border bg-muted"><Building2 className="size-6" /></div><div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><h1 className="flex items-center gap-2 text-2xl font-bold leading-8">{org.name}<HelpTip content={ORGANISATION_DETAIL_PAGE_TIP} label="About this organisation" /></h1>{org.acronym && <Badge variant="secondary">{org.acronym}</Badge>}<Badge variant="outline" className="capitalize">{org.type}</Badge><Badge variant={org.is_active ? "default" : "secondary"}>{org.is_active ? "Active" : "Inactive"}</Badge></div><p className="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">{org.description || "No organisation description has been added."}</p></div></div>
-        {(canEdit || canDeactivate || canDeleteOrg) && <div className="flex gap-2">{canEdit && <Button variant="outline" className="h-11 flex-1 sm:h-9 sm:flex-none" onClick={() => setEditOpen(true)}><Edit className="size-4" />Edit</Button>}<DropdownMenu><DropdownMenuTrigger className="inline-flex h-11 items-center justify-center rounded-md border px-4 sm:h-9" aria-label="Organisation actions"><MoreVertical className="size-4" /></DropdownMenuTrigger><DropdownMenuContent align="end">{canDeactivate && <DropdownMenuItem onClick={() => setStatusOpen(true)}><Power className="size-4" />{org.is_active ? "Deactivate" : "Activate"}</DropdownMenuItem>}{canDeleteOrg && <DropdownMenuItem className="text-destructive" onClick={() => setDeleteOrgOpen(true)}><Trash2 className="size-4" />Delete organisation</DropdownMenuItem>}</DropdownMenuContent></DropdownMenu></div>}
+        <div className="flex min-w-0 gap-3"><div className="flex size-12 shrink-0 items-center justify-center rounded-xl border bg-muted"><Building2 className="size-6" /></div><div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><h1 className="flex items-center gap-2 text-2xl font-bold leading-8">{org.name}<HelpTip content={DEVELOPMENT_PARTNER_DETAIL_PAGE_TIP} label="About this development partner" /></h1>{org.acronym && <Badge variant="secondary">{org.acronym}</Badge>}<Badge variant="outline" className="capitalize">{org.type}</Badge><Badge variant={org.is_active ? "default" : "secondary"}>{org.is_active ? "Active" : "Inactive"}</Badge></div><p className="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">{org.description || "No development partner description has been added."}</p></div></div>
+        {(canEdit || canDeactivate || canDeleteOrg) && <div className="flex gap-2">{canEdit && <Button variant="outline" className="h-11 flex-1 sm:h-9 sm:flex-none" onClick={() => setEditOpen(true)}><Edit className="size-4" />Edit</Button>}<DropdownMenu><DropdownMenuTrigger className="inline-flex h-11 items-center justify-center rounded-md border px-4 sm:h-9" aria-label="Development partner actions"><MoreVertical className="size-4" /></DropdownMenuTrigger><DropdownMenuContent align="end">{canDeactivate && <DropdownMenuItem onClick={() => setStatusOpen(true)}><Power className="size-4" />{org.is_active ? "Deactivate" : "Activate"}</DropdownMenuItem>}{canDeleteOrg && <DropdownMenuItem className="text-destructive" onClick={() => setDeleteOrgOpen(true)}><Trash2 className="size-4" />Delete development partner</DropdownMenuItem>}</DropdownMenuContent></DropdownMenu></div>}
       </div>
     </header>
 
@@ -208,30 +207,30 @@ export default function OrganisationDetailPage({ params }: { params: Promise<{ i
             ? "grid-cols-2 xl:grid-cols-3"
             : "grid-cols-1",
       )}
-      aria-label="Organisation summary"
+      aria-label="Development partner summary"
     >
       {canViewMembers ? (
         <>
-          <Metric label="Members" value={members.length} icon={Users} tip={ORGANISATION_SUMMARY_TIPS.members} onClick={() => openDirectory("members")} />
-          <Metric label="Org admins" value={adminCount} icon={ShieldCheck} tip={ORGANISATION_SUMMARY_TIPS.orgAdmins} onClick={() => openDirectory("members")} />
+          <Metric label="Members" value={members.length} icon={Users} tip={DEVELOPMENT_PARTNER_SUMMARY_TIPS.members} onClick={() => openDirectory("members")} />
+          <Metric label="Org admins" value={adminCount} icon={ShieldCheck} tip={DEVELOPMENT_PARTNER_SUMMARY_TIPS.orgAdmins} onClick={() => openDirectory("members")} />
         </>
       ) : null}
-      <Metric label="Datasets" value={datasets.length} icon={FileText} tip={ORGANISATION_SUMMARY_TIPS.datasets} onClick={() => openDirectory("datasets")} />
+      <Metric label="Datasets" value={datasets.length} icon={FileText} tip={DEVELOPMENT_PARTNER_SUMMARY_TIPS.datasets} onClick={() => openDirectory("datasets")} />
       {canViewInvites ? (
-        <Metric label="Pending invites" value={pendingInvites} icon={Mail} tip={ORGANISATION_SUMMARY_TIPS.pendingInvites} onClick={() => openDirectory("invites", "pending")} />
+        <Metric label="Pending invites" value={pendingInvites} icon={Mail} tip={DEVELOPMENT_PARTNER_SUMMARY_TIPS.pendingInvites} onClick={() => openDirectory("invites", "pending")} />
       ) : null}
     </section>
     <div className="grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(280px,1fr)]">
-      <Card size="sm"><CardHeader className="border-b"><CardTitle className="flex items-center gap-2 text-base">Contact and record information<HelpTip content={ORGANISATION_CONTACT_PANEL_TIP} label="About contact information" /></CardTitle></CardHeader><CardContent className="grid gap-2 sm:grid-cols-2"><Info icon={Mail} label="Email" value={org.email} href={org.email ? `mailto:${org.email}` : undefined} /><Info icon={Phone} label="Phone" value={org.phone} href={org.phone ? `tel:${org.phone}` : undefined} /><Info icon={Globe} label="Website" value={org.website} href={org.website ?? undefined} /><Info icon={MapPin} label="Address" value={org.address} /><Info icon={Building2} label="Organisation ID" value={org.id} mono /></CardContent></Card>
-      <OrganisationAgreementCard org={org} orgId={orgId!} slug={slug} canManage={canAgreement} />
+      <Card size="sm"><CardHeader className="border-b"><CardTitle className="flex items-center gap-2 text-base">Contact and record information<HelpTip content={DEVELOPMENT_PARTNER_CONTACT_PANEL_TIP} label="About contact information" /></CardTitle></CardHeader><CardContent className="grid gap-2 sm:grid-cols-2"><Info icon={Mail} label="Email" value={org.email} href={org.email ? `mailto:${org.email}` : undefined} /><Info icon={Phone} label="Phone" value={org.phone} href={org.phone ? `tel:${org.phone}` : undefined} /><Info icon={Globe} label="Website" value={org.website} href={org.website ?? undefined} /><Info icon={MapPin} label="Address" value={org.address} /><Info icon={Building2} label="Development Partner ID" value={org.id} mono /></CardContent></Card>
+      <DevelopmentPartnerAgreementCard org={org} orgId={orgId!} slug={slug} canManage={canAgreement} />
     </div>
 
     <Tabs ref={directoryRef} value={activeTab} onValueChange={setActiveTab} className="scroll-mt-6 space-y-4">
       <div className="rounded-2xl border bg-card p-3 sm:p-4">
         <div className="mb-3 px-1">
           <h2 className="flex items-center gap-2 text-sm font-semibold">
-            Organisation workspace
-            <HelpTip content={ORGANISATION_WORKSPACE_TIP} label="About organisation workspace" />
+            Development partner workspace
+            <HelpTip content={DEVELOPMENT_PARTNER_WORKSPACE_TIP} label="About development partner workspace" />
           </h2>
           <p className="mt-0.5 text-xs text-muted-foreground">Choose a section to manage its records and actions.</p>
         </div>
@@ -249,13 +248,13 @@ export default function OrganisationDetailPage({ params }: { params: Promise<{ i
         </div>
       </div>
       {canViewMembers ? (
-        <TabsContent value="members"><Directory title="Members" titleTip={ORGANISATION_MEMBERS_PANEL_TIP} description="Manage organisation access and roles." action={canInvite ? <Button className="h-11 sm:h-9" onClick={() => setInviteOpen(true)}><UserPlus className="size-4" />Invite member</Button> : null} search={memberSearch} setSearch={setMemberSearch} status={memberStatus} setStatus={setMemberStatus} statuses={["active", "pending", "suspended", "archived"]} reset={resetMembers}><MemberList records={filteredMembers} loading={membersQuery.isLoading} failed={membersQuery.isError} filtered={!!memberSearch || memberStatus !== "all"} retry={() => membersQuery.refetch()} actions={{ canPromote, canDemote, canRemove, canManageStatus: isSuperAdmin, promote, demote, suspend, reactivate, remove: setRemoveTarget }} /></Directory></TabsContent>
+        <TabsContent value="members"><Directory title="Members" titleTip={DEVELOPMENT_PARTNER_MEMBERS_PANEL_TIP} description="Manage development partner access and roles." action={canInvite ? <Button className="h-11 sm:h-9" onClick={() => setInviteOpen(true)}><UserPlus className="size-4" />Invite member</Button> : null} search={memberSearch} setSearch={setMemberSearch} status={memberStatus} setStatus={setMemberStatus} statuses={["active", "pending", "suspended", "archived"]} reset={resetMembers}><MemberList records={filteredMembers} loading={membersQuery.isLoading} failed={membersQuery.isError} filtered={!!memberSearch || memberStatus !== "all"} retry={() => membersQuery.refetch()} actions={{ canPromote, canDemote, canRemove, canManageStatus: isSuperAdmin, promote, demote, suspend, reactivate, remove: setRemoveTarget }} /></Directory></TabsContent>
       ) : null}
       {canViewInvites ? (
-        <TabsContent value="invites"><Directory title="Invitations" titleTip={ORGANISATION_INVITES_PANEL_TIP} description="Track invitations and their delivery status." action={canInvite ? <Button className="h-11 sm:h-9" onClick={() => setInviteOpen(true)}><UserPlus className="size-4" />Send invite</Button> : null} search={inviteSearch} setSearch={setInviteSearch} status={inviteStatus} setStatus={setInviteStatus} statuses={["pending", "accepted", "revoked", "expired"]} reset={resetInvites}><InviteList records={filteredInvites} loading={invitesQuery.isLoading} failed={invitesQuery.isError} filtered={!!inviteSearch || inviteStatus !== "all"} retry={() => invitesQuery.refetch()} canInvite={canInvite} revoke={revoke} resend={resend} remove={removeInvite} /></Directory></TabsContent>
+        <TabsContent value="invites"><Directory title="Invitations" titleTip={DEVELOPMENT_PARTNER_INVITES_PANEL_TIP} description="Track invitations and their delivery status." action={canInvite ? <Button className="h-11 sm:h-9" onClick={() => setInviteOpen(true)}><UserPlus className="size-4" />Send invite</Button> : null} search={inviteSearch} setSearch={setInviteSearch} status={inviteStatus} setStatus={setInviteStatus} statuses={["pending", "accepted", "revoked", "expired"]} reset={resetInvites}><InviteList records={filteredInvites} loading={invitesQuery.isLoading} failed={invitesQuery.isError} filtered={!!inviteSearch || inviteStatus !== "all"} retry={() => invitesQuery.refetch()} canInvite={canInvite} revoke={revoke} resend={resend} remove={removeInvite} /></Directory></TabsContent>
       ) : null}
-      <TabsContent value="datasets"><Directory title="Datasets" titleTip={ORGANISATION_DATASETS_PANEL_TIP} description="Review datasets owned by this organisation." action={canUpload ? <Link href={`/upload?orgId=${orgId}`} className={cn(buttonVariants(), "h-11 sm:h-9")}><Upload className="size-4" />Upload dataset</Link> : null} search={datasetSearch} setSearch={setDatasetSearch} status={datasetStatus} setStatus={setDatasetStatus} statuses={[...DATASET_STATUSES]} reset={resetDatasets}><DatasetList records={filteredDatasets} filtered={!!datasetSearch || datasetStatus !== "all"} canArchive={canArchive} canDelete={canDeleteDataset} archive={setArchiveTarget} remove={setDeleteTarget} /></Directory></TabsContent>
-      {canManageApiKeys && <TabsContent value="api-keys"><OrganisationApiKeysPanel organisationId={orgId ?? ""} canManage={canManageApiKeys} /></TabsContent>}
+      <TabsContent value="datasets"><Directory title="Datasets" titleTip={DEVELOPMENT_PARTNER_DATASETS_PANEL_TIP} description="Review datasets owned by this development partner." action={canUpload ? <Link href={`/upload?orgId=${orgId}`} className={cn(buttonVariants(), "h-11 sm:h-9")}><Upload className="size-4" />Upload dataset</Link> : null} search={datasetSearch} setSearch={setDatasetSearch} status={datasetStatus} setStatus={setDatasetStatus} statuses={[...DATASET_STATUSES]} reset={resetDatasets}><DatasetList records={filteredDatasets} filtered={!!datasetSearch || datasetStatus !== "all"} canArchive={canArchive} canDelete={canDeleteDataset} archive={setArchiveTarget} remove={setDeleteTarget} /></Directory></TabsContent>
+      {canManageApiKeys && <TabsContent value="api-keys"><DevelopmentPartnerApiKeysPanel developmentPartnerId={orgId ?? ""} canManage={canManageApiKeys} /></TabsContent>}
     </Tabs>
   </div>
   </TooltipProvider>
@@ -313,8 +312,8 @@ function Metric({ label, value, icon: Icon, onClick, tip }: { label: string; val
   );
 }
 function Info({ icon: Icon, label, value, href, mono }: { icon: typeof Mail; label: string; value?: string | null; href?: string; mono?: boolean }) { return <div className="rounded-xl border p-3"><p className="flex items-center gap-2 text-xs font-medium text-muted-foreground"><Icon className="size-4" />{label}</p>{value ? href ? <a href={href} className="mt-1 block break-all text-sm font-medium hover:underline" target={href.startsWith("http") ? "_blank" : undefined} rel={href.startsWith("http") ? "noreferrer" : undefined}>{value}</a> : <p className={cn("mt-1 break-all text-sm font-medium", mono && "font-mono text-xs")}>{value}</p> : <p className="mt-1 text-sm text-muted-foreground">Not provided</p>}</div>; }
-function ListEmpty({ icon, filtered, noun }: { icon: typeof Users; filtered: boolean; noun: string }) { return <EmptyState icon={icon} title={filtered ? `No matching ${noun}` : `No ${noun} yet`} description={filtered ? "Adjust the search or status filter, or reset filters." : `This organisation has no ${noun} to display.`} />; }
+function ListEmpty({ icon, filtered, noun }: { icon: typeof Users; filtered: boolean; noun: string }) { return <EmptyState icon={icon} title={filtered ? `No matching ${noun}` : `No ${noun} yet`} description={filtered ? "Adjust the search or status filter, or reset filters." : `This development partner has no ${noun} to display.`} />; }
 function InlineFailure({ retry }: { retry: () => void }) { return <div className="p-8 text-center"><p className="text-sm font-medium">Could not load these records</p><Button variant="outline" className="mt-3 h-11 sm:h-9" onClick={retry}><RotateCcw className="size-4" />Try again</Button></div>; }
 function ListSkeleton() { return <div className="space-y-3 p-4">{[1, 2, 3].map((n) => <Skeleton key={n} className="h-16 rounded-xl" />)}</div>; }
-function LoadFailure({ title, description = "Check your connection and try again.", retry }: { title: string; description?: string; retry: () => void }) { return <div className="space-y-4"><Link href="/organisations" className={cn(buttonVariants({ variant: "ghost" }), "h-11 sm:h-8")}><ArrowLeft className="size-4" />Organisations</Link><div className="rounded-2xl border bg-card px-4 py-12 text-center"><Building2 className="mx-auto size-10 text-muted-foreground" /><h1 className="mt-4 text-xl font-semibold">{title}</h1><p className="mt-2 text-sm text-muted-foreground">{description}</p><Button variant="outline" className="mt-5 h-11 sm:h-9" onClick={retry}><RotateCcw className="size-4" />Try again</Button></div></div>; }
+function LoadFailure({ title, description = "Check your connection and try again.", retry }: { title: string; description?: string; retry: () => void }) { return <div className="space-y-4"><Link href="/development-partners" className={cn(buttonVariants({ variant: "ghost" }), "h-11 sm:h-8")}><ArrowLeft className="size-4" />Development Partners</Link><div className="rounded-2xl border bg-card px-4 py-12 text-center"><Building2 className="mx-auto size-10 text-muted-foreground" /><h1 className="mt-4 text-xl font-semibold">{title}</h1><p className="mt-2 text-sm text-muted-foreground">{description}</p><Button variant="outline" className="mt-5 h-11 sm:h-9" onClick={retry}><RotateCcw className="size-4" />Try again</Button></div></div>; }
 function PageSkeleton() { return <div className="space-y-6"><Skeleton className="h-40 rounded-2xl" /><div className="grid grid-cols-2 gap-3 xl:grid-cols-4">{[1, 2, 3, 4].map((n) => <Skeleton key={n} className="h-24 rounded-xl" />)}</div><Skeleton className="h-56 rounded-2xl" /><Skeleton className="h-96 rounded-2xl" /></div>; }

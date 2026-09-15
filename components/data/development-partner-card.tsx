@@ -1,19 +1,19 @@
 import Link from "next/link";
 import Image from "next/image";
 import { Database } from "lucide-react";
-import type { Organisation } from "@/types";
+import type { DevelopmentPartner } from "@/types";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
-interface OrgCardProps {
-  organisation: Organisation;
+interface DevelopmentPartnerCardProps {
+  developmentPartner: DevelopmentPartner;
   className?: string;
 }
 
-export function OrgCard({ organisation, className }: OrgCardProps) {
+export function DevelopmentPartnerCard({ developmentPartner, className }: DevelopmentPartnerCardProps) {
   return (
-    <Link href={`/organisations/${organisation.slug}`}>
+    <Link href={`/development-partners/${developmentPartner.slug}`}>
       <Card
         className={cn(
           "group transition-all hover:shadow-md hover:border-primary/50",
@@ -23,9 +23,9 @@ export function OrgCard({ organisation, className }: OrgCardProps) {
         <CardHeader>
           <div className="flex items-center gap-3">
             {/* Logo or Initials */}
-            {organisation.logoUrl ? (
+            {developmentPartner.logoUrl ? (
               <Image
-                src={organisation.logoUrl}
+                src={developmentPartner.logoUrl}
                 alt=""
                 width={48}
                 height={48}
@@ -35,20 +35,20 @@ export function OrgCard({ organisation, className }: OrgCardProps) {
               <div
                 className="flex size-12 items-center justify-center rounded-lg text-white font-bold text-lg"
                 style={{
-                  backgroundColor: organisation.brandColor || "#6366F1",
+                  backgroundColor: developmentPartner.brandColor || "#6366F1",
                 }}
               >
-                {organisation.acronym?.charAt(0) || organisation.name.charAt(0)}
+                {developmentPartner.acronym?.charAt(0) || developmentPartner.name.charAt(0)}
               </div>
             )}
 
             <div className="flex-1 min-w-0">
               <CardTitle className="text-base truncate">
-                {organisation.name}
+                {developmentPartner.name}
               </CardTitle>
-              {organisation.acronym && (
+              {developmentPartner.acronym && (
                 <p className="text-xs text-muted-foreground">
-                  {organisation.acronym}
+                  {developmentPartner.acronym}
                 </p>
               )}
             </div>
@@ -57,12 +57,12 @@ export function OrgCard({ organisation, className }: OrgCardProps) {
 
         <CardContent className="space-y-3">
           {/* Sector Badge */}
-          <Badge variant="secondary">{organisation.sector}</Badge>
+          <Badge variant="secondary">{developmentPartner.sector}</Badge>
 
           {/* Description */}
-          {organisation.description && (
+          {developmentPartner.description && (
             <CardDescription className="line-clamp-2">
-              {organisation.description}
+              {developmentPartner.description}
             </CardDescription>
           )}
 
@@ -70,7 +70,7 @@ export function OrgCard({ organisation, className }: OrgCardProps) {
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <Database className="size-4" />
             <span>
-              {organisation.datasetCount} dataset{organisation.datasetCount !== 1 ? "s" : ""}
+              {developmentPartner.datasetCount} dataset{developmentPartner.datasetCount !== 1 ? "s" : ""}
             </span>
           </div>
         </CardContent>

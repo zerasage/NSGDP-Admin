@@ -44,7 +44,7 @@ export interface DatasetPreviewResult {
 }
 
 /**
- * Preview a dataset regardless of status/organisation/ownership — for admin
+ * Preview a dataset regardless of status/development-partner/ownership — for admin
  * review, where the dataset being previewed is by definition not yet approved.
  */
 export async function getAdminDatasetPreview(slug: string): Promise<DatasetPreviewResult> {

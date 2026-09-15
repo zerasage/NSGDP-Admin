@@ -18,4 +18,4 @@ export const ACCESS_REQUESTS_DENY_TIP =
   "Refuses access and prompts you for a reason. The requester sees your comment and may submit a new request later.";
 
 export const ACCESS_REQUESTS_DENY_REASON_TIP =
-  "Explain clearly why access cannot be granted — e.g. insufficient justification, wrong organisation, or data sensitivity. Minimum 20 characters.";
+  "Explain clearly why access cannot be granted — e.g. insufficient justification, wrong development partner, or data sensitivity. Minimum 20 characters.";

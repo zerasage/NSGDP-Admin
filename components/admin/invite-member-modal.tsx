@@ -18,15 +18,15 @@ import { toast } from "sonner";
 interface InviteMemberModalProps {
   open: boolean;
   onClose: () => void;
-  organisationId: string;
-  organisationName: string;
+  developmentPartnerId: string;
+  developmentPartnerName: string;
 }
 
 export function InviteMemberModal({
   open,
   onClose,
-  organisationId,
-  organisationName,
+  developmentPartnerId,
+  developmentPartnerName,
 }: InviteMemberModalProps) {
   const queryClient = useQueryClient();
   const [email, setEmail] = useState("");
@@ -35,7 +35,7 @@ export function InviteMemberModal({
 
   const inviteMutation = useMutation({
     mutationFn: () =>
-      createInvite(organisationId, {
+      createInvite(developmentPartnerId, {
         invitedEmail: email,
         role,
         message: message || undefined,
@@ -45,7 +45,7 @@ export function InviteMemberModal({
         description: `An invitation email has been sent to ${email}`,
       });
       // Invalidate invites query to refresh the list
-      queryClient.invalidateQueries({ queryKey: ["org-invites", organisationId] });
+      queryClient.invalidateQueries({ queryKey: ["org-invites", developmentPartnerId] });
       handleClose();
     },
     onError: (error: unknown) => {
@@ -77,7 +77,7 @@ export function InviteMemberModal({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <UserPlus className="size-5" />
-            Invite Member to {organisationName}
+            Invite Member to {developmentPartnerName}
           </DialogTitle>
         </DialogHeader>
 
@@ -142,7 +142,7 @@ export function InviteMemberModal({
               >
                 <RadioGroupItem value={InviteRole.ADMIN} id="admin" className="mt-0.5" />
                 <div className="flex-1 space-y-1">
-                  <span className="text-sm font-medium">Organisation Admin</span>
+                  <span className="text-sm font-medium">Development Partner Admin</span>
                   <p className="text-sm text-muted-foreground">
                     Can manage all datasets and invite new members
                   </p>

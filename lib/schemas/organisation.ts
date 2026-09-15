@@ -1,10 +1,10 @@
 import { z } from "zod";
 
-export const organisationFormSchema = z.object({
+export const developmentPartnerFormSchema = z.object({
   name: z
     .string()
-    .min(3, "Organisation name must be at least 3 characters")
-    .max(100, "Organisation name must not exceed 100 characters"),
+    .min(3, "Development Partner name must be at least 3 characters")
+    .max(100, "Development Partner name must not exceed 100 characters"),
 
   acronym: z
     .string()
@@ -22,24 +22,24 @@ export const organisationFormSchema = z.object({
     "healthcare",
     "other",
   ]),
-  
+
   description: z
     .string()
     .max(500, "Description must not exceed 500 characters")
     .optional(),
-  
+
   website: z
     .string()
     .url("Please enter a valid URL")
     .optional()
     .or(z.literal("")),
-  
+
   email: z
     .string()
     .email("Please enter a valid email address")
     .optional()
     .or(z.literal("")),
-  
+
   phone: z
     .string()
     .regex(
@@ -48,12 +48,12 @@ export const organisationFormSchema = z.object({
     )
     .optional()
     .or(z.literal("")),
-  
+
   address: z
     .string()
     .max(200, "Address must not exceed 200 characters")
     .optional(),
-  
+
   logoUrl: z
     .string()
     .url("Please enter a valid URL")
@@ -61,4 +61,4 @@ export const organisationFormSchema = z.object({
     .or(z.literal("")),
 });
 
-export type OrganisationFormData = z.infer<typeof organisationFormSchema>;
+export type DevelopmentPartnerFormData = z.infer<typeof developmentPartnerFormSchema>;

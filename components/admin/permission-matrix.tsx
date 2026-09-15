@@ -29,7 +29,7 @@ import { cn } from "@/lib/utils";
 
 const SECTION_ICONS: Record<string, typeof Database> = {
   Datasets: Database,
-  Organisations: Building2,
+  "Development Partners": Building2,
   Users: Users,
   Programmes: FolderKanban,
   "Access Requests": UserCheck,
@@ -39,7 +39,7 @@ const SECTION_ICONS: Record<string, typeof Database> = {
 // section so every group's cards read the same way at a glance.
 const SECTION_COLORS: Record<string, keyof typeof statusSurface> = {
   Datasets: "blue",
-  Organisations: "purple",
+  "Development Partners": "purple",
   Users: "emerald",
   Programmes: "amber",
   "Access Requests": "teal",

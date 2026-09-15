@@ -15,8 +15,8 @@ import {
   X,
 } from "lucide-react";
 import { useQueries } from "@tanstack/react-query";
-import { useOrganisations } from "@/lib/hooks/useOrganisations";
-import { getOrganisations } from "@/lib/api/organisations";
+import { useDevelopmentPartners } from "@/lib/hooks/useDevelopmentPartners";
+import { getDevelopmentPartners } from "@/lib/api/development-partners";
 import { useAdminAccess } from "@/lib/hooks/useAdminAccess";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -50,18 +50,18 @@ import {
 } from "@/components/admin/admin-analytics-ui";
 import { HelpTip } from "@/components/admin/help-tip";
 import {
-  ORGANISATIONS_ADD_TIP,
-  ORGANISATIONS_METRIC_TIPS,
-  ORGANISATIONS_PAGE_TIP,
-  ORGANISATIONS_PANEL_TIP,
-  ORGANISATIONS_TAB_TIPS,
-} from "@/lib/constants/organisations-tooltips";
+  DEVELOPMENT_PARTNERS_ADD_TIP,
+  DEVELOPMENT_PARTNERS_METRIC_TIPS,
+  DEVELOPMENT_PARTNERS_PAGE_TIP,
+  DEVELOPMENT_PARTNERS_PANEL_TIP,
+  DEVELOPMENT_PARTNERS_TAB_TIPS,
+} from "@/lib/constants/development-partner-tooltips";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { formatDate } from "@/lib/utils/date";
 import { ORG_TYPES } from "@/lib/constants/organisation-types";
-import type { OrganisationType } from "@/lib/api/organisations";
-import { CreateOrganisationModal } from "@/components/admin/create-organisation-modal";
+import type { DevelopmentPartnerType } from "@/lib/api/development-partners";
+import { CreateDevelopmentPartnerModal } from "@/components/admin/create-development-partner-modal";
 
 const typeLabels = new Map(ORG_TYPES.map((type) => [type.value, type.label]));
 
@@ -71,21 +71,21 @@ const TABS: Array<{
   tone: MetricTone;
   tip: string;
 }> = [
-  { key: "all", label: "All organisations", tone: "muted", tip: ORGANISATIONS_TAB_TIPS.all },
-  { key: "active", label: "Active", tone: "success", tip: ORGANISATIONS_TAB_TIPS.active },
-  { key: "inactive", label: "Inactive", tone: "muted", tip: ORGANISATIONS_TAB_TIPS.inactive },
+  { key: "all", label: "All development partners", tone: "muted", tip: DEVELOPMENT_PARTNERS_TAB_TIPS.all },
+  { key: "active", label: "Active", tone: "success", tip: DEVELOPMENT_PARTNERS_TAB_TIPS.active },
+  { key: "inactive", label: "Inactive", tone: "muted", tip: DEVELOPMENT_PARTNERS_TAB_TIPS.inactive },
 ];
 
-export default function AdminOrganisationsPage() {
+export default function AdminDevelopmentPartnersPage() {
   const { can } = useAdminAccess();
-  const canCreate = can("create:organisations");
+  const canCreate = can("create:development-partners");
 
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const [status, setStatus] = useState<"all" | "active" | "inactive">("all");
-  const [type, setType] = useState<OrganisationType | "all">("all");
+  const [type, setType] = useState<DevelopmentPartnerType | "all">("all");
   const [createModalOpen, setCreateModalOpen] = useState(false);
 
   useEffect(() => {
@@ -97,7 +97,7 @@ export default function AdminOrganisationsPage() {
     return () => clearTimeout(timer);
   }, [query]);
 
-  const { data, isLoading, isFetching, isError, refetch } = useOrganisations(
+  const { data, isLoading, isFetching, isError, refetch } = useDevelopmentPartners(
     page,
     pageSize,
     "partners",
@@ -111,26 +111,26 @@ export default function AdminOrganisationsPage() {
   const [totalSummary, activeSummary, inactiveSummary, agreementsSummary] = useQueries({
     queries: [
       {
-        queryKey: ["organisations", "summary", "total"],
-        queryFn: () => getOrganisations({ page: 1, limit: 1, scope: "partners" }),
-        select: (result: Awaited<ReturnType<typeof getOrganisations>>) => result.total,
+        queryKey: ["development-partners", "summary", "total"],
+        queryFn: () => getDevelopmentPartners({ page: 1, limit: 1, scope: "partners" }),
+        select: (result: Awaited<ReturnType<typeof getDevelopmentPartners>>) => result.total,
       },
       {
-        queryKey: ["organisations", "summary", "active"],
+        queryKey: ["development-partners", "summary", "active"],
         queryFn: () =>
-          getOrganisations({ page: 1, limit: 1, scope: "partners", status: "active" }),
-        select: (result: Awaited<ReturnType<typeof getOrganisations>>) => result.total,
+          getDevelopmentPartners({ page: 1, limit: 1, scope: "partners", status: "active" }),
+        select: (result: Awaited<ReturnType<typeof getDevelopmentPartners>>) => result.total,
       },
       {
-        queryKey: ["organisations", "summary", "inactive"],
+        queryKey: ["development-partners", "summary", "inactive"],
         queryFn: () =>
-          getOrganisations({ page: 1, limit: 1, scope: "partners", status: "inactive" }),
-        select: (result: Awaited<ReturnType<typeof getOrganisations>>) => result.total,
+          getDevelopmentPartners({ page: 1, limit: 1, scope: "partners", status: "inactive" }),
+        select: (result: Awaited<ReturnType<typeof getDevelopmentPartners>>) => result.total,
       },
       {
-        queryKey: ["organisations", "summary", "agreements"],
+        queryKey: ["development-partners", "summary", "agreements"],
         queryFn: async () => {
-          const result = await getOrganisations({ page: 1, limit: 100, scope: "partners" });
+          const result = await getDevelopmentPartners({ page: 1, limit: 100, scope: "partners" });
           return {
             missing: result.data.filter((org) => !org.agreement_file_path).length,
             complete: result.total <= 100,
@@ -170,16 +170,16 @@ export default function AdminOrganisationsPage() {
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
-            Organisations
-            <HelpTip content={ORGANISATIONS_PAGE_TIP} label="About organisations" />
+            Development Partners
+            <HelpTip content={DEVELOPMENT_PARTNERS_PAGE_TIP} label="About development partners" />
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Manage partner organisations, agreements, and dataset ownership
+            Manage development partners, agreements, and dataset ownership
           </p>
         </div>
         {!isLoading && (
           <Badge variant="outline" className="rounded-full px-3 py-1 text-xs font-medium tabular-nums">
-            {total} {total === 1 ? "organisation" : "organisations"}
+            {total} {total === 1 ? "development partner" : "development partners"}
           </Badge>
         )}
       </div>
@@ -195,8 +195,8 @@ export default function AdminOrganisationsPage() {
           <MetricCard
             label="Total partners"
             value={totalSummary.data ?? 0}
-            hint="Contributing organisations"
-            tip={ORGANISATIONS_METRIC_TIPS.total}
+            hint="Contributing development partners"
+            tip={DEVELOPMENT_PARTNERS_METRIC_TIPS.total}
             icon={Building2}
             tone="primary"
           />
@@ -204,7 +204,7 @@ export default function AdminOrganisationsPage() {
             label="Active"
             value={activeSummary.data ?? 0}
             hint="Enabled on the platform"
-            tip={ORGANISATIONS_METRIC_TIPS.active}
+            tip={DEVELOPMENT_PARTNERS_METRIC_TIPS.active}
             icon={Building2}
             tone="success"
           />
@@ -212,7 +212,7 @@ export default function AdminOrganisationsPage() {
             label="Inactive"
             value={inactiveSummary.data ?? 0}
             hint="Disabled or suspended"
-            tip={ORGANISATIONS_METRIC_TIPS.inactive}
+            tip={DEVELOPMENT_PARTNERS_METRIC_TIPS.inactive}
             icon={Building2}
             tone="muted"
           />
@@ -220,7 +220,7 @@ export default function AdminOrganisationsPage() {
             label="Missing agreements"
             value={agreementsSummary.data?.missing ?? 0}
             hint={agreementHint}
-            tip={ORGANISATIONS_METRIC_TIPS.missingAgreements}
+            tip={DEVELOPMENT_PARTNERS_METRIC_TIPS.missingAgreements}
             icon={FileWarning}
             tone="warning"
           />
@@ -228,8 +228,8 @@ export default function AdminOrganisationsPage() {
       )}
 
       <Panel
-        title="Organisation directory"
-        titleTip={ORGANISATIONS_PANEL_TIP}
+        title="Development partner directory"
+        titleTip={DEVELOPMENT_PARTNERS_PANEL_TIP}
         description="Filter by status or type, or search by name, acronym, or email."
         icon={Building2}
         tone="info"
@@ -238,16 +238,16 @@ export default function AdminOrganisationsPage() {
             <div className="flex w-full items-center gap-1.5 sm:w-auto">
               <Button className="h-9 flex-1 sm:flex-none" onClick={() => setCreateModalOpen(true)}>
                 <Plus className="size-4" aria-hidden="true" />
-                Add organisation
+                Add development partner
               </Button>
-              <HelpTip content={ORGANISATIONS_ADD_TIP} label="About add organisation" />
+              <HelpTip content={DEVELOPMENT_PARTNERS_ADD_TIP} label="About add development partner" />
             </div>
           ) : undefined
         }
       >
         <div className="space-y-4">
           <div className="rounded-xl border bg-muted/30 p-1">
-            <div className="flex flex-wrap gap-1" role="tablist" aria-label="Organisation status">
+            <div className="flex flex-wrap gap-1" role="tablist" aria-label="Development partner status">
               {TABS.map((tab) => (
                 <div key={tab.key} className="inline-flex items-center gap-0.5">
                   <button
@@ -287,14 +287,14 @@ export default function AdminOrganisationsPage() {
                   onChange={(event) => setQuery(event.target.value)}
                   placeholder="Search name, acronym, or email"
                   className="h-10 pl-9 pr-10"
-                  aria-label="Search organisations"
+                  aria-label="Search development partners"
                 />
                 {query && (
                   <button
                     type="button"
                     onClick={() => setQuery("")}
                     className="absolute right-0 top-1/2 flex size-10 -translate-y-1/2 items-center justify-center text-muted-foreground hover:text-foreground"
-                    aria-label="Clear organisation search"
+                    aria-label="Clear development partner search"
                   >
                     <X className="size-4" aria-hidden="true" />
                   </button>
@@ -304,24 +304,24 @@ export default function AdminOrganisationsPage() {
               <Select
                 value={type}
                 onValueChange={(value) => {
-                  setType(value as OrganisationType | "all");
+                  setType(value as DevelopmentPartnerType | "all");
                   setPage(1);
                 }}
               >
-                <SelectTrigger className="h-10 w-full sm:w-64" aria-label="Filter by organisation type">
+                <SelectTrigger className="h-10 w-full sm:w-64" aria-label="Filter by development partner type">
                   <SelectValue>
                     {(v: string) =>
                       v === "all"
-                        ? "All organisation types"
-                        : (typeLabels.get(v as OrganisationType) ?? v)
+                        ? "All development partner types"
+                        : (typeLabels.get(v as DevelopmentPartnerType) ?? v)
                     }
                   </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All organisation types</SelectItem>
-                  {ORG_TYPES.map((organisationType) => (
-                    <SelectItem key={organisationType.value} value={organisationType.value}>
-                      {organisationType.label}
+                  <SelectItem value="all">All development partner types</SelectItem>
+                  {ORG_TYPES.map((developmentPartnerType) => (
+                    <SelectItem key={developmentPartnerType.value} value={developmentPartnerType.value}>
+                      {developmentPartnerType.label}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -342,7 +342,7 @@ export default function AdminOrganisationsPage() {
               <span>
                 {isSearchPending ? "Searching" : isFetching && !isLoading ? "Updating" : "Found"}{" "}
                 <span className="font-semibold tabular-nums text-foreground">{total}</span>{" "}
-                {total === 1 ? "organisation" : "organisations"}
+                {total === 1 ? "development partner" : "development partners"}
               </span>
             </div>
           </div>
@@ -355,9 +355,9 @@ export default function AdminOrganisationsPage() {
             <div className="mx-auto flex size-14 items-center justify-center rounded-full bg-destructive/10 text-destructive">
               <AlertCircle className="size-7" aria-hidden="true" />
             </div>
-            <h2 className="mt-4 text-base font-semibold">Could not load organisations</h2>
+            <h2 className="mt-4 text-base font-semibold">Could not load development partners</h2>
             <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
-              Check your connection and try loading the organisation list again.
+              Check your connection and try loading the development partner list again.
             </p>
             <Button variant="outline" className="mt-5 h-11 sm:h-8" onClick={() => refetch()}>
               <RotateCcw className="size-4" aria-hidden="true" />
@@ -385,17 +385,17 @@ export default function AdminOrganisationsPage() {
           <div className="rounded-2xl border bg-card">
             <EmptyState
               icon={Building2}
-              title={hasFilters ? "No matching organisations" : "No organisations yet"}
+              title={hasFilters ? "No matching development partners" : "No development partners yet"}
               description={
                 hasFilters
-                  ? "Try a different search term, status, or organisation type."
-                  : "Partner organisations will appear here after they are added to the platform."
+                  ? "Try a different search term, status, or development partner type."
+                  : "Development partners will appear here after they are added to the platform."
               }
               action={
                 hasFilters
                   ? { label: "Clear filters", onClick: clearFilters }
                   : canCreate
-                    ? { label: "Add organisation", onClick: () => setCreateModalOpen(true) }
+                    ? { label: "Add development partner", onClick: () => setCreateModalOpen(true) }
                     : undefined
               }
             />
@@ -407,7 +407,7 @@ export default function AdminOrganisationsPage() {
                 <Table>
                   <TableHeader>
                     <TableRow className="h-11 bg-muted/40 text-[11px] uppercase tracking-wide hover:bg-muted/40">
-                      <TableHead className="h-11 px-4">Organisation</TableHead>
+                      <TableHead className="h-11 px-4">Development Partner</TableHead>
                       <TableHead className="h-11 px-4">Type</TableHead>
                       <TableHead className="h-11 px-4">Contact</TableHead>
                       <TableHead className="h-11 px-4 text-right">Datasets</TableHead>
@@ -417,8 +417,8 @@ export default function AdminOrganisationsPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {orgs.map((organisation) => (
-                      <TableRow key={organisation.id} className="hover:bg-muted/30">
+                    {orgs.map((developmentPartner) => (
+                      <TableRow key={developmentPartner.id} className="hover:bg-muted/30">
                         <TableCell className="max-w-sm px-4 py-3.5">
                           <div className="flex items-center gap-3">
                             <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
@@ -426,40 +426,40 @@ export default function AdminOrganisationsPage() {
                             </div>
                             <div className="min-w-0">
                               <Link
-                                href={`/organisations/${organisation.slug}`}
+                                href={`/development-partners/${developmentPartner.slug}`}
                                 className="line-clamp-1 font-semibold hover:underline"
                               >
-                                {organisation.name}
+                                {developmentPartner.name}
                               </Link>
                               <p className="mt-0.5 line-clamp-1 text-xs text-muted-foreground">
-                                {organisation.acronym || `Added ${formatDate(organisation.created_at)}`}
+                                {developmentPartner.acronym || `Added ${formatDate(developmentPartner.created_at)}`}
                               </p>
                             </div>
                           </div>
                         </TableCell>
                         <TableCell className="max-w-48 px-4 py-3.5">
-                          <TypeBadge type={organisation.type} />
+                          <TypeBadge type={developmentPartner.type} />
                         </TableCell>
                         <TableCell className="max-w-56 px-4 py-3.5 text-xs text-muted-foreground">
                           <span className="line-clamp-2 break-all">
-                            {organisation.email || "No email provided"}
+                            {developmentPartner.email || "No email provided"}
                           </span>
                         </TableCell>
                         <TableCell className="px-4 py-3.5 text-right font-medium tabular-nums">
-                          {organisation.dataset_count ?? 0}
+                          {developmentPartner.dataset_count ?? 0}
                         </TableCell>
                         <TableCell className="px-4 py-3.5">
-                          <AgreementBadge hasAgreement={!!organisation.agreement_file_path} />
+                          <AgreementBadge hasAgreement={!!developmentPartner.agreement_file_path} />
                         </TableCell>
                         <TableCell className="px-4 py-3.5">
-                          <OrganisationStatusBadge active={organisation.is_active} />
+                          <DevelopmentPartnerStatusBadge active={developmentPartner.is_active} />
                         </TableCell>
                         <TableCell className="px-4 py-3.5 text-right">
                           <Link
-                            href={`/organisations/${organisation.slug}`}
+                            href={`/development-partners/${developmentPartner.slug}`}
                             className={cn(buttonVariants({ variant: "ghost", size: "icon-sm" }))}
-                            aria-label={`View ${organisation.name}`}
-                            title="View organisation"
+                            aria-label={`View ${developmentPartner.name}`}
+                            title="View development partner"
                           >
                             <ChevronRight className="size-4" aria-hidden="true" />
                           </Link>
@@ -472,28 +472,28 @@ export default function AdminOrganisationsPage() {
             </DataTableShell>
 
             <div className="grid gap-3 xl:hidden">
-              {orgs.map((organisation) => (
-                <article key={organisation.id} className="rounded-xl border bg-card p-4">
+              {orgs.map((developmentPartner) => (
+                <article key={developmentPartner.id} className="rounded-xl border bg-card p-4">
                   <div className="flex items-start gap-3">
                     <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
                       <Building2 className="size-5" aria-hidden="true" />
                     </div>
                     <div className="min-w-0 flex-1">
                       <Link
-                        href={`/organisations/${organisation.slug}`}
+                        href={`/development-partners/${developmentPartner.slug}`}
                         className="line-clamp-2 text-sm font-semibold leading-5 hover:underline"
                       >
-                        {organisation.name}
+                        {developmentPartner.name}
                       </Link>
                       <p className="mt-1 text-xs text-muted-foreground">
-                        {typeLabels.get(organisation.type) ?? "Other"}
+                        {typeLabels.get(developmentPartner.type) ?? "Other"}
                       </p>
                     </div>
-                    <OrganisationStatusBadge active={organisation.is_active} />
+                    <DevelopmentPartnerStatusBadge active={developmentPartner.is_active} />
                   </div>
 
-                  {organisation.email && (
-                    <p className="mt-3 truncate text-xs text-muted-foreground">{organisation.email}</p>
+                  {developmentPartner.email && (
+                    <p className="mt-3 truncate text-xs text-muted-foreground">{developmentPartner.email}</p>
                   )}
 
                   <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3 border-y py-3">
@@ -502,7 +502,7 @@ export default function AdminOrganisationsPage() {
                         Datasets
                       </dt>
                       <dd className="mt-1 text-sm font-semibold tabular-nums">
-                        {organisation.dataset_count ?? 0}
+                        {developmentPartner.dataset_count ?? 0}
                       </dd>
                     </div>
                     <div>
@@ -510,22 +510,22 @@ export default function AdminOrganisationsPage() {
                         Agreement
                       </dt>
                       <dd className="mt-1">
-                        <AgreementBadge hasAgreement={!!organisation.agreement_file_path} />
+                        <AgreementBadge hasAgreement={!!developmentPartner.agreement_file_path} />
                       </dd>
                     </div>
                     <div className="col-span-2">
                       <dt className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                         Added
                       </dt>
-                      <dd className="mt-1 text-xs font-medium">{formatDate(organisation.created_at)}</dd>
+                      <dd className="mt-1 text-xs font-medium">{formatDate(developmentPartner.created_at)}</dd>
                     </div>
                   </dl>
 
                   <Link
-                    href={`/organisations/${organisation.slug}`}
+                    href={`/development-partners/${developmentPartner.slug}`}
                     className={cn(buttonVariants({ variant: "outline" }), "mt-4 h-11 w-full justify-between")}
                   >
-                    View organisation
+                    View development partner
                     <ChevronRight className="size-4" aria-hidden="true" />
                   </Link>
                 </article>
@@ -548,7 +548,7 @@ export default function AdminOrganisationsPage() {
         )}
       </div>
 
-      <CreateOrganisationModal open={createModalOpen} onClose={() => setCreateModalOpen(false)} />
+      <CreateDevelopmentPartnerModal open={createModalOpen} onClose={() => setCreateModalOpen(false)} />
     </div>
     </TooltipProvider>
   );
@@ -569,7 +569,7 @@ function AgreementBadge({ hasAgreement }: { hasAgreement: boolean }) {
   );
 }
 
-function OrganisationStatusBadge({ active }: { active: boolean }) {
+function DevelopmentPartnerStatusBadge({ active }: { active: boolean }) {
   const tone: MetricTone = active ? "success" : "muted";
   const t = METRIC_TONE[tone];
   return (
@@ -579,7 +579,7 @@ function OrganisationStatusBadge({ active }: { active: boolean }) {
   );
 }
 
-function TypeBadge({ type }: { type: OrganisationType }) {
+function TypeBadge({ type }: { type: DevelopmentPartnerType }) {
   const t = METRIC_TONE.info;
   return (
     <Badge variant="outline" className={cn("max-w-full border text-[11px]", t.well, t.icon)}>

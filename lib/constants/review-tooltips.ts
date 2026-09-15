@@ -18,7 +18,7 @@ export const VISIBILITY_OPTION_TIPS = {
   restricted:
     "Visible on the catalogue but downloads require an approved access request.",
   private:
-    "Hidden from the public catalogue — only the owning organisation can access. Setting private unpublishes a live dataset.",
+    "Hidden from the public catalogue — only the owning development partner can access. Setting private unpublishes a live dataset.",
 } as const;
 
 export const APPROVE_PAGE_TIP =

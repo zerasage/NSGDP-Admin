@@ -37,7 +37,7 @@ export interface Dataset {
   slug: string;
   description: string;
   category_id: string | null;
-  organisation_id: string | null;
+  development_partner_id: string | null;
   owner_id: string;
   format: DatasetFormat;
   visibility: DatasetVisibility;
@@ -84,7 +84,7 @@ export interface DatasetListParams {
   page?: number;
   limit?: number;
   categoryId?: string;
-  organisationId?: string;
+  developmentPartnerId?: string;
   format?: DatasetFormat;
   visibility?: DatasetVisibility;
   status?: DatasetStatus;
@@ -122,7 +122,7 @@ export interface CreateDatasetDto {
   contactEmail?: string;
   updateFrequency?: string;
   programmeId?: string;
-  organisationId?: string; // Super admin only — create on behalf of an org
+  developmentPartnerId?: string; // Super admin only — create on behalf of a development partner
 }
 
 export interface UpdateDatasetDto {

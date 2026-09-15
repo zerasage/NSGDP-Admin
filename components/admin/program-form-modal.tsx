@@ -25,7 +25,7 @@ import {
 } from "@/components/ui/select";
 import { FormError } from "@/components/forms/form-error";
 import { useCreateProgram, useUpdateProgram } from "@/lib/hooks/usePrograms";
-import { useOrganisations } from "@/lib/hooks/useOrganisations";
+import { useDevelopmentPartners } from "@/lib/hooks/useDevelopmentPartners";
 import type { AdminProgramme } from "@/lib/api/programs";
 import { programFormSchema, defaultProgressModeForType, type ProgramFormData } from "@/lib/schemas/program";
 import {
@@ -85,11 +85,11 @@ export function ProgramFormModal({ open, onClose, programme }: ProgramFormModalP
   const createMutation = useCreateProgram();
   const updateMutation = useUpdateProgram();
 
-  const { data: orgsData } = useOrganisations(1, 100);
-  const organisations = orgsData?.data ?? [];
+  const { data: orgsData } = useDevelopmentPartners(1, 100);
+  const developmentPartners = orgsData?.data ?? [];
   const agencyOrg = useMemo(
-    () => organisations.find((org) => org.is_platform_owner),
-    [organisations],
+    () => developmentPartners.find((org) => org.is_platform_owner),
+    [developmentPartners],
   );
   const todayMin = useMemo(() => localDateInputValue(), []);
 
@@ -109,7 +109,7 @@ export function ProgramFormModal({ open, onClose, programme }: ProgramFormModalP
       type: "campaign",
       status: "active",
       code: "",
-      organisationId: "",
+      developmentPartnerId: "",
       targetLgas: [],
       startDate: "",
       endDate: "",
@@ -136,7 +136,7 @@ export function ProgramFormModal({ open, onClose, programme }: ProgramFormModalP
             ? "active"
             : (programme?.status ?? "active"),
         code: programme?.code ?? "",
-        organisationId: programme?.organisation_id ?? agencyOrg?.id ?? "",
+        developmentPartnerId: programme?.development_partner_id ?? agencyOrg?.id ?? "",
         targetLgas: programme?.target_lgas ?? [],
         startDate: programme?.start_date ? programme.start_date.split("T")[0] : "",
         endDate: programme?.end_date ? programme.end_date.split("T")[0] : "",
@@ -164,7 +164,7 @@ export function ProgramFormModal({ open, onClose, programme }: ProgramFormModalP
 
   const onSubmit = async (data: ProgramFormData) => {
     if (!agencyOrg?.id) {
-      toast.error("Agency organisation is not configured. Contact a super administrator.");
+      toast.error("Agency development partner is not configured. Contact a super administrator.");
       return;
     }
 
@@ -175,7 +175,7 @@ export function ProgramFormModal({ open, onClose, programme }: ProgramFormModalP
         description: data.description,
         type: data.type,
         code: data.code || undefined,
-        organisationId: isEditing ? (programme.organisation_id ?? agencyOrg.id) : agencyOrg.id,
+        developmentPartnerId: isEditing ? (programme.development_partner_id ?? agencyOrg.id) : agencyOrg.id,
         targetLgas: data.targetLgas,
         startDate: data.startDate,
         endDate: data.endDate,

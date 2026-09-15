@@ -316,7 +316,7 @@ export const INGESTION_OPS_TAB_HELP: Record<IngestionOpsTabId, IngestionOpsTabHe
       "See datasets ready to load, loading now, already live, or failed",
       "Start or retry analytics load for a dataset",
       "Retract a dataset from analytics (MFA may be required)",
-      "Filter by organisation or phase",
+      "Filter by development partner or phase",
     ],
     steps: [
       {

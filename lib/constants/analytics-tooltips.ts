@@ -33,8 +33,8 @@ export const ANALYTICS_PANEL_TIPS = {
     "Bar chart of the most downloaded catalogue datasets by all-time download count.",
   downloadLeaderboard:
     "Ranked table of the same popular datasets with exact download totals.",
-  byOrganisation:
-    "How many datasets each partner organisation has contributed to the catalogue.",
+  byDevelopmentPartner:
+    "How many datasets each development partner has contributed to the catalogue.",
   byCategory:
     "Distribution of datasets across health-domain categories for catalogue coverage analysis.",
   pipelineByStatus:

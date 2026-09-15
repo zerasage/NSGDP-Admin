@@ -56,7 +56,7 @@ export interface CreateIndicatorPayload {
 export type UpdateIndicatorPayload = Partial<CreateIndicatorPayload>;
 
 // No single-indicator GET exists on the backend — the list is the only
-// source of truth, same as OrganisationGroups before it grew a detail
+// source of truth, same as DevelopmentPartnerGroups before it grew a detail
 // endpoint. Callers find-by-id against the already-fetched list.
 export async function getIndicators(): Promise<Indicator[]> {
   const response = await apiClient.get<ApiResponse<Indicator[]>>('/admin/governance/indicators');

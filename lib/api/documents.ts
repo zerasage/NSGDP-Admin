@@ -33,7 +33,7 @@ export interface AdminDocument {
   mime_type: string | null;
   version: string | null;
   author: string | null;
-  organisation_id: string | null;
+  development_partner_id: string | null;
   programme_id: string | null;
   tags: string[] | null;
   download_count: number;
@@ -62,7 +62,7 @@ export interface CreateDocumentPayload {
   version?: string;
   author?: string;
   tags?: string[];
-  organisationId?: string;
+  developmentPartnerId?: string;
   programmeId?: string;
 }
 

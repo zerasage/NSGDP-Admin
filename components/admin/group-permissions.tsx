@@ -22,7 +22,7 @@ import { useToast } from "@/lib/hooks/use-toast";
 
 const GROUP_ICONS: Record<string, typeof Database> = {
   Datasets: Database,
-  Organisations: Building2,
+  "Development Partners": Building2,
   Users: Users,
   Programmes: FolderKanban,
   "Access Requests": UserCheck,

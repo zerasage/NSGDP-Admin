@@ -468,7 +468,7 @@ export function PipelineTab() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Dataset</TableHead>
-                    <TableHead>Organisation</TableHead>
+                    <TableHead>Development Partner</TableHead>
                     <TableHead>Ingestion status</TableHead>
                     <TableHead>Last run</TableHead>
                     <TableHead>Warehouse</TableHead>
@@ -584,7 +584,7 @@ export function PipelineTab() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Dataset</TableHead>
-                  <TableHead>Organisation</TableHead>
+                  <TableHead>Development Partner</TableHead>
                   <TableHead>Issue</TableHead>
                   <TableHead>Last job</TableHead>
                   <TableHead className="text-right">Actions</TableHead>

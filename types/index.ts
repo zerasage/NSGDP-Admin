@@ -4,7 +4,7 @@ export type UserRole =
   | "public"        // Unauthenticated/guest user
   | "registered"    // Authenticated user (can browse/download)
   | "contributor"   // Can upload/submit datasets
-  | "admin"         // Organization/Repository administrator
+  | "admin"         // Development Partner/Repository administrator
   | "staff"         // Agency staff — admin-portal only, capability via permission group
   | "super_admin";  // Full system access + delegation
 
@@ -93,10 +93,10 @@ export interface User {
   fullName: string;
   email: string;
   role: UserRole;
-  organisationIds: string[];
+  developmentPartnerIds: string[];
 }
 
-export interface Organisation {
+export interface DevelopmentPartner {
   id: string;
   slug: string;
   name: string;
@@ -141,7 +141,7 @@ export interface Dataset {
   slug: string;
   title: string;
   description?: string;
-  organisation: Pick<Organisation, "id" | "slug" | "name" | "logoUrl">;
+  developmentPartner: Pick<DevelopmentPartner, "id" | "slug" | "name" | "logoUrl">;
   groups: Pick<Group, "id" | "slug" | "name">[];
   healthCategory: HealthCategory;
   visibility: Visibility;
@@ -163,7 +163,7 @@ export interface Dataset {
   keyAttributes?: KeyAttribute[];
   programId?: string;
   // ── PRD v3.0 — governance metadata (all 14 required fields) ─────────────
-  /** Responsible department within the owning organisation */
+  /** Responsible department within the owning development partner */
   responsibleDept?: string;
   /** Name and contact details for the data focal person */
   contactPerson?: string;
@@ -238,8 +238,8 @@ export interface Program {
   targetCount: number;
   activeDays: number;
   lgasCovered: number;
-  /** Owning organisation (data source / programme owner) */
-  organisationId?: string;
+  /** Owning development partner (data source / programme owner) */
+  developmentPartnerId?: string;
   organisationName?: string;
   /** Reports are only visible when completionPercent === 100 */
   reports?: ProgramReport[];

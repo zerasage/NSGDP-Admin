@@ -23,21 +23,28 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { FormError } from "@/components/forms/form-error";
-import { useUpdateOrganisation } from "@/lib/hooks/useOrganisations";
-import { organisationFormSchema, type OrganisationFormData } from "@/lib/schemas/organisation";
+import { useUpdateDevelopmentPartner } from "@/lib/hooks/useDevelopmentPartners";
+import { developmentPartnerFormSchema, type DevelopmentPartnerFormData } from "@/lib/schemas/organisation";
 import { ORG_TYPES } from "@/lib/constants/organisation-types";
-import type { Organisation } from "@/lib/api/organisations";
+import type { DevelopmentPartner } from "@/lib/api/development-partners";
 import { toast } from "sonner";
 
-interface EditOrganisationModalProps {
+interface EditDevelopmentPartnerModalProps {
   open: boolean;
   onClose: () => void;
-  org: Organisation;
+  org: DevelopmentPartner;
   slug: string;
+  /**
+   * 'agency' is used when this modal edits the platform-owner's own record
+   * from the /agency page — same fields, validation, and submit logic, just
+   * a different dialog title so it doesn't say "Development Partner" for the
+   * agency's own profile.
+   */
+  variant?: "partner" | "agency";
 }
 
-export function EditOrganisationModal({ open, onClose, org, slug }: EditOrganisationModalProps) {
-  const updateMutation = useUpdateOrganisation(slug);
+export function EditDevelopmentPartnerModal({ open, onClose, org, slug, variant = "partner" }: EditDevelopmentPartnerModalProps) {
+  const updateMutation = useUpdateDevelopmentPartner(slug);
 
   const {
     register,
@@ -45,8 +52,8 @@ export function EditOrganisationModal({ open, onClose, org, slug }: EditOrganisa
     control,
     reset,
     formState: { errors },
-  } = useForm<OrganisationFormData>({
-    resolver: zodResolver(organisationFormSchema),
+  } = useForm<DevelopmentPartnerFormData>({
+    resolver: zodResolver(developmentPartnerFormSchema),
     defaultValues: {
       name: org.name,
       acronym: org.acronym ?? "",
@@ -60,7 +67,7 @@ export function EditOrganisationModal({ open, onClose, org, slug }: EditOrganisa
     },
   });
 
-  // Re-sync the form whenever a different organisation's modal is opened
+  // Re-sync the form whenever a different development partner's modal is opened
   useEffect(() => {
     reset({
       name: org.name,
@@ -75,7 +82,7 @@ export function EditOrganisationModal({ open, onClose, org, slug }: EditOrganisa
     });
   }, [org, reset]);
 
-  const onSubmit = async (data: OrganisationFormData) => {
+  const onSubmit = async (data: DevelopmentPartnerFormData) => {
     try {
       await updateMutation.mutateAsync({
         id: org.id,
@@ -92,11 +99,11 @@ export function EditOrganisationModal({ open, onClose, org, slug }: EditOrganisa
         },
       });
 
-      toast.success(`Organisation "${data.name}" updated successfully`);
+      toast.success(`Development Partner "${data.name}" updated successfully`);
       onClose();
     } catch (error) {
       const err = error as { response?: { data?: { message?: string } }; message?: string };
-      const errorMessage = err?.response?.data?.message || err?.message || "Failed to update organisation";
+      const errorMessage = err?.response?.data?.message || err?.message || "Failed to update development partner";
       toast.error(errorMessage);
     }
   };
@@ -113,17 +120,17 @@ export function EditOrganisationModal({ open, onClose, org, slug }: EditOrganisa
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Building2 className="size-5" />
-            Edit Organisation
+            {variant === "agency" ? "Edit Agency Profile" : "Edit Development Partner"}
           </DialogTitle>
           <DialogDescription>
-            Update this organisation&apos;s details.
+            Update this development partner&apos;s details.
           </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           <div>
             <label htmlFor="edit-name" className="block text-sm font-medium mb-1.5">
-              Organisation Name <span className="text-destructive">*</span>
+              Development Partner Name <span className="text-destructive">*</span>
             </label>
             <Input id="edit-name" {...register("name")} />
             <FormError message={errors.name?.message} />
@@ -139,7 +146,7 @@ export function EditOrganisationModal({ open, onClose, org, slug }: EditOrganisa
 
           <div>
             <label htmlFor="edit-type" className="block text-sm font-medium mb-1.5">
-              Organisation Type <span className="text-destructive">*</span>
+              Development Partner Type <span className="text-destructive">*</span>
             </label>
             <Controller
               name="type"
@@ -147,7 +154,7 @@ export function EditOrganisationModal({ open, onClose, org, slug }: EditOrganisa
               render={({ field }) => (
                 <Select value={field.value} onValueChange={field.onChange}>
                   <SelectTrigger>
-                    <SelectValue>{(v: string) => (v ? (ORG_TYPES.find((type) => type.value === v)?.label ?? v) : "Select organisation type")}</SelectValue>
+                    <SelectValue>{(v: string) => (v ? (ORG_TYPES.find((type) => type.value === v)?.label ?? v) : "Select development partner type")}</SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     {ORG_TYPES.map((type) => (

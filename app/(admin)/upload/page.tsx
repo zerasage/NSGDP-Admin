@@ -16,7 +16,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/feedback/empty-state";
 import { METRIC_TONE, Panel } from "@/components/admin/admin-analytics-ui";
 import { HelpTip } from "@/components/admin/help-tip";
-import { OrganisationCombobox } from "@/components/admin/organisation-combobox";
+import { DevelopmentPartnerCombobox } from "@/components/admin/development-partner-combobox";
 import { CategoryCombobox } from "@/components/admin/category-combobox";
 import { Autocomplete } from "@/components/ui/autocomplete";
 import { useAuth } from "@/lib/auth";
@@ -29,7 +29,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useCreateDataset } from "@/lib/hooks/useDatasets";
-import { useOrganisations } from "@/lib/hooks/useOrganisations";
+import { useDevelopmentPartners } from "@/lib/hooks/useDevelopmentPartners";
 import { useCategories } from "@/lib/hooks/useCategories";
 import { uploadFile } from "@/lib/api/uploads";
 import { NIGER_STATE_LGAS } from "@/lib/constants/core";
@@ -111,14 +111,14 @@ export default function AdminUploadDatasetPage() {
   const canUpload = can("create:datasets");
   const { toast } = useToast();
   const createMutation = useCreateDataset();
-  const { data: orgsData } = useOrganisations(1, 200);
+  const { data: orgsData } = useDevelopmentPartners(1, 200);
   const { data: categoriesData } = useCategories();
 
   const [currentStep, setCurrentStep] = useState(1);
   const [saving, setSaving] = useState(false);
   const [stepErrors, setStepErrors] = useState<Record<string, string>>({});
 
-  const [organisationId, setOrganisationId] = useState(presetOrgId ?? "");
+  const [developmentPartnerId, setDevelopmentPartnerId] = useState(presetOrgId ?? "");
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [categoryId, setCategoryId] = useState("");
@@ -183,12 +183,12 @@ export default function AdminUploadDatasetPage() {
     }
   };
 
-  const organisations = useMemo(() => orgsData?.data ?? [], [orgsData?.data]);
+  const developmentPartners = useMemo(() => orgsData?.data ?? [], [orgsData?.data]);
   const categories = useMemo(() => categoriesData?.data ?? [], [categoriesData?.data]);
-  const effectiveOrganisationId =
-    organisationId || (presetAgency ? organisations.find((o) => o.is_platform_owner)?.id ?? "" : "");
+  const effectiveDevelopmentPartnerId =
+    developmentPartnerId || (presetAgency ? developmentPartners.find((o) => o.is_platform_owner)?.id ?? "" : "");
   const effectiveCategoryId = categoryId || (prefillTestData ? categories[0]?.id ?? "" : "");
-  const agencyOrg = organisations.find((o) => o.is_platform_owner);
+  const agencyOrg = developmentPartners.find((o) => o.is_platform_owner);
   const currentStepMeta = steps.find((step) => step.id === currentStep);
 
   const addTag = () => {
@@ -215,7 +215,7 @@ export default function AdminUploadDatasetPage() {
 
   const validateStep1 = () => {
     const errors: Record<string, string> = {};
-    if (!effectiveOrganisationId) errors.organisationId = "Select an organisation";
+    if (!effectiveDevelopmentPartnerId) errors.developmentPartnerId = "Select a development partner";
     if (title.trim().length < 5) errors.title = "Title must be at least 5 characters";
     if (description.trim().length < 20) errors.description = "Description must be at least 20 characters";
     if (!effectiveCategoryId) errors.categoryId = "Select a category";
@@ -280,7 +280,7 @@ export default function AdminUploadDatasetPage() {
         license: license || undefined,
         methodology: methodology || undefined,
         limitations: limitations || undefined,
-        organisationId: effectiveOrganisationId,
+        developmentPartnerId: effectiveDevelopmentPartnerId,
         responsibleDept: responsibleDept || undefined,
         contactPerson: contactPerson || undefined,
         contactEmail: contactEmail || undefined,
@@ -350,7 +350,7 @@ export default function AdminUploadDatasetPage() {
           <p className="mt-1 text-sm text-muted-foreground">
             {presetAgency
               ? `Create a dataset owned by ${agencyOrg?.name ?? "the platform agency"}`
-              : "Create a new dataset on behalf of a partner organisation"}
+              : "Create a new dataset on behalf of a development partner"}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -411,7 +411,7 @@ export default function AdminUploadDatasetPage() {
           <div className="space-y-6">
             <StepHeading
               title="Basic information"
-              description="Identify the owning organisation and describe the dataset clearly."
+              description="Identify the owning development partner and describe the dataset clearly."
               tip={UPLOAD_STEP_TIPS.basic}
             />
 
@@ -419,18 +419,18 @@ export default function AdminUploadDatasetPage() {
               <div className="space-y-2">
                 <FieldLabelTooltip
                   htmlFor="organisation"
-                  label="Organisation"
+                  label="Development Partner"
                   required
                   tooltip={UPLOAD_FIELD_TOOLTIPS.organisation}
                 />
-                <OrganisationCombobox
+                <DevelopmentPartnerCombobox
                   id="organisation"
-                  organisations={organisations}
-                  value={effectiveOrganisationId}
-                  onValueChange={setOrganisationId}
+                  developmentPartners={developmentPartners}
+                  value={effectiveDevelopmentPartnerId}
+                  onValueChange={setDevelopmentPartnerId}
                 />
-                {stepErrors.organisationId && (
-                  <p className="text-xs text-destructive">{stepErrors.organisationId}</p>
+                {stepErrors.developmentPartnerId && (
+                  <p className="text-xs text-destructive">{stepErrors.developmentPartnerId}</p>
                 )}
               </div>
 
@@ -851,7 +851,7 @@ export default function AdminUploadDatasetPage() {
                   <SelectContent>
                     <SelectItem value="public">Public — anyone can view and download</SelectItem>
                     <SelectItem value="restricted">Restricted — users must request access</SelectItem>
-                    <SelectItem value="private">Private — only this organisation can access</SelectItem>
+                    <SelectItem value="private">Private — only this development partner can access</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

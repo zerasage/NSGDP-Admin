@@ -29,7 +29,7 @@ import { formatDateTime } from "@/lib/utils/date";
 import { toast } from "sonner";
 
 const ACTIONS = ["upload", "download", "export", "approve", "reject", "create", "update", "delete", "login", "logout"];
-const ENTITIES = ["dataset", "user", "organisation", "access_request", "organisation_invite", "staff_invite", "permission_group", "auth"];
+const ENTITIES = ["dataset", "user", "development_partner", "access_request", "development_partner_invite", "staff_invite", "permission_group", "auth"];
 const PERIODS = [
   { key: "all", label: "All time", days: 0 },
   { key: "today", label: "Today", days: 1 },

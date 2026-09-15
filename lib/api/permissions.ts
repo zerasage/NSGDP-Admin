@@ -16,7 +16,7 @@ export type PermissionActionKey =
   | 'invite:users'          // Split from manage:users
   | 'promote:org-admin'     // Split from manage:users - powerful, delegatable
   | 'demote:org-admin'      // Counterpart to promote:org-admin - powerful, delegatable
-  | 'remove:org-members'    // Detach a member from their organisation
+  | 'remove:org-members'    // Detach a member from their development partner
   | 'view:restricted'
   | 'download:restricted'
   | 'create:programs'
@@ -29,11 +29,11 @@ export type PermissionActionKey =
   | 'review:partner-interest'
   | 'view:contact-messages'
   | 'review:contact-messages'
-  | 'create:organisations'
-  | 'edit:organisations'
-  | 'deactivate:organisations'
-  | 'delete:organisations'
-  | 'manage:organisation-agreements'
+  | 'create:development-partners'
+  | 'edit:development-partners'
+  | 'deactivate:development-partners'
+  | 'delete:development-partners'
+  | 'manage:development-partner-agreements'
   | 'create:datasets'
   | 'manage:documents'
   | 'manage:groups'

@@ -11,7 +11,7 @@ export const DATASETS_QUEUE_METRIC_TIPS = {
 } as const;
 
 export const DATASETS_QUEUE_PANEL_TIP =
-  "Browse all datasets or filter by workflow status. Search matches title, format, and organisation. Select rows to archive many at once — analytics-loaded datasets are retracted when you confirm.";
+  "Browse all datasets or filter by workflow status. Search matches title, format, and development partner. Select rows to archive many at once — analytics-loaded datasets are retracted when you confirm.";
 
 export const DATASETS_PUBLISH_TIP =
   "Make an approved dataset visible on the public portal. Tabular datasets may still need analytics load for charts.";

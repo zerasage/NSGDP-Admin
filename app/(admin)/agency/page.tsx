@@ -16,7 +16,7 @@ import {
   Users,
 } from "lucide-react";
 import { StaffWorkflow } from "@/components/admin/staff-workflow";
-import { EditOrganisationModal } from "@/components/admin/edit-organisation-modal";
+import { EditDevelopmentPartnerModal } from "@/components/admin/edit-development-partner-modal";
 import { EmptyState } from "@/components/feedback/empty-state";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -36,7 +36,7 @@ import {
 } from "@/lib/constants/agency-tooltips";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useAuth } from "@/lib/auth";
-import { useOrganisations } from "@/lib/hooks/useOrganisations";
+import { useDevelopmentPartners } from "@/lib/hooks/useDevelopmentPartners";
 import { useStaffInvites, useStaffMembers } from "@/lib/hooks/useStaff";
 import { useQuery } from "@tanstack/react-query";
 import { adminApi } from "@/lib/api/admin";
@@ -45,9 +45,9 @@ import { cn } from "@/lib/utils";
 export default function AgencyPage() {
   const [editOpen, setEditOpen] = useState(false);
   const { user } = useAuth();
-  const { data, isLoading, isError, refetch } = useOrganisations(1, 10, "platform-owner");
-  const organisations = data?.data ?? [];
-  const agency = organisations[0];
+  const { data, isLoading, isError, refetch } = useDevelopmentPartners(1, 10, "platform-owner");
+  const developmentPartners = data?.data ?? [];
+  const agency = developmentPartners[0];
 
   const staffSummary = useStaffMembers({ page: 1, limit: 1 });
   const inviteSummary = useStaffInvites({ page: 1, limit: 1, status: "pending" });
@@ -57,7 +57,7 @@ export default function AgencyPage() {
       const params = new URLSearchParams({
         page: "1",
         limit: "1",
-        organisationId: agency!.id,
+        developmentPartnerId: agency!.id,
       });
       const response = await adminApi.get<{ data: { meta: { total: number } } }>(
         `/admin/datasets?${params}`,
@@ -110,12 +110,12 @@ export default function AgencyPage() {
     );
   }
 
-  if (organisations.length !== 1 || !agency) {
+  if (developmentPartners.length !== 1 || !agency) {
     return (
       <AgencyMessage
         title="Agency configuration needs attention"
         description={
-          organisations.length === 0
+          developmentPartners.length === 0
             ? "No platform-owner agency is configured."
             : "Multiple platform-owner agencies were returned. Correct the platform configuration before managing staff."
         }
@@ -220,13 +220,14 @@ export default function AgencyPage() {
         </div>
       </Panel>
 
-      <StaffWorkflow organisationId={agency.id} />
+      <StaffWorkflow developmentPartnerId={agency.id} />
 
-      <EditOrganisationModal
+      <EditDevelopmentPartnerModal
         open={editOpen}
         onClose={() => setEditOpen(false)}
         org={agency}
         slug={agency.slug}
+        variant="agency"
       />
     </div>
     </TooltipProvider>

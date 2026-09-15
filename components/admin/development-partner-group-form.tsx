@@ -6,16 +6,16 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import type { OrganisationGroup } from "@/lib/api/organisation-groups";
+import type { DevelopmentPartnerGroup } from "@/lib/api/development-partner-groups";
 
-interface OrganisationGroupFormProps {
-  initial?: OrganisationGroup;
+interface DevelopmentPartnerGroupFormProps {
+  initial?: DevelopmentPartnerGroup;
   onSave: (payload: { name: string; description?: string }) => void;
   onCancel: () => void;
   isSaving?: boolean;
 }
 
-export function OrganisationGroupForm({ initial, onSave, onCancel, isSaving }: OrganisationGroupFormProps) {
+export function DevelopmentPartnerGroupForm({ initial, onSave, onCancel, isSaving }: DevelopmentPartnerGroupFormProps) {
   const [name, setName] = useState(initial?.name ?? "");
   const [description, setDescription] = useState(initial?.description ?? "");
 
@@ -59,12 +59,12 @@ export function OrganisationGroupForm({ initial, onSave, onCancel, isSaving }: O
             rows={2}
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            placeholder="Brief description of what this group enables organisations to do"
+            placeholder="Brief description of what this group enables development partners to do"
           />
         </div>
 
         <p className="text-sm text-muted-foreground">
-          {initial ? "Members and capabilities are managed in the group detail." : "After creation, grant capabilities and add member organisations from the group detail."}
+          {initial ? "Members and capabilities are managed in the group detail." : "After creation, grant capabilities and add member development partners from the group detail."}
         </p>
 
         <div className="flex justify-end gap-2">

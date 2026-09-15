@@ -47,7 +47,7 @@ export const adminNavItems: Array<{
   badgeKey?: AdminNavBadgeKey;
   // Visible if super_admin OR the user holds ANY of these delegated permissions.
   // Omit entirely for items every admin-portal principal can see (dashboard,
-  // notifications, and blanket-staff-readable pages like organisations/audit-logs).
+  // notifications, and blanket-staff-readable pages like development-partners/audit-logs).
   // Note: org admins (role: "admin") never reach this app at all — only
   // super_admin/staff accounts can log into the admin portal — so there's
   // no org-admin bypass to account for here.
@@ -79,8 +79,8 @@ export const adminNavItems: Array<{
     badgeKey: "archiveRequests",
     superAdminOnly: true,
   },
-  { href: "/organisations", label: "Organisations", icon: Building2 },
-  // Blanket-staff-readable, same as Organisations/Audit Log: everyone in the
+  { href: "/development-partners", label: "Development Partners", icon: Building2 },
+  // Blanket-staff-readable, same as Development Partners/Audit Log: everyone in the
   // admin portal can browse; create/edit/archive are gated within the page.
   {
     href: "/documents",
@@ -109,7 +109,7 @@ export const adminNavItems: Array<{
   { href: "/gis-reference", label: "GIS Reference Layers", icon: Map, anyPermission: ["manage:gis-reference-data"] },
   { href: "/agency", label: "Agency", icon: UserCog, superAdminOnly: true },
   { href: "/permission-groups", label: "Permission Groups", icon: ShieldCheck, superAdminOnly: true },
-  { href: "/organisation-groups", label: "Organisation Groups", icon: Network, superAdminOnly: true },
+  { href: "/development-partner-groups", label: "Development Partner Groups", icon: Network, superAdminOnly: true },
   { href: "/governance", label: "Data Governance", icon: ShieldAlert, superAdminOnly: true },
   { href: "/audit-logs", label: "Audit Log", icon: ScrollText },
 ];

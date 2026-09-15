@@ -1,22 +1,22 @@
-// Mirrors nsgdp-backend src/modules/organisations/constants/organisation-capabilities.ts
+// Mirrors nsgdp-backend src/modules/development-partners/constants/development-partner-capabilities.ts
 
-export type OrganisationCapabilityKey = "manage:programs";
+export type DevelopmentPartnerCapabilityKey = "manage:programs";
 
-export const ORGANISATION_CAPABILITY_LABELS: Record<
-  OrganisationCapabilityKey,
+export const DEVELOPMENT_PARTNER_CAPABILITY_LABELS: Record<
+  DevelopmentPartnerCapabilityKey,
   string
 > = {
   "manage:programs": "Manage Programmes",
 };
 
-export const ORGANISATION_CAPABILITY_DESCRIPTIONS: Record<
-  OrganisationCapabilityKey,
+export const DEVELOPMENT_PARTNER_CAPABILITY_DESCRIPTIONS: Record<
+  DevelopmentPartnerCapabilityKey,
   string
 > = {
   "manage:programs":
-    "Full programme management: create, edit, archive programmes and upload or delete reports for programmes belonging to the organisation.",
+    "Full programme management: create, edit, archive programmes and upload or delete reports for programmes belonging to the development partner.",
 };
 
-export const ORGANISATION_CAPABILITIES: OrganisationCapabilityKey[] = [
+export const DEVELOPMENT_PARTNER_CAPABILITIES: DevelopmentPartnerCapabilityKey[] = [
   "manage:programs",
 ];

@@ -65,7 +65,7 @@ export interface AdminUser {
   fullName: string;
   email: string;
   role: UserRole;
-  organisationId?: string;
+  developmentPartnerId?: string;
   organisationName?: string;
   joinedAt: string;
   lastLogin: string;

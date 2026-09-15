@@ -40,7 +40,7 @@ export const FILE_FORMATS: FileFormat[] = [
   "Other",
 ];
 
-// Sectors used for organisation filtering (PUB-04).
+// Sectors used for development partner filtering (PUB-04).
 export const SECTORS = [
   "Health",
   "Agriculture",

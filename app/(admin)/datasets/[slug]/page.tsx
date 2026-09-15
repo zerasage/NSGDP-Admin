@@ -102,7 +102,7 @@ interface Dataset {
   geographic_coverage: string[];
   license: string;
   owner_id: string;
-  organisation_id: string;
+  development_partner_id: string;
   category_id: string | null;
   view_count: number;
   download_count: number;
@@ -124,7 +124,7 @@ interface Dataset {
   ingestion_status: IngestionStatus;
 }
 
-interface Organisation {
+interface DevelopmentPartner {
   id: string;
   name: string;
 }
@@ -238,14 +238,14 @@ export default function DatasetDetailPage({
     ingestionReport?.report,
   );
 
-  const { data: organisationsData } = useQuery({
-    queryKey: ["admin", "organisations"],
+  const { data: developmentPartnersData } = useQuery({
+    queryKey: ["admin", "development-partners"],
     queryFn: async () => {
-      const response = await adminApi.get<{ data: { data: Organisation[] } }>("/admin/organisations?page=1&limit=100");
+      const response = await adminApi.get<{ data: { data: DevelopmentPartner[] } }>("/admin/development-partners?page=1&limit=100");
       return response.data.data;
     },
   });
-  const organisation = organisationsData?.data?.find((o) => o.id === dataset?.organisation_id);
+  const developmentPartner = developmentPartnersData?.data?.find((o) => o.id === dataset?.development_partner_id);
 
   const { data: categoriesData } = useQuery({
     queryKey: ["categories"],
@@ -570,7 +570,7 @@ export default function DatasetDetailPage({
           <div className="min-w-0">
             <h1 className="text-2xl font-bold leading-8">{dataset.title}</h1>
             <p className="mt-1 text-sm text-muted-foreground">
-              {organisation?.name ?? "Unknown organisation"} · Updated {formatDate(dataset.updated_at)}
+              {developmentPartner?.name ?? "Unknown development partner"} · Updated {formatDate(dataset.updated_at)}
             </p>
           </div>
           <div className="flex shrink-0 flex-wrap items-center gap-2">
@@ -973,7 +973,7 @@ export default function DatasetDetailPage({
               <CardTitle>Dataset information</CardTitle>
             </CardHeader>
             <CardContent className="divide-y">
-              <InfoRow icon={Building2} label="Organisation" value={organisation?.name ?? "Unknown organisation"} />
+              <InfoRow icon={Building2} label="Development Partner" value={developmentPartner?.name ?? "Unknown development partner"} />
               <InfoRow icon={FolderOpen} label="Category" value={category?.name ?? "Uncategorised"} />
               <InfoRow
                 icon={User}

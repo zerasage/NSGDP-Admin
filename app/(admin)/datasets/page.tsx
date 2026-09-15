@@ -72,7 +72,7 @@ interface Dataset {
   format: string;
   visibility: Visibility;
   owner_id: string;
-  organisation_id: string | null;
+  development_partner_id: string | null;
   submitted_at: string;
   created_at: string;
   updated_at: string;
@@ -80,7 +80,7 @@ interface Dataset {
   analytics_published_at?: string | null;
 }
 
-interface Organisation {
+interface DevelopmentPartner {
   id: string;
   name: string;
   slug: string;
@@ -326,11 +326,11 @@ export default function DatasetsReviewPage() {
     publishedSummary.isLoading ||
     rejectedSummary.isLoading;
 
-  const { data: organisationsData } = useQuery({
-    queryKey: ["admin", "organisations"],
+  const { data: developmentPartnersData } = useQuery({
+    queryKey: ["admin", "development-partners"],
     queryFn: async () => {
-      const response = await adminApi.get<{ data: { data: Organisation[] } }>(
-        "/admin/organisations?page=1&limit=100",
+      const response = await adminApi.get<{ data: { data: DevelopmentPartner[] } }>(
+        "/admin/development-partners?page=1&limit=100",
       );
       return response.data.data;
     },
@@ -381,9 +381,9 @@ export default function DatasetsReviewPage() {
     setPage(1);
   };
 
-  const orgName = (organisationId: string | null) => {
-    const org = organisationsData?.data?.find((o) => o.id === organisationId);
-    return org?.name ?? "Unknown organisation";
+  const orgName = (developmentPartnerId: string | null) => {
+    const org = developmentPartnersData?.data?.find((o) => o.id === developmentPartnerId);
+    return org?.name ?? "Unknown development partner";
   };
 
   const renderActions = (dataset: Dataset, mobile = false) => {
@@ -538,7 +538,7 @@ export default function DatasetsReviewPage() {
       <Panel
         title="Dataset queue"
         titleTip={DATASETS_QUEUE_PANEL_TIP}
-        description="Filter by workflow status or search title, format, and organisation."
+        description="Filter by workflow status or search title, format, and development partner."
         icon={FileCheck}
         tone="info"
       >
@@ -576,7 +576,7 @@ export default function DatasetsReviewPage() {
                   aria-hidden="true"
                 />
                 <Input
-                  placeholder="Search title, format or organisation"
+                  placeholder="Search title, format or development partner"
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                   className="h-10 pl-9 pr-10"
@@ -713,7 +713,7 @@ export default function DatasetsReviewPage() {
                         </TableHead>
                       ) : null}
                       <TableHead className="h-11 px-4">Dataset</TableHead>
-                      <TableHead className="h-11 px-4">Organisation</TableHead>
+                      <TableHead className="h-11 px-4">Development Partner</TableHead>
                       <TableHead className="h-11 px-4">Format</TableHead>
                       <TableHead className="h-11 px-4">Visibility</TableHead>
                       <TableHead className="h-11 px-4">Status</TableHead>
@@ -754,7 +754,7 @@ export default function DatasetsReviewPage() {
                           </div>
                         </TableCell>
                         <TableCell className="max-w-48 px-4 py-3.5 text-muted-foreground">
-                          <span className="line-clamp-2">{orgName(dataset.organisation_id)}</span>
+                          <span className="line-clamp-2">{orgName(dataset.development_partner_id)}</span>
                         </TableCell>
                         <TableCell className="px-4 py-3.5">
                           <FormatBadge format={dataset.format} />
@@ -807,7 +807,7 @@ export default function DatasetsReviewPage() {
                         {dataset.title}
                       </Link>
                       <p className="mt-1 truncate text-xs text-muted-foreground">
-                        {orgName(dataset.organisation_id)}
+                        {orgName(dataset.development_partner_id)}
                       </p>
                     </div>
                     <StatusBadge

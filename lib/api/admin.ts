@@ -23,7 +23,7 @@ export interface AdminUser {
   last_name: string;
   role: UserRole;
   status: 'pending' | 'active' | 'suspended' | 'archived';
-  organisation_id: string | null;
+  development_partner_id: string | null;
   created_at: string;
   updated_at: string;
   last_login_at: string | null;
@@ -48,7 +48,7 @@ export interface UserListParams {
   role?: string;
   status?: string;
   search?: string;
-  organisationId?: string;
+  developmentPartnerId?: string;
 }
 
 interface UserListResponse {
@@ -226,11 +226,11 @@ export async function updateUserStatus(
 }
 
 /**
- * Promote a user to admin of their own organisation — the only role change
- * exposed anywhere in the UI. Reachable by super_admin or staff/admin
+ * Promote a user to admin of their own development partner — the only role
+ * change exposed anywhere in the UI. Reachable by super_admin or staff/admin
  * holding the promote:org-admin permission. Server-side only allows
- * promoting within the user's existing organisation, never cross-org and
- * never to super_admin.
+ * promoting within the user's existing development partner, never cross-org
+ * and never to super_admin.
  */
 export async function promoteToOrgAdmin(userId: string): Promise<AdminUser> {
   const response = await apiClient.post<ApiResponse<{ user: AdminUser }>>(
@@ -243,7 +243,7 @@ export async function promoteToOrgAdmin(userId: string): Promise<AdminUser> {
 /**
  * Demote an org admin back to contributor — counterpart to promoteToOrgAdmin.
  * Reachable by super_admin or staff/admin holding demote:org-admin. Server-side
- * blocks demoting the last remaining admin of an organisation.
+ * blocks demoting the last remaining admin of a development partner.
  */
 export async function demoteFromOrgAdmin(userId: string): Promise<AdminUser> {
   const response = await apiClient.post<ApiResponse<{ user: AdminUser }>>(
@@ -254,13 +254,14 @@ export async function demoteFromOrgAdmin(userId: string): Promise<AdminUser> {
 }
 
 /**
- * Remove a member from an organisation — detaches them (organisation_id ->
- * null) without touching the account itself. Reachable by that org's own
- * admin, super_admin, or staff holding remove:org-members.
+ * Remove a member from a development partner — detaches them
+ * (development_partner_id -> null) without touching the account itself.
+ * Reachable by that partner's own admin, super_admin, or staff holding
+ * remove:org-members.
  */
 export async function removeOrgMember(orgId: string, userId: string): Promise<void> {
   await apiClient.patch<ApiResponse<{ message: string }>>(
-    `/organisations/${orgId}/members/${userId}/remove`,
+    `/development-partners/${orgId}/members/${userId}/remove`,
     {}
   );
 }
@@ -439,12 +440,12 @@ interface DashboardStatsResponse {
     total: number;
     pending: number;
     byStatus: Record<string, number>;
-    byOrganisation: Array<{ orgId: string; orgName: string; count: number }>;
+    byDevelopmentPartner: Array<{ orgId: string; orgName: string; count: number }>;
   };
   users: {
     total: number;
   };
-  organisations: number;
+  developmentPartners: number;
   downloads: {
     total: number;
     thisMonth: number;
@@ -481,7 +482,7 @@ export interface CleanupDatasetRow {
   slug: string;
   status: DatasetStatus;
   format: string;
-  organisationId: string;
+  developmentPartnerId: string;
   organisationName: string | null;
   deletedAt: string | null;
   publishedAt: string | null;
@@ -611,13 +612,13 @@ export async function unarchiveDataset(datasetSlug: string): Promise<Dataset> {
 
 export interface DashboardStats {
   totalUsers: number;
-  totalOrganisations: number;
+  totalDevelopmentPartners: number;
   totalDatasets: number;
   pendingDatasets: number;
   totalDownloads: number;
   datasetStats: {
     byStatus: Record<string, number>;
-    byOrganisation: Array<{ organisationId: string; organisationName: string; count: number }>;
+    byDevelopmentPartner: Array<{ developmentPartnerId: string; organisationName: string; count: number }>;
   };
   downloadStats: {
     total: number;
@@ -652,16 +653,16 @@ export async function getDashboardStats(): Promise<DashboardStats> {
 
   return {
     totalUsers: stats.users.total,
-    totalOrganisations: stats.organisations,
+    totalDevelopmentPartners: stats.developmentPartners,
     totalDatasets: stats.datasets.total,
     pendingDatasets: stats.datasets.pending,
     totalDownloads: stats.downloads.total,
     datasetStats: {
       byStatus: stats.datasets.byStatus,
-      byOrganisation: stats.datasets.byOrganisation.map((organisation) => ({
-        organisationId: organisation.orgId,
-        organisationName: organisation.orgName,
-        count: organisation.count,
+      byDevelopmentPartner: stats.datasets.byDevelopmentPartner.map((developmentPartner) => ({
+        developmentPartnerId: developmentPartner.orgId,
+        organisationName: developmentPartner.orgName,
+        count: developmentPartner.count,
       })),
     },
     downloadStats: {
@@ -738,7 +739,7 @@ export interface DatasetPipelineStats {
     categoryName: string;
     count: number;
   }>;
-  byOrganisation: Array<{ orgId: string; orgName: string; count: number }>;
+  byDevelopmentPartner: Array<{ orgId: string; orgName: string; count: number }>;
   staleness: {
     publishedTotal: number;
     overdue: number;

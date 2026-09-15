@@ -413,7 +413,7 @@ Use the dashboard as the reference screen before changing every admin page.
 6. Normalize analytical panels to the same card geometry and 16px section titles.
 7. Convert repeated text rows inside panels to 12px-spaced lists with separators where scanning benefits.
 8. Make loading skeletons exactly match the final grid and panel dimensions.
-9. Verify dashboard layouts at all required widths before using it as the template for datasets, organisations, users, and audit logs.
+9. Verify dashboard layouts at all required widths before using it as the template for datasets, development partners, users, and audit logs.
 
 ## 14. Established NSGDP admin conventions
 
@@ -450,7 +450,7 @@ These are project-level decisions established while refining the admin console. 
 
 - Do not show selection checkboxes unless the page provides a real bulk action.
 - Desktop tables emphasize record identity first: icon, strong title, one useful secondary line, then compact metadata and actions.
-- Replace squeezed tables with purpose-built record cards below the table breakpoint. Preserve status, ownership/organisation, essential metadata, and primary actions.
+- Replace squeezed tables with purpose-built record cards below the table breakpoint. Preserve status, ownership/development partner, essential metadata, and primary actions.
 - Use shared status, visibility, and age badges instead of page-specific badge colors.
 - Search inputs that call the server are debounced (300ms by default), trim surrounding whitespace, reset to page 1, and announce `Searching`/`Updating` without blanking existing results.
 - Search placeholders must describe only fields the backend really searches. Search behavior is case-insensitive where users reasonably expect it, including dataset format values such as CSV/JSON.
@@ -461,7 +461,7 @@ These are project-level decisions established while refining the admin console. 
 
 ### Detail pages
 
-- Put identity and current state first: title, organisation/context, updated date, status, visibility, and format.
+- Put identity and current state first: title, development partner/context, updated date, status, visibility, and format.
 - Use a responsive 2:1 content/information layout when the primary artifact benefits from width. The information rail may be sticky on desktop but returns to document flow on smaller screens.
 - Metadata should use compact labelled rows with icons and dividers rather than a loose sequence of similarly styled text.
 - File lists use a strong filename, compact format/size/date metadata, row dividers, and accessible view/download actions.

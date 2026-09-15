@@ -413,25 +413,25 @@ export default function AdminAnalyticsPage() {
 
       <div className="grid gap-6 lg:grid-cols-2">
         <Panel
-          title="Datasets by organisation"
-          titleTip={ANALYTICS_PANEL_TIPS.byOrganisation}
+          title="Datasets by development partner"
+          titleTip={ANALYTICS_PANEL_TIPS.byDevelopmentPartner}
           description="Partner and agency contributions to the catalogue."
           icon={Building2}
           tone="info"
         >
-          {(stats?.byOrganisation ?? []).length === 0 ? (
-            <p className="text-sm text-muted-foreground">No organisation data yet.</p>
+          {(stats?.byDevelopmentPartner ?? []).length === 0 ? (
+            <p className="text-sm text-muted-foreground">No development partner data yet.</p>
           ) : (
             <DataTableShell>
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Organisation</TableHead>
+                    <TableHead>Development Partner</TableHead>
                     <TableHead className="text-right">Datasets</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {(stats?.byOrganisation ?? []).map((row) => (
+                  {(stats?.byDevelopmentPartner ?? []).map((row) => (
                     <TableRow key={row.orgId}>
                       <TableCell className="font-medium">{row.orgName}</TableCell>
                       <TableCell className="text-right tabular-nums">{row.count}</TableCell>

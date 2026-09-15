@@ -23,7 +23,7 @@ import {
   useUserStats,
   useUsers,
 } from "@/lib/hooks/useAdmin";
-import { useOrganisations } from "@/lib/hooks/useOrganisations";
+import { useDevelopmentPartners } from "@/lib/hooks/useDevelopmentPartners";
 import type { AdminUser } from "@/lib/api/admin";
 import type { UserRole } from "@/types";
 import { RoleBadge } from "@/components/data/role-badge";
@@ -99,7 +99,7 @@ const roleOptions: Array<{ value: UserRole; label: string }> = [
   { value: "public", label: "Public" },
   { value: "registered", label: "Registered" },
   { value: "contributor", label: "Contributor" },
-  { value: "admin", label: "Organisation admin" },
+  { value: "admin", label: "Development Partner admin" },
   { value: "staff", label: "Agency staff" },
   { value: "super_admin", label: "Super admin" },
 ];
@@ -148,7 +148,7 @@ export default function AdminUsersPage() {
     canViewUsers,
   );
   const { data: stats, isLoading: statsLoading } = useUserStats();
-  const { data: organisationsData } = useOrganisations(1, 200);
+  const { data: developmentPartnersData } = useDevelopmentPartners(1, 200);
   const updateStatusMutation = useUpdateUserStatus();
   const deactivateMutation = useDeactivateUserDelegated();
 
@@ -157,11 +157,11 @@ export default function AdminUsersPage() {
   const totalPages = usersData?.totalPages ?? 1;
   const isSearchPending = query.trim() !== debouncedQuery;
   const hasFilters = !!query || !!debouncedQuery || role !== "all" || status !== "all";
-  const organisationNames = new Map(
-    (organisationsData?.data ?? []).map((organisation) => [organisation.id, organisation.name]),
+  const developmentPartnerNames = new Map(
+    (developmentPartnersData?.data ?? []).map((developmentPartner) => [developmentPartner.id, developmentPartner.name]),
   );
-  const organisationName = (id: string | null) =>
-    (id ? organisationNames.get(id) : undefined) ?? "No organisation";
+  const developmentPartnerName = (id: string | null) =>
+    (id ? developmentPartnerNames.get(id) : undefined) ?? "No development partner";
 
   const clearFilters = () => {
     setQuery("");
@@ -184,7 +184,7 @@ export default function AdminUsersPage() {
       "Phone",
       "Role",
       "Status",
-      "Organisation",
+      "Development Partner",
       "Last Login",
       "Created",
     ];
@@ -195,7 +195,7 @@ export default function AdminUsersPage() {
       listedUser.phone_number ?? "",
       listedUser.role,
       listedUser.status,
-      organisationName(listedUser.organisation_id),
+      developmentPartnerName(listedUser.development_partner_id),
       listedUser.last_login_at ? formatDate(listedUser.last_login_at) : "Never",
       formatDate(listedUser.created_at),
     ]);
@@ -501,7 +501,7 @@ export default function AdminUsersPage() {
                   <TableHeader>
                     <TableRow className="h-11 bg-muted/40 text-[11px] uppercase tracking-wide hover:bg-muted/40">
                       <TableHead className="h-11 px-4">User</TableHead>
-                      <TableHead className="h-11 px-4">Organisation</TableHead>
+                      <TableHead className="h-11 px-4">Development Partner</TableHead>
                       <TableHead className="h-11 px-4">Role</TableHead>
                       <TableHead className="h-11 px-4">Status</TableHead>
                       <TableHead className="h-11 px-4">Last login</TableHead>
@@ -536,7 +536,7 @@ export default function AdminUsersPage() {
                         </TableCell>
                         <TableCell className="max-w-56 px-4 py-3.5 text-xs text-muted-foreground">
                           <span className="line-clamp-2">
-                            {organisationName(listedUser.organisation_id)}
+                            {developmentPartnerName(listedUser.development_partner_id)}
                           </span>
                         </TableCell>
                         <TableCell className="px-4 py-3.5">
@@ -602,10 +602,10 @@ export default function AdminUsersPage() {
                     </div>
                     <div className="col-span-2 min-w-0">
                       <dt className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                        Organisation
+                        Development Partner
                       </dt>
                       <dd className="mt-1 truncate text-xs font-medium">
-                        {organisationName(listedUser.organisation_id)}
+                        {developmentPartnerName(listedUser.development_partner_id)}
                       </dd>
                     </div>
                   </dl>

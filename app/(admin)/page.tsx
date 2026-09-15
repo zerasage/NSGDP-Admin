@@ -38,7 +38,7 @@ import { cn } from "@/lib/utils";
 function getActivityIcon(type: string) {
   if (type.includes("rejected") || type.includes("suspended")) return AlertTriangle;
   if (type === "system_announcement") return Megaphone;
-  if (type.includes("organisation")) return Building2;
+  if (type.includes("development_partner") || type.includes("organisation")) return Building2;
   if (type.includes("user") || type.includes("account") || type.includes("admin")) return Users;
   if (type.includes("approved") || type.includes("published")) return FileCheck;
   return Database;
@@ -121,8 +121,8 @@ export default function AdminDashboardPage() {
   const statCards = [
     { label: "Total Users", value: stats?.totalUsers, icon: Users, tone: "info" as const },
     {
-      label: "Organisations",
-      value: stats?.totalOrganisations,
+      label: "Development Partners",
+      value: stats?.totalDevelopmentPartners,
       icon: Building2,
       tone: "success" as const,
     },

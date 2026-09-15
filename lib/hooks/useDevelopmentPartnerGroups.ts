@@ -1,43 +1,43 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import * as api from '../api/organisation-groups';
+import * as api from '../api/development-partner-groups';
 import type {
-  CreateOrganisationGroupPayload,
-  UpdateOrganisationGroupPayload,
-} from '../api/organisation-groups';
+  CreateDevelopmentPartnerGroupPayload,
+  UpdateDevelopmentPartnerGroupPayload,
+} from '../api/development-partner-groups';
 
-const QUERY_KEY = 'organisation-groups';
+const QUERY_KEY = 'development-partner-groups';
 
-export function useOrganisationGroups() {
+export function useDevelopmentPartnerGroups() {
   return useQuery({
     queryKey: [QUERY_KEY],
-    queryFn: api.getOrganisationGroups,
+    queryFn: api.getDevelopmentPartnerGroups,
   });
 }
 
-export function useOrganisationGroup(id: string) {
+export function useDevelopmentPartnerGroup(id: string) {
   return useQuery({
     queryKey: [QUERY_KEY, id],
-    queryFn: () => api.getOrganisationGroup(id),
+    queryFn: () => api.getDevelopmentPartnerGroup(id),
     enabled: !!id,
   });
 }
 
-export function useCreateOrganisationGroup() {
+export function useCreateDevelopmentPartnerGroup() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (payload: CreateOrganisationGroupPayload) =>
-      api.createOrganisationGroup(payload),
+    mutationFn: (payload: CreateDevelopmentPartnerGroupPayload) =>
+      api.createDevelopmentPartnerGroup(payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [QUERY_KEY] });
     },
   });
 }
 
-export function useUpdateOrganisationGroup() {
+export function useUpdateDevelopmentPartnerGroup() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, payload }: { id: string; payload: UpdateOrganisationGroupPayload }) =>
-      api.updateOrganisationGroup(id, payload),
+    mutationFn: ({ id, payload }: { id: string; payload: UpdateDevelopmentPartnerGroupPayload }) =>
+      api.updateDevelopmentPartnerGroup(id, payload),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: [QUERY_KEY] });
       queryClient.invalidateQueries({ queryKey: [QUERY_KEY, variables.id] });
@@ -45,10 +45,10 @@ export function useUpdateOrganisationGroup() {
   });
 }
 
-export function useDeactivateOrganisationGroup() {
+export function useDeactivateDevelopmentPartnerGroup() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => api.deactivateOrganisationGroup(id),
+    mutationFn: (id: string) => api.deactivateDevelopmentPartnerGroup(id),
     onSuccess: (_, id) => {
       queryClient.invalidateQueries({ queryKey: [QUERY_KEY] });
       queryClient.invalidateQueries({ queryKey: [QUERY_KEY, id] });
@@ -56,10 +56,10 @@ export function useDeactivateOrganisationGroup() {
   });
 }
 
-export function useDeleteOrganisationGroup() {
+export function useDeleteDevelopmentPartnerGroup() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => api.deleteOrganisationGroup(id),
+    mutationFn: (id: string) => api.deleteDevelopmentPartnerGroup(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [QUERY_KEY] });
     },
@@ -69,8 +69,8 @@ export function useDeleteOrganisationGroup() {
 export function useAddGroupMember() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ groupId, organisationId }: { groupId: string; organisationId: string }) =>
-      api.addGroupMember(groupId, organisationId),
+    mutationFn: ({ groupId, developmentPartnerId }: { groupId: string; developmentPartnerId: string }) =>
+      api.addGroupMember(groupId, developmentPartnerId),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: [QUERY_KEY] });
       queryClient.invalidateQueries({ queryKey: [QUERY_KEY, variables.groupId] });
@@ -81,8 +81,8 @@ export function useAddGroupMember() {
 export function useRemoveGroupMember() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ groupId, organisationId }: { groupId: string; organisationId: string }) =>
-      api.removeGroupMember(groupId, organisationId),
+    mutationFn: ({ groupId, developmentPartnerId }: { groupId: string; developmentPartnerId: string }) =>
+      api.removeGroupMember(groupId, developmentPartnerId),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: [QUERY_KEY] });
       queryClient.invalidateQueries({ queryKey: [QUERY_KEY, variables.groupId] });

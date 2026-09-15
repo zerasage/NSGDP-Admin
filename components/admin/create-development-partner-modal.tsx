@@ -23,19 +23,19 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { FormError } from "@/components/forms/form-error";
-import { useCreateOrganisation } from "@/lib/hooks/useOrganisations";
-import { organisationFormSchema, type OrganisationFormData } from "@/lib/schemas/organisation";
+import { useCreateDevelopmentPartner } from "@/lib/hooks/useDevelopmentPartners";
+import { developmentPartnerFormSchema, type DevelopmentPartnerFormData } from "@/lib/schemas/organisation";
 import { ORG_TYPES } from "@/lib/constants/organisation-types";
 import { toast } from "sonner";
 
-interface CreateOrganisationModalProps {
+interface CreateDevelopmentPartnerModalProps {
   open: boolean;
   onClose: () => void;
 }
 
-export function CreateOrganisationModal({ open, onClose }: CreateOrganisationModalProps) {
+export function CreateDevelopmentPartnerModal({ open, onClose }: CreateDevelopmentPartnerModalProps) {
   const [loading, setLoading] = useState(false);
-  const createMutation = useCreateOrganisation();
+  const createMutation = useCreateDevelopmentPartner();
 
   const {
     register,
@@ -43,14 +43,14 @@ export function CreateOrganisationModal({ open, onClose }: CreateOrganisationMod
     control,
     reset,
     formState: { errors },
-  } = useForm<OrganisationFormData>({
-    resolver: zodResolver(organisationFormSchema),
+  } = useForm<DevelopmentPartnerFormData>({
+    resolver: zodResolver(developmentPartnerFormSchema),
     defaultValues: {
       type: "government",
     },
   });
 
-  const onSubmit = async (data: OrganisationFormData) => {
+  const onSubmit = async (data: DevelopmentPartnerFormData) => {
     setLoading(true);
 
     try {
@@ -66,12 +66,12 @@ export function CreateOrganisationModal({ open, onClose }: CreateOrganisationMod
         logoUrl: data.logoUrl || undefined,
       });
 
-      toast.success(`Organisation "${data.name}" created successfully`);
+      toast.success(`Development Partner "${data.name}" created successfully`);
       reset();
       onClose();
     } catch (error) {
       const err = error as { response?: { data?: { message?: string } }; message?: string };
-      const errorMessage = err?.response?.data?.message || err?.message || "Failed to create organisation";
+      const errorMessage = err?.response?.data?.message || err?.message || "Failed to create development partner";
       toast.error(errorMessage);
     } finally {
       setLoading(false);
@@ -91,10 +91,10 @@ export function CreateOrganisationModal({ open, onClose }: CreateOrganisationMod
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Building2 className="size-5" />
-            Create New Organisation
+            Create New Development Partner
           </DialogTitle>
           <DialogDescription>
-            Add a new partner organisation to the platform. All fields except name and type are optional.
+            Add a new development partner to the platform. All fields except name and type are optional.
           </DialogDescription>
         </DialogHeader>
 
@@ -102,7 +102,7 @@ export function CreateOrganisationModal({ open, onClose }: CreateOrganisationMod
           {/* Name - Required */}
           <div>
             <label htmlFor="name" className="block text-sm font-medium mb-1.5">
-              Organisation Name <span className="text-destructive">*</span>
+              Development Partner Name <span className="text-destructive">*</span>
             </label>
             <Input
               id="name"
@@ -124,7 +124,7 @@ export function CreateOrganisationModal({ open, onClose }: CreateOrganisationMod
           {/* Type - Required */}
           <div>
             <label htmlFor="type" className="block text-sm font-medium mb-1.5">
-              Organisation Type <span className="text-destructive">*</span>
+              Development Partner Type <span className="text-destructive">*</span>
             </label>
             <Controller
               name="type"
@@ -132,7 +132,7 @@ export function CreateOrganisationModal({ open, onClose }: CreateOrganisationMod
               render={({ field }) => (
                 <Select value={field.value} onValueChange={field.onChange}>
                   <SelectTrigger>
-                    <SelectValue>{(v: string) => (v ? (ORG_TYPES.find((type) => type.value === v)?.label ?? v) : "Select organisation type")}</SelectValue>
+                    <SelectValue>{(v: string) => (v ? (ORG_TYPES.find((type) => type.value === v)?.label ?? v) : "Select development partner type")}</SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     {ORG_TYPES.map((type) => (
@@ -156,7 +156,7 @@ export function CreateOrganisationModal({ open, onClose }: CreateOrganisationMod
               id="description"
               rows={3}
               maxLength={500}
-              placeholder="Brief description of the organisation..."
+              placeholder="Brief description of the development partner..."
               {...register("description")}
             />
             <p className="text-xs text-muted-foreground mt-1">
@@ -232,7 +232,7 @@ export function CreateOrganisationModal({ open, onClose }: CreateOrganisationMod
                   Creating...
                 </>
               ) : (
-                "Create Organisation"
+                "Create Development Partner"
               )}
             </Button>
           </DialogFooter>

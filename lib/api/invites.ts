@@ -10,9 +10,9 @@ interface ApiResponse<T> {
 }
 
 /**
- * Organisation invites (an org admin inviting a contributor/admin into their
- * own org) — distinct from staff invites (super_admin inviting internal
- * staff, see lib/api/staff.ts).
+ * Development partner invites (an org admin inviting a contributor/admin into
+ * their own development partner) — distinct from staff invites (super_admin
+ * inviting internal staff, see lib/api/staff.ts).
  */
 export enum InviteRole {
   CONTRIBUTOR = 'contributor',
@@ -26,10 +26,10 @@ export enum InviteStatus {
   REVOKED = 'revoked',
 }
 
-export interface OrganisationInvite {
+export interface DevelopmentPartnerInvite {
   id: string;
-  organisationId: string;
-  organisationName: string;
+  developmentPartnerId: string;
+  developmentPartnerName: string;
   invitedEmail: string;
   invitedByEmail: string;
   invitedByName: string;
@@ -47,26 +47,26 @@ export interface CreateInviteDto {
 }
 
 /**
- * Get invites for an organisation
+ * Get invites for a development partner
  */
-export async function getOrganisationInvites(
-  organisationId: string
-): Promise<OrganisationInvite[]> {
-  const response = await apiClient.get<ApiResponse<OrganisationInvite[]>>(
-    `/admin/organisations/${organisationId}/invites`
+export async function getDevelopmentPartnerInvites(
+  developmentPartnerId: string
+): Promise<DevelopmentPartnerInvite[]> {
+  const response = await apiClient.get<ApiResponse<DevelopmentPartnerInvite[]>>(
+    `/admin/development-partners/${developmentPartnerId}/invites`
   );
   return response.data.data;
 }
 
 /**
- * Create an invite for an organisation
+ * Create an invite for a development partner
  */
 export async function createInvite(
-  organisationId: string,
+  developmentPartnerId: string,
   data: CreateInviteDto
-): Promise<OrganisationInvite> {
-  const response = await apiClient.post<ApiResponse<OrganisationInvite>>(
-    `/admin/organisations/${organisationId}/invites`,
+): Promise<DevelopmentPartnerInvite> {
+  const response = await apiClient.post<ApiResponse<DevelopmentPartnerInvite>>(
+    `/admin/development-partners/${developmentPartnerId}/invites`,
     data
   );
   return response.data.data;
@@ -76,11 +76,11 @@ export async function createInvite(
  * Revoke an invite
  */
 export async function revokeInvite(
-  organisationId: string,
+  developmentPartnerId: string,
   inviteId: string
 ): Promise<{ message: string }> {
   const response = await apiClient.delete<ApiResponse<{ message: string }>>(
-    `/admin/organisations/${organisationId}/invites/${inviteId}`
+    `/admin/development-partners/${developmentPartnerId}/invites/${inviteId}`
   );
   return response.data.data;
 }
@@ -89,11 +89,11 @@ export async function revokeInvite(
  * Resend an invite
  */
 export async function resendInvite(
-  organisationId: string,
+  developmentPartnerId: string,
   inviteId: string
 ): Promise<{ message: string }> {
   const response = await apiClient.post<ApiResponse<{ message: string }>>(
-    `/admin/organisations/${organisationId}/invites/${inviteId}/resend`
+    `/admin/development-partners/${developmentPartnerId}/invites/${inviteId}/resend`
   );
   return response.data.data;
 }

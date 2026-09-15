@@ -30,10 +30,10 @@ export const API_ROUTES = {
     dashboardSummary: '/users/me/dashboard-summary',
   },
 
-  // Organisation endpoints
-  organisations: {
-    list: '/organisations',
-    bySlug: (slug: string) => `/organisations/${slug}`,
+  // Development Partner endpoints
+  developmentPartners: {
+    list: '/development-partners',
+    bySlug: (slug: string) => `/development-partners/${slug}`,
   },
 
   // Category endpoints
