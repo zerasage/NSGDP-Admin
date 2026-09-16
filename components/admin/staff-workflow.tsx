@@ -57,6 +57,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { ApiError } from "@/lib/api/client";
 import { adminApi, archiveDataset, publishDataset, unarchiveDataset, updateUserStatus } from "@/lib/api/admin";
 import { getPermissionGroups } from "@/lib/api/permissions";
+import { useAuth } from "@/lib/auth";
 import type { StaffInvite, StaffMember } from "@/lib/api/staff";
 import type { DatasetStatus } from "@/lib/api/datasets";
 import type { Visibility } from "@/types";
@@ -142,8 +143,39 @@ const STATUS_BADGE: Record<string, { label: string; variant: BadgeVariant }> = {
   revoked: { label: "Revoked", variant: "destructive" },
 };
 
+// Permission groups are user-created (no stored color), so each gets a
+// deterministic color from this fixed palette instead — same group always
+// renders the same color without needing a color column on the backend.
+const GROUP_BADGE_COLORS = [
+  "bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-900",
+  "bg-green-100 text-green-700 border-green-200 dark:bg-green-950/40 dark:text-green-300 dark:border-green-900",
+  "bg-purple-100 text-purple-700 border-purple-200 dark:bg-purple-950/40 dark:text-purple-300 dark:border-purple-900",
+  "bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-950/40 dark:text-orange-300 dark:border-orange-900",
+  "bg-teal-100 text-teal-700 border-teal-200 dark:bg-teal-950/40 dark:text-teal-300 dark:border-teal-900",
+  "bg-pink-100 text-pink-700 border-pink-200 dark:bg-pink-950/40 dark:text-pink-300 dark:border-pink-900",
+  "bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-900",
+  "bg-indigo-100 text-indigo-700 border-indigo-200 dark:bg-indigo-950/40 dark:text-indigo-300 dark:border-indigo-900",
+  "bg-cyan-100 text-cyan-700 border-cyan-200 dark:bg-cyan-950/40 dark:text-cyan-300 dark:border-cyan-900",
+  "bg-rose-100 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-900",
+];
+
+function groupBadgeColorClass(groupId: string | null | undefined): string {
+  if (!groupId) return "";
+  let hash = 0;
+  for (let i = 0; i < groupId.length; i++) {
+    hash = (hash * 31 + groupId.charCodeAt(i)) >>> 0;
+  }
+  return GROUP_BADGE_COLORS[hash % GROUP_BADGE_COLORS.length];
+}
+
 export function StaffWorkflow({ developmentPartnerId }: { developmentPartnerId: string }) {
   const queryClient = useQueryClient();
+  const { user } = useAuth();
+  // invite:staff covers sending/managing staff invites and viewing the
+  // roster only — revoking an existing staff member's access, suspending/
+  // reactivating accounts, and the agency's own datasets stay super_admin-
+  // only (see PERMISSION_ACTION_MAP's comment on invite:staff).
+  const isSuperAdmin = user?.role === "super_admin";
   const [activeTab, setActiveTab] = useState("staff");
   const [staffPage, setStaffPage] = useState(1);
   const [invitePage, setInvitePage] = useState(1);
@@ -156,6 +188,7 @@ export function StaffWorkflow({ developmentPartnerId }: { developmentPartnerId: 
   const [inviteDebouncedSearch, setInviteDebouncedSearch] = useState("");
   const [datasetsDebouncedSearch, setDatasetsDebouncedSearch] = useState("");
   const [staffStatus, setStaffStatus] = useState<StaffStatus>("all");
+  const [staffGroupFilter, setStaffGroupFilter] = useState("all");
   const [inviteStatus, setInviteStatus] = useState<InviteStatus>("all");
   const [datasetsStatus, setDatasetsStatus] = useState("all");
   const [inviteOpen, setInviteOpen] = useState(false);
@@ -196,6 +229,7 @@ export function StaffWorkflow({ developmentPartnerId }: { developmentPartnerId: 
     limit: pageSize,
     search: staffDebouncedSearch || undefined,
     status: staffStatus === "all" ? undefined : staffStatus,
+    groupId: staffGroupFilter === "all" ? undefined : staffGroupFilter,
   });
   const inviteQuery = useStaffInvites({
     page: invitePage,
@@ -212,7 +246,7 @@ export function StaffWorkflow({ developmentPartnerId }: { developmentPartnerId: 
       const response = await adminApi.get<{ data: AgencyDatasetPage }>(`/admin/datasets?${params}`);
       return response.data.data;
     },
-    enabled: !!developmentPartnerId,
+    enabled: !!developmentPartnerId && isSuperAdmin,
     placeholderData: keepPreviousData,
   });
   const groupsQuery = useQuery({ queryKey: ["permission-groups"], queryFn: getPermissionGroups });
@@ -259,7 +293,16 @@ export function StaffWorkflow({ developmentPartnerId }: { developmentPartnerId: 
   const invites = inviteQuery.data?.data ?? [];
   const datasets = datasetsQuery.data?.data ?? [];
   const activeGroups = (groupsQuery.data ?? []).filter((group) => group.is_active);
-  const staffHasFilters = !!staffSearch || staffStatus !== "all";
+  // Unlike the invite dialog's group picker, the filter needs to include
+  // inactive groups too — a staff member can still sit in a deactivated
+  // group (see GroupDeactivatedBadge), and filtering should find them.
+  const allGroups = groupsQuery.data ?? [];
+  const staffGroupOptions = [
+    { value: "all", label: "All groups" },
+    ...allGroups.map((group) => ({ value: group.id, label: group.name })),
+    { value: "none", label: "No group" },
+  ];
+  const staffHasFilters = !!staffSearch || staffStatus !== "all" || staffGroupFilter !== "all";
   const inviteHasFilters = !!inviteSearch || inviteStatus !== "all";
   const datasetsHasFilters = !!datasetsSearch || datasetsStatus !== "all";
 
@@ -334,7 +377,7 @@ export function StaffWorkflow({ developmentPartnerId }: { developmentPartnerId: 
       icon={Users}
       tone="info"
       action={
-        activeTab === "datasets" ? (
+        activeTab === "datasets" && isSuperAdmin ? (
           <div className="flex items-center gap-1">
             <Link href="/upload?agency=1" className={cn(buttonVariants({}), "h-9 w-full sm:w-auto")}>
               <Upload className="size-4" aria-hidden />
@@ -386,22 +429,24 @@ export function StaffWorkflow({ developmentPartnerId }: { developmentPartnerId: 
               <HelpTip content={AGENCY_STAFF_TAB_TIPS.invites} label="About invitations tab" />
             ) : null}
           </div>
-          <div className="inline-flex flex-none items-center gap-0.5">
-            <TabsTrigger
-              value="datasets"
-              className={cn(ADMIN_TAB_TRIGGER_BASE, tabToneClass("success"))}
-            >
-              <Database className="size-3.5 shrink-0 sm:size-4" aria-hidden />
-              Datasets
-              <AdminTabCount
-                count={datasetsQuery.data?.meta.total ?? 0}
-                active={activeTab === "datasets"}
-              />
-            </TabsTrigger>
-            {activeTab === "datasets" ? (
-              <HelpTip content={AGENCY_STAFF_TAB_TIPS.datasets} label="About datasets tab" />
-            ) : null}
-          </div>
+          {isSuperAdmin && (
+            <div className="inline-flex flex-none items-center gap-0.5">
+              <TabsTrigger
+                value="datasets"
+                className={cn(ADMIN_TAB_TRIGGER_BASE, tabToneClass("success"))}
+              >
+                <Database className="size-3.5 shrink-0 sm:size-4" aria-hidden />
+                Datasets
+                <AdminTabCount
+                  count={datasetsQuery.data?.meta.total ?? 0}
+                  active={activeTab === "datasets"}
+                />
+              </TabsTrigger>
+              {activeTab === "datasets" ? (
+                <HelpTip content={AGENCY_STAFF_TAB_TIPS.datasets} label="About datasets tab" />
+              ) : null}
+            </div>
+          )}
         </AdminSectionTabsNav>
 
         <div className="mt-4 overflow-hidden rounded-xl border bg-card">
@@ -414,8 +459,11 @@ export function StaffWorkflow({ developmentPartnerId }: { developmentPartnerId: 
               status={staffStatus}
               statuses={STAFF_STATUSES}
               onStatusChange={(value) => { setStaffStatus(value as StaffStatus); setStaffPage(1); }}
+              group={staffGroupFilter}
+              groups={staffGroupOptions}
+              onGroupChange={(value) => { setStaffGroupFilter(value); setStaffPage(1); }}
               hasFilters={staffHasFilters}
-              onClear={() => { setStaffSearch(""); setStaffDebouncedSearch(""); setStaffStatus("all"); setStaffPage(1); }}
+              onClear={() => { setStaffSearch(""); setStaffDebouncedSearch(""); setStaffStatus("all"); setStaffGroupFilter("all"); setStaffPage(1); }}
               total={staffQuery.data?.total ?? 0}
               noun="staff member"
               pending={staffSearch.trim() !== staffDebouncedSearch || (staffQuery.isFetching && !staffQuery.isLoading)}
@@ -439,22 +487,24 @@ export function StaffWorkflow({ developmentPartnerId }: { developmentPartnerId: 
             />
           </TabsContent>
 
-          <TabsContent value="datasets" className="mt-0 border-t">
-            <DirectoryToolbar
-              search={datasetsSearch}
-              onSearchChange={setDatasetsSearch}
-              searchLabel="Search datasets"
-              searchPlaceholder="Search title or description"
-              status={datasetsStatus}
-              statuses={DATASET_STATUSES}
-              onStatusChange={(value) => { setDatasetsStatus(value); setDatasetsPage(1); }}
-              hasFilters={datasetsHasFilters}
-              onClear={() => { setDatasetsSearch(""); setDatasetsDebouncedSearch(""); setDatasetsStatus("all"); setDatasetsPage(1); }}
-              total={datasetsQuery.data?.meta.total ?? 0}
-              noun="dataset"
-              pending={datasetsSearch.trim() !== datasetsDebouncedSearch || (datasetsQuery.isFetching && !datasetsQuery.isLoading)}
-            />
-          </TabsContent>
+          {isSuperAdmin && (
+            <TabsContent value="datasets" className="mt-0 border-t">
+              <DirectoryToolbar
+                search={datasetsSearch}
+                onSearchChange={setDatasetsSearch}
+                searchLabel="Search datasets"
+                searchPlaceholder="Search title or description"
+                status={datasetsStatus}
+                statuses={DATASET_STATUSES}
+                onStatusChange={(value) => { setDatasetsStatus(value); setDatasetsPage(1); }}
+                hasFilters={datasetsHasFilters}
+                onClear={() => { setDatasetsSearch(""); setDatasetsDebouncedSearch(""); setDatasetsStatus("all"); setDatasetsPage(1); }}
+                total={datasetsQuery.data?.meta.total ?? 0}
+                noun="dataset"
+                pending={datasetsSearch.trim() !== datasetsDebouncedSearch || (datasetsQuery.isFetching && !datasetsQuery.isLoading)}
+              />
+            </TabsContent>
+          )}
         </div>
 
         <TabsContent value="staff" className="mt-4">
@@ -478,6 +528,7 @@ export function StaffWorkflow({ developmentPartnerId }: { developmentPartnerId: 
                 onSuspend={setSuspendTarget}
                 onReactivate={(member) => reactivateMutation.mutate(member.id)}
                 reactivatePending={reactivateMutation.isPending}
+                canManageStaff={isSuperAdmin}
               />
               <Pagination
                 page={staffPage}
@@ -526,39 +577,41 @@ export function StaffWorkflow({ developmentPartnerId }: { developmentPartnerId: 
           )}
         </TabsContent>
 
-        <TabsContent value="datasets" className="mt-4">
-          {datasetsQuery.isError ? (
-            <LoadError title="Could not load agency datasets" onRetry={() => datasetsQuery.refetch()} />
-          ) : datasetsQuery.isLoading ? (
-            <DirectorySkeleton columns={6} />
-          ) : datasets.length === 0 ? (
-            <div className="rounded-2xl border bg-card">
-              <EmptyState
-                icon={Database}
-                title={datasetsHasFilters ? "No matching datasets" : "No datasets yet"}
-                description={datasetsHasFilters ? "Try another search term or status filter." : "Datasets uploaded to the agency will appear here."}
-              />
-            </div>
-          ) : (
-            <>
-              <DatasetDirectory
-                datasets={datasets}
-                busy={publishMutation.isPending || archiveMutation.isPending || unarchiveMutation.isPending}
-                onPublish={(slug) => publishMutation.mutate(slug)}
-                onArchiveToggle={setArchiveTarget}
-              />
-              <Pagination
-                page={datasetsPage}
-                totalPages={Math.max(1, datasetsQuery.data?.meta.totalPages ?? 1)}
-                pageSize={pageSize}
-                total={datasetsQuery.data?.meta.total ?? 0}
-                onPageChange={setDatasetsPage}
-                onPageSizeChange={(size) => { setPageSize(size); setStaffPage(1); setInvitePage(1); setDatasetsPage(1); }}
-                className="rounded-xl border bg-card px-4 py-3"
-              />
-            </>
-          )}
-        </TabsContent>
+        {isSuperAdmin && (
+          <TabsContent value="datasets" className="mt-4">
+            {datasetsQuery.isError ? (
+              <LoadError title="Could not load agency datasets" onRetry={() => datasetsQuery.refetch()} />
+            ) : datasetsQuery.isLoading ? (
+              <DirectorySkeleton columns={6} />
+            ) : datasets.length === 0 ? (
+              <div className="rounded-2xl border bg-card">
+                <EmptyState
+                  icon={Database}
+                  title={datasetsHasFilters ? "No matching datasets" : "No datasets yet"}
+                  description={datasetsHasFilters ? "Try another search term or status filter." : "Datasets uploaded to the agency will appear here."}
+                />
+              </div>
+            ) : (
+              <>
+                <DatasetDirectory
+                  datasets={datasets}
+                  busy={publishMutation.isPending || archiveMutation.isPending || unarchiveMutation.isPending}
+                  onPublish={(slug) => publishMutation.mutate(slug)}
+                  onArchiveToggle={setArchiveTarget}
+                />
+                <Pagination
+                  page={datasetsPage}
+                  totalPages={Math.max(1, datasetsQuery.data?.meta.totalPages ?? 1)}
+                  pageSize={pageSize}
+                  total={datasetsQuery.data?.meta.total ?? 0}
+                  onPageChange={setDatasetsPage}
+                  onPageSizeChange={(size) => { setPageSize(size); setStaffPage(1); setInvitePage(1); setDatasetsPage(1); }}
+                  className="rounded-xl border bg-card px-4 py-3"
+                />
+              </>
+            )}
+          </TabsContent>
+        )}
       </Tabs>
 
       <Dialog open={inviteOpen} onOpenChange={(open) => { if (!open) resetInviteForm(); setInviteOpen(open); }}>
@@ -656,7 +709,7 @@ export function StaffWorkflow({ developmentPartnerId }: { developmentPartnerId: 
   );
 }
 
-function DirectoryToolbar({ search, onSearchChange, searchLabel, searchPlaceholder, status, statuses, onStatusChange, hasFilters, onClear, total, noun, pending }: {
+function DirectoryToolbar({ search, onSearchChange, searchLabel, searchPlaceholder, status, statuses, onStatusChange, group, groups, onGroupChange, hasFilters, onClear, total, noun, pending }: {
   search: string;
   onSearchChange: (value: string) => void;
   searchLabel: string;
@@ -664,6 +717,10 @@ function DirectoryToolbar({ search, onSearchChange, searchLabel, searchPlacehold
   status: string;
   statuses: Array<{ value: string; label: string }>;
   onStatusChange: (value: string) => void;
+  /** Optional second filter — only the Staff tab passes this. */
+  group?: string;
+  groups?: Array<{ value: string; label: string }>;
+  onGroupChange?: (value: string) => void;
   hasFilters: boolean;
   onClear: () => void;
   total: number;
@@ -684,6 +741,14 @@ function DirectoryToolbar({ search, onSearchChange, searchLabel, searchPlacehold
           </SelectTrigger>
           <SelectContent>{statuses.map((option) => <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>)}</SelectContent>
         </Select>
+        {groups && onGroupChange && (
+          <Select value={group ?? "all"} onValueChange={(value) => value && onGroupChange(value)}>
+            <SelectTrigger className="h-11 w-full sm:h-10 sm:w-48" aria-label="Filter by permission group">
+              <SelectValue>{(v: string) => groups.find((option) => option.value === v)?.label ?? v}</SelectValue>
+            </SelectTrigger>
+            <SelectContent>{groups.map((option) => <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>)}</SelectContent>
+          </Select>
+        )}
         {hasFilters && <Button variant="ghost" className="h-11 sm:h-10" onClick={onClear}><X className="size-4" /> Clear filters</Button>}
       </div>
       <div className="flex min-h-5 items-center gap-2 text-xs text-muted-foreground" aria-live="polite">
@@ -703,22 +768,23 @@ function GroupDeactivatedBadge() {
   );
 }
 
-function StaffDirectory({ staff, onRevoke, onSuspend, onReactivate, reactivatePending }: {
+function StaffDirectory({ staff, onRevoke, onSuspend, onReactivate, reactivatePending, canManageStaff }: {
   staff: StaffMember[];
   onRevoke: (staff: StaffMember) => void;
   onSuspend: (staff: StaffMember) => void;
   onReactivate: (staff: StaffMember) => void;
   reactivatePending: boolean;
+  canManageStaff: boolean;
 }) {
   return <div className="space-y-3">
     <div className="hidden overflow-hidden rounded-2xl border bg-card xl:block">
       <Table><TableHeader><TableRow className="h-11 bg-muted/40 text-[11px] uppercase tracking-wide hover:bg-muted/40"><TableHead className="px-4">Staff member</TableHead><TableHead>Permission group</TableHead><TableHead>Status</TableHead><TableHead>Last login</TableHead><TableHead className="pr-4 text-right">Actions</TableHead></TableRow></TableHeader>
         <TableBody>{staff.map((member) => <TableRow key={member.id} className="hover:bg-muted/30">
           <TableCell className="px-4 py-3.5"><Link href={`/users/${member.id}`} className="font-semibold hover:underline">{member.fullName}</Link><p className="mt-0.5 text-xs text-muted-foreground">{member.email}</p></TableCell>
-          <TableCell>{member.groupName ? <Badge variant="outline">{member.groupName}</Badge> : <span className="text-xs text-muted-foreground">No group</span>}</TableCell>
+          <TableCell>{member.groupName ? <Badge variant="outline" className={groupBadgeColorClass(member.groupId)}>{member.groupName}</Badge> : <span className="text-xs text-muted-foreground">No group</span>}</TableCell>
           <TableCell><div className="flex flex-wrap items-center gap-1.5"><StatusBadge status={member.status} />{member.groupIsActive === false && <GroupDeactivatedBadge />}</div></TableCell>
           <TableCell className="text-xs text-muted-foreground">{member.lastLoginAt ? formatDateTime(member.lastLoginAt) : "Never"}</TableCell>
-          <TableCell className="pr-4 text-right"><StaffActions member={member} onRevoke={onRevoke} onSuspend={onSuspend} onReactivate={onReactivate} reactivatePending={reactivatePending} /></TableCell>
+          <TableCell className="pr-4 text-right">{canManageStaff && <StaffActions member={member} onRevoke={onRevoke} onSuspend={onSuspend} onReactivate={onReactivate} reactivatePending={reactivatePending} />}</TableCell>
         </TableRow>)}</TableBody>
       </Table>
     </div>
@@ -728,7 +794,7 @@ function StaffDirectory({ staff, onRevoke, onSuspend, onReactivate, reactivatePe
         <div className="flex shrink-0 flex-wrap justify-end gap-1.5"><StatusBadge status={member.status} />{member.groupIsActive === false && <GroupDeactivatedBadge />}</div>
       </div>
       <dl className="mt-4 grid grid-cols-2 gap-4 border-y py-3"><div><dt className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Permission group</dt><dd className="mt-1 text-xs font-medium">{member.groupName ?? "No group"}</dd></div><div><dt className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Last login</dt><dd className="mt-1 text-xs font-medium">{member.lastLoginAt ? formatDateTime(member.lastLoginAt) : "Never"}</dd></div></dl>
-      <div className="mt-4"><StaffActions member={member} onRevoke={onRevoke} onSuspend={onSuspend} onReactivate={onReactivate} reactivatePending={reactivatePending} mobile /></div>
+      {canManageStaff && <div className="mt-4"><StaffActions member={member} onRevoke={onRevoke} onSuspend={onSuspend} onReactivate={onReactivate} reactivatePending={reactivatePending} mobile /></div>}
     </article>)}</div>
   </div>;
 }
@@ -759,7 +825,7 @@ function StaffActions({ member, onRevoke, onSuspend, onReactivate, reactivatePen
 
 function InviteDirectory({ invites, onResend, onRevoke, resendPending }: { invites: StaffInvite[]; onResend: (invite: StaffInvite) => void; onRevoke: (invite: StaffInvite) => void; resendPending: boolean }) {
   return <div className="space-y-3">
-    <div className="hidden overflow-hidden rounded-2xl border bg-card xl:block"><Table><TableHeader><TableRow className="h-11 bg-muted/40 text-[11px] uppercase tracking-wide hover:bg-muted/40"><TableHead className="px-4">Recipient</TableHead><TableHead>Permission group</TableHead><TableHead>Invited by</TableHead><TableHead>Status</TableHead><TableHead>Expires</TableHead><TableHead className="pr-4 text-right">Actions</TableHead></TableRow></TableHeader><TableBody>{invites.map((invite) => <TableRow key={invite.id} className="hover:bg-muted/30"><TableCell className="px-4 py-3.5 font-medium">{invite.invitedEmail}</TableCell><TableCell><Badge variant="outline">{invite.targetGroupName}</Badge></TableCell><TableCell className="text-xs text-muted-foreground">{invite.invitedByName}</TableCell><TableCell><StatusBadge status={invite.status} /></TableCell><TableCell className="text-xs text-muted-foreground">{formatDate(invite.expiresAt)}</TableCell><TableCell className="pr-4 text-right"><InviteActions invite={invite} onResend={onResend} onRevoke={onRevoke} disabled={resendPending} /></TableCell></TableRow>)}</TableBody></Table></div>
+    <div className="hidden overflow-hidden rounded-2xl border bg-card xl:block"><Table><TableHeader><TableRow className="h-11 bg-muted/40 text-[11px] uppercase tracking-wide hover:bg-muted/40"><TableHead className="px-4">Recipient</TableHead><TableHead>Permission group</TableHead><TableHead>Invited by</TableHead><TableHead>Status</TableHead><TableHead>Expires</TableHead><TableHead className="pr-4 text-right">Actions</TableHead></TableRow></TableHeader><TableBody>{invites.map((invite) => <TableRow key={invite.id} className="hover:bg-muted/30"><TableCell className="px-4 py-3.5 font-medium">{invite.invitedEmail}</TableCell><TableCell><Badge variant="outline" className={groupBadgeColorClass(invite.targetGroupId)}>{invite.targetGroupName}</Badge></TableCell><TableCell className="text-xs text-muted-foreground">{invite.invitedByName}</TableCell><TableCell><StatusBadge status={invite.status} /></TableCell><TableCell className="text-xs text-muted-foreground">{formatDate(invite.expiresAt)}</TableCell><TableCell className="pr-4 text-right"><InviteActions invite={invite} onResend={onResend} onRevoke={onRevoke} disabled={resendPending} /></TableCell></TableRow>)}</TableBody></Table></div>
     <div className="grid gap-3 xl:hidden">{invites.map((invite) => <article key={invite.id} className="rounded-xl border bg-card p-4"><div className="flex items-start justify-between gap-3"><div className="min-w-0"><p className="truncate text-sm font-semibold">{invite.invitedEmail}</p><p className="mt-1 text-xs text-muted-foreground">Invited by {invite.invitedByName}</p></div><StatusBadge status={invite.status} /></div><dl className="mt-4 grid grid-cols-2 gap-4 border-y py-3"><div><dt className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Permission group</dt><dd className="mt-1 text-xs font-medium">{invite.targetGroupName}</dd></div><div><dt className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Expires</dt><dd className="mt-1 text-xs font-medium">{formatDate(invite.expiresAt)}</dd></div></dl><div className="mt-4"><InviteActions invite={invite} onResend={onResend} onRevoke={onRevoke} disabled={resendPending} mobile /></div></article>)}</div>
   </div>;
 }

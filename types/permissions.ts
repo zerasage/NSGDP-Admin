@@ -8,10 +8,12 @@ export type PermissionAction =
   | "approve:datasets"       // Advance dataset to Approved after QA checklist
   | "publish:datasets"       // Move approved dataset to Published
   | "invite:users"           // Invite new users (org-scoped)
+  | "invite:staff"           // Invite/manage agency staff invites and view the staff roster
   | "promote:org-admin"      // Promote a user to admin within their own development partner
   | "demote:org-admin"       // Demote an org admin back to contributor
   | "remove:org-members"     // Detach a member from their development partner
   | "archive:datasets"       // Move datasets to Archived state
+  | "view:datasets"          // Read-only: see the review queue without approving/publishing/archiving
   | "view:restricted"        // View restricted-access datasets
   | "download:restricted"    // Download restricted-access datasets
   | "create:programs"        // Register new programme records
@@ -57,10 +59,12 @@ export const PERMISSION_ACTION_LABELS: Record<PermissionAction, string> = {
   "approve:datasets": "Approve Datasets",
   "publish:datasets": "Publish Datasets",
   "invite:users": "Invite Users (org-scoped)",
+  "invite:staff": "Invite Agency Staff",
   "promote:org-admin": "Promote to Org Admin",
   "demote:org-admin": "Demote Org Admin",
   "remove:org-members": "Remove Org Member",
   "archive:datasets": "Archive Datasets",
+  "view:datasets": "View Review Queue",
   "view:restricted": "View Restricted Data",
   "download:restricted": "Download Restricted Data",
   "create:programs": "Create Programmes",
@@ -94,6 +98,8 @@ export const PERMISSION_ACTION_DESCRIPTIONS: Record<PermissionAction, string> = 
     "Can move a director-approved dataset to Published status in the public catalogue.",
   "invite:users":
     "Can invite new users into their own development partner.",
+  "invite:staff":
+    "Can send, resend, and revoke agency staff invites, and view the current staff roster. Cannot revoke an existing staff member's access or change anyone's role — those stay super_admin-only.",
   "promote:org-admin":
     "Can promote a user to admin, scoped strictly to that user's own existing development partner — never cross-org, never to super_admin. Powerful: grant only to specific vetted staff, never seed by default.",
   "demote:org-admin":
@@ -102,6 +108,8 @@ export const PERMISSION_ACTION_DESCRIPTIONS: Record<PermissionAction, string> = 
     "Can detach a member from their development partner without deleting their account.",
   "archive:datasets":
     "Can mark obsolete datasets as Archived, removing them from the active catalogue.",
+  "view:datasets":
+    "Can see the dataset review queue (pending/under-review lists, dataset detail, preview) without being able to approve, publish, or archive anything.",
   "view:restricted":
     "Can view datasets flagged as internally restricted (not visible to public or registered users).",
   "download:restricted":
@@ -165,6 +173,7 @@ export const PERMISSION_ACTION_GROUPS: Array<{ label: string; actions: Permissio
       "approve:datasets",
       "publish:datasets",
       "archive:datasets",
+      "view:datasets",
       "view:restricted",
       "download:restricted",
     ],
@@ -182,6 +191,10 @@ export const PERMISSION_ACTION_GROUPS: Array<{ label: string; actions: Permissio
       "demote:org-admin",
       "remove:org-members",
     ],
+  },
+  {
+    label: "Agency Staff",
+    actions: ["invite:staff"],
   },
   {
     label: "Programmes",

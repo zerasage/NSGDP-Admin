@@ -36,6 +36,7 @@ import {
 } from "@/lib/constants/agency-tooltips";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useAuth } from "@/lib/auth";
+import { useAdminAccess } from "@/lib/hooks/useAdminAccess";
 import { useDevelopmentPartners } from "@/lib/hooks/useDevelopmentPartners";
 import { useStaffInvites, useStaffMembers } from "@/lib/hooks/useStaff";
 import { useQuery } from "@tanstack/react-query";
@@ -45,6 +46,10 @@ import { cn } from "@/lib/utils";
 export default function AgencyPage() {
   const [editOpen, setEditOpen] = useState(false);
   const { user } = useAuth();
+  const { can } = useAdminAccess();
+  const isSuperAdmin = user?.role === "super_admin";
+  const canInviteStaff = can("invite:staff");
+  const canEditProfile = isSuperAdmin || can("edit:development-partners");
   const { data, isLoading, isError, refetch } = useDevelopmentPartners(1, 10, "platform-owner");
   const developmentPartners = data?.data ?? [];
   const agency = developmentPartners[0];
@@ -64,16 +69,20 @@ export default function AgencyPage() {
       );
       return response.data.data.meta.total;
     },
-    enabled: !!agency?.id,
+    // Agency dataset counts come from the same admin dataset endpoints as
+    // the review queue — gated on view:datasets/approve:datasets/
+    // publish:datasets, not invite:staff. Skip the fetch for a staff member
+    // who only holds invite:staff rather than let it 403 silently.
+    enabled: !!agency?.id && isSuperAdmin,
   });
 
-  if (user?.role !== "super_admin") {
+  if (!isSuperAdmin && !canInviteStaff) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center">
         <EmptyState
           icon={Lock}
           title="Agency access is restricted"
-          description="Only the super administrator can manage the agency profile, staff, and invitations."
+          description="Managing the agency requires the invite:staff permission (or super_admin). Ask a super_admin to grant your group this permission."
         />
       </div>
     );
@@ -153,14 +162,16 @@ export default function AgencyPage() {
           icon={MailPlus}
           tone="warning"
         />
-        <MetricCard
-          label="Agency datasets"
-          value={datasetsSummary.data ?? 0}
-          hint="Owned by the platform agency"
-          tip={AGENCY_METRIC_TIPS.datasets}
-          icon={Database}
-          tone="info"
-        />
+        {isSuperAdmin && (
+          <MetricCard
+            label="Agency datasets"
+            value={datasetsSummary.data ?? 0}
+            hint="Owned by the platform agency"
+            tip={AGENCY_METRIC_TIPS.datasets}
+            icon={Database}
+            tone="info"
+          />
+        )}
         <MetricCard
           label="Agency status"
           value={agency.is_active ? "Active" : "Inactive"}
@@ -178,13 +189,15 @@ export default function AgencyPage() {
         icon={Building2}
         tone="primary"
         action={
-          <div className="flex items-center gap-1">
-            <Button variant="outline" className="h-9" onClick={() => setEditOpen(true)}>
-              <Edit className="size-4" />
-              Edit profile
-            </Button>
-            <HelpTip content={AGENCY_EDIT_PROFILE_TIP} label="About edit profile" />
-          </div>
+          canEditProfile ? (
+            <div className="flex items-center gap-1">
+              <Button variant="outline" className="h-9" onClick={() => setEditOpen(true)}>
+                <Edit className="size-4" />
+                Edit profile
+              </Button>
+              <HelpTip content={AGENCY_EDIT_PROFILE_TIP} label="About edit profile" />
+            </div>
+          ) : undefined
         }
       >
         <div className="space-y-4">

@@ -49,6 +49,8 @@ export interface StaffMemberListParams {
   limit?: number;
   search?: string;
   status?: StaffMember['status'];
+  /** Permission group id, or the literal "none" to filter for staff with no group. */
+  groupId?: string;
 }
 
 export interface StaffInviteListParams {

@@ -134,7 +134,7 @@ export default function DatasetsReviewPage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { isLoading: permissionsLoading, can, canAny } = useAdminAccess();
-  const canViewQueue = canAny("approve:datasets", "publish:datasets");
+  const canViewQueue = canAny("view:datasets", "approve:datasets", "publish:datasets");
   const canApprove = can("approve:datasets");
   const canPublish = can("publish:datasets");
   const canArchive = can("archive:datasets");
@@ -458,7 +458,7 @@ export default function DatasetsReviewPage() {
         <EmptyState
           icon={Lock}
           title="Access restricted"
-          description="Viewing the review queue requires approve:datasets or publish:datasets. Ask a super_admin to grant your group one of these."
+          description="Viewing the review queue requires view:datasets, approve:datasets, or publish:datasets. Ask a super_admin to grant your group one of these."
         />
       </div>
     );

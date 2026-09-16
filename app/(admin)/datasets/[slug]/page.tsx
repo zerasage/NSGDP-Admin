@@ -167,7 +167,7 @@ export default function DatasetDetailPage({
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const { can, canAny } = useAdminAccess();
-  const canView = canAny("approve:datasets", "publish:datasets");
+  const canView = canAny("view:datasets", "approve:datasets", "publish:datasets");
   const canApprove = can("approve:datasets");
   const canPublish = can("publish:datasets");
   const canArchive = can("archive:datasets");
@@ -462,7 +462,7 @@ export default function DatasetDetailPage({
       <EmptyState
         icon={Lock}
         title="Access restricted"
-        description="Viewing dataset details requires approve:datasets or publish:datasets. Ask a super_admin to grant your group one of these."
+        description="Viewing dataset details requires view:datasets, approve:datasets, or publish:datasets. Ask a super_admin to grant your group one of these."
       />
     );
   }

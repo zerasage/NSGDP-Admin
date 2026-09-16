@@ -13,7 +13,9 @@ export type PermissionActionKey =
   | 'approve:datasets'
   | 'publish:datasets'
   | 'archive:datasets'
+  | 'view:datasets'         // Read-only: see the review queue without approving/publishing/archiving
   | 'invite:users'          // Split from manage:users
+  | 'invite:staff'          // Invite/manage agency staff invites and view the staff roster
   | 'promote:org-admin'     // Split from manage:users - powerful, delegatable
   | 'demote:org-admin'      // Counterpart to promote:org-admin - powerful, delegatable
   | 'remove:org-members'    // Detach a member from their development partner
