@@ -97,6 +97,7 @@ interface DatasetPage {
 }
 
 type QueueTab = DatasetStatus | "all" | "published";
+type QueueScope = "partners" | "platform-owner";
 
 const TABS: Array<{ key: QueueTab; label: string; tone: MetricTone }> = [
   { key: "all", label: "All datasets", tone: "muted" },
@@ -108,19 +109,26 @@ const TABS: Array<{ key: QueueTab; label: string; tone: MetricTone }> = [
   { key: "archived", label: "Archived", tone: "muted" },
 ];
 
-async function fetchQueueCount(path: string): Promise<number> {
-  const response = await adminApi.get<{ data: DatasetPage }>(`${path}?page=1&limit=1`);
+const SCOPE_TABS: Array<{ key: QueueScope; label: string }> = [
+  { key: "partners", label: "Development Partners" },
+  { key: "platform-owner", label: "Agency" },
+];
+
+async function fetchQueueCount(path: string, scope: QueueScope): Promise<number> {
+  const response = await adminApi.get<{ data: DatasetPage }>(`${path}?page=1&limit=1&scope=${scope}`);
   return response.data.data.meta.total;
 }
 
 async function fetchStatusCount(
   status: DatasetStatus,
+  scope: QueueScope,
   published?: boolean,
 ): Promise<number> {
   const params = new URLSearchParams({
     page: "1",
     limit: "1",
     status,
+    scope,
   });
   if (published === true) params.set("published", "true");
   if (published === false) params.set("published", "false");
@@ -139,6 +147,7 @@ export default function DatasetsReviewPage() {
   const canPublish = can("publish:datasets");
   const canArchive = can("archive:datasets");
 
+  const [scope, setScope] = useState<QueueScope>("partners");
   const [tab, setTab] = useState<QueueTab>("pending");
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
@@ -150,7 +159,7 @@ export default function DatasetsReviewPage() {
 
   useEffect(() => {
     setSelectedSlugs(new Set());
-  }, [tab, page, debouncedQuery]);
+  }, [scope, tab, page, debouncedQuery]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -252,10 +261,10 @@ export default function DatasetsReviewPage() {
     isError,
     refetch,
   } = useQuery({
-    queryKey: ["admin", "datasets", "queue", tab, debouncedQuery, page, pageSize],
+    queryKey: ["admin", "datasets", "queue", scope, tab, debouncedQuery, page, pageSize],
     enabled: canViewQueue,
     queryFn: async () => {
-      const params = new URLSearchParams({ page: String(page), limit: String(pageSize) });
+      const params = new URLSearchParams({ page: String(page), limit: String(pageSize), scope });
       if (debouncedQuery) params.append("search", debouncedQuery);
 
       if (tab === "pending") {
@@ -292,28 +301,28 @@ export default function DatasetsReviewPage() {
   ] = useQueries({
     queries: [
       {
-        queryKey: ["admin", "datasets", "summary", "pending"],
-        queryFn: () => fetchQueueCount("/admin/review-queue"),
+        queryKey: ["admin", "datasets", "summary", scope, "pending"],
+        queryFn: () => fetchQueueCount("/admin/review-queue", scope),
         enabled: canViewQueue,
       },
       {
-        queryKey: ["admin", "datasets", "summary", "under_review"],
-        queryFn: () => fetchQueueCount("/admin/review-queue/under-review"),
+        queryKey: ["admin", "datasets", "summary", scope, "under_review"],
+        queryFn: () => fetchQueueCount("/admin/review-queue/under-review", scope),
         enabled: canViewQueue,
       },
       {
-        queryKey: ["admin", "datasets", "summary", "approved"],
-        queryFn: () => fetchStatusCount("approved", false),
+        queryKey: ["admin", "datasets", "summary", scope, "approved"],
+        queryFn: () => fetchStatusCount("approved", scope, false),
         enabled: canViewQueue,
       },
       {
-        queryKey: ["admin", "datasets", "summary", "published"],
-        queryFn: () => fetchStatusCount("approved", true),
+        queryKey: ["admin", "datasets", "summary", scope, "published"],
+        queryFn: () => fetchStatusCount("approved", scope, true),
         enabled: canViewQueue,
       },
       {
-        queryKey: ["admin", "datasets", "summary", "rejected"],
-        queryFn: () => fetchStatusCount("rejected"),
+        queryKey: ["admin", "datasets", "summary", scope, "rejected"],
+        queryFn: () => fetchStatusCount("rejected", scope),
         enabled: canViewQueue,
       },
     ],
@@ -482,6 +491,31 @@ export default function DatasetsReviewPage() {
             {total} {total === 1 ? "dataset" : "datasets"}
           </Badge>
         )}
+      </div>
+
+      <div className="rounded-xl border bg-muted/30 p-1">
+        <div className="flex flex-wrap gap-1" role="tablist" aria-label="Queue scope">
+          {SCOPE_TABS.map((s) => (
+            <button
+              key={s.key}
+              type="button"
+              role="tab"
+              aria-selected={scope === s.key}
+              onClick={() => {
+                setScope(s.key);
+                setPage(1);
+              }}
+              className={cn(
+                "min-h-9 rounded-lg px-3 py-2 text-xs font-medium transition-colors sm:text-sm",
+                scope === s.key
+                  ? cn("shadow-sm", tabToneClass("primary"))
+                  : "text-muted-foreground hover:bg-background/80 hover:text-foreground",
+              )}
+            >
+              {s.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       {statsLoading ? (
