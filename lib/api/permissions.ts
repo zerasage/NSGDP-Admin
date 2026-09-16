@@ -42,7 +42,8 @@ export type PermissionActionKey =
   | 'manage:analytics'
   | 'manage:gis-reference-data'
   | 'manage:partner-api-keys'
-  | 'manage:indicators';
+  | 'manage:indicators'
+  | 'manage:department-members'; // Scoped: view/add/remove existing staff in the holder's own department(s)
 
 export interface PermissionGroup {
   id: string;

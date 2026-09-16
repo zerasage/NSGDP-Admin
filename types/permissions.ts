@@ -37,7 +37,8 @@ export type PermissionAction =
   | "manage:analytics"       // Force-refresh the platform analytics dashboard cache
   | "manage:gis-reference-data" // Choose active GIS layer datasets, reconcile ward names
   | "manage:partner-api-keys" // Generate/revoke a development partner's programmatic API key
-  | "manage:indicators"; // Manage the canonical indicator registry, alias review queue, and AI-assisted resolution admin
+  | "manage:indicators" // Manage the canonical indicator registry, alias review queue, and AI-assisted resolution admin
+  | "manage:department-members"; // Scoped: view/add/remove existing staff in department(s) the holder themselves belongs to
 
 export const PROGRAM_PERMISSION_ACTIONS: PermissionAction[] = [
   "create:programs",
@@ -89,6 +90,7 @@ export const PERMISSION_ACTION_LABELS: Record<PermissionAction, string> = {
   "manage:gis-reference-data": "Manage GIS Reference Layers",
   "manage:partner-api-keys": "Manage Partner API Keys",
   "manage:indicators": "Manage Indicators",
+  "manage:department-members": "Manage Department Members",
 };
 
 export const PERMISSION_ACTION_DESCRIPTIONS: Record<PermissionAction, string> = {
@@ -158,6 +160,8 @@ export const PERMISSION_ACTION_DESCRIPTIONS: Record<PermissionAction, string> = 
     "Can generate and revoke a development partner's programmatic API key for pulling data outside the browser.",
   "manage:indicators":
     "Can manage the canonical indicator registry (create/edit/activate), resolve pending indicator and org-unit aliases in the ingestion review queue, and run Stage 8 / calibration / AI admin tools.",
+  "manage:department-members":
+    "Scoped, not platform-wide: can view/add/remove existing staff within department(s) the holder themselves belongs to. Cannot create new staff accounts or create/edit/delete departments themselves.",
 };
 
 /**
@@ -195,6 +199,10 @@ export const PERMISSION_ACTION_GROUPS: Array<{ label: string; actions: Permissio
   {
     label: "Agency Staff",
     actions: ["invite:staff"],
+  },
+  {
+    label: "Departments",
+    actions: ["manage:department-members"],
   },
   {
     label: "Programmes",

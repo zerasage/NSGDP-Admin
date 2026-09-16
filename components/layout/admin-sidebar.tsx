@@ -25,6 +25,7 @@ import {
   HeartPulse,
   ShieldAlert,
   Trash2,
+  Landmark,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { AdminPortalLinks, AdminSidebarBrand } from "@/components/layout/admin-header";
@@ -108,6 +109,7 @@ export const adminNavItems: Array<{
   { href: "/users", label: "All Users", icon: Users, anyPermission: ["invite:users", "promote:org-admin", "demote:org-admin", "remove:org-members"] },
   { href: "/gis-reference", label: "GIS Reference Layers", icon: Map, anyPermission: ["manage:gis-reference-data"] },
   { href: "/agency", label: "Agency", icon: UserCog, anyPermission: ["invite:staff"] },
+  { href: "/departments", label: "Departments", icon: Landmark, anyPermission: ["manage:department-members"] },
   { href: "/permission-groups", label: "Permission Groups", icon: ShieldCheck, superAdminOnly: true },
   { href: "/development-partner-groups", label: "Development Partner Groups", icon: Network, superAdminOnly: true },
   { href: "/governance", label: "Data Governance", icon: ShieldAlert, superAdminOnly: true },
