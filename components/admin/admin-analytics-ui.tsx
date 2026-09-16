@@ -77,6 +77,9 @@ export function MetricCard({
   icon: Icon,
   tone = "primary",
   className,
+  compact = false,
+  onClick,
+  active = false,
 }: {
   label: string;
   value: ReactNode;
@@ -85,35 +88,79 @@ export function MetricCard({
   icon?: LucideIcon;
   tone?: MetricTone;
   className?: string;
+  /** Denser padding/type scale — opt in per usage, default sizing is unchanged. */
+  compact?: boolean;
+  /** Renders the card as a button that filters/navigates on click. */
+  onClick?: () => void;
+  /** Highlights the card as the current selection (only meaningful with onClick). */
+  active?: boolean;
 }) {
   const t = METRIC_TONE[tone];
+  // Stays a <div> (not a real <button>) even when clickable, because the
+  // optional HelpTip below renders its own <button> — nesting a button
+  // inside a button is invalid HTML. role="button" + onKeyDown keeps it
+  // keyboard-accessible instead.
   return (
-    <div className={cn("rounded-2xl border p-4", t.card, className)}>
+    <div
+      role={onClick ? "button" : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      onClick={onClick}
+      onKeyDown={
+        onClick
+          ? (e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                onClick();
+              }
+            }
+          : undefined
+      }
+      className={cn(
+        "w-full rounded-2xl border text-left transition-colors",
+        compact ? "p-3" : "p-4",
+        t.card,
+        onClick &&
+          "cursor-pointer hover:brightness-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50",
+        active && "ring-2 ring-primary/50",
+        className
+      )}
+    >
       <div className="flex items-start justify-between gap-3">
-        <p className="flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+        <p
+          className={cn(
+            "flex items-center gap-1 font-semibold uppercase tracking-wide text-muted-foreground",
+            compact ? "text-[10px]" : "text-[11px]"
+          )}
+        >
           {label}
           {tip ? <HelpTip content={tip} label={`Help: ${label}`} /> : null}
         </p>
         {Icon ? (
           <div
             className={cn(
-              "flex size-9 shrink-0 items-center justify-center rounded-lg border",
+              "flex shrink-0 items-center justify-center rounded-lg border",
+              compact ? "size-7" : "size-9",
               t.well
             )}
           >
-            <Icon className={cn("size-4", t.icon)} aria-hidden />
+            <Icon className={cn(compact ? "size-3.5" : "size-4", t.icon)} aria-hidden />
           </div>
         ) : null}
       </div>
       <div
         className={cn(
-          "mt-2 text-xl font-bold tabular-nums tracking-tight sm:text-2xl",
+          "font-bold tabular-nums tracking-tight",
+          compact ? "mt-1.5 text-lg" : "mt-2 text-xl sm:text-2xl",
           t.value
         )}
       >
         {value}
       </div>
-      {hint ? <p className="mt-1 text-xs text-muted-foreground">{hint}</p> : null}
+      {hint ? (
+        <p className={cn("text-muted-foreground", compact ? "mt-0.5 text-[11px]" : "mt-1 text-xs")}>
+          {hint}
+        </p>
+      ) : null}
     </div>
   );
 }

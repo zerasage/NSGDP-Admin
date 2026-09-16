@@ -42,7 +42,6 @@ import {
   DataTableShell,
   METRIC_TONE,
   MetricCard,
-  Panel,
   tabToneClass,
   type MetricTone,
 } from "@/components/admin/admin-analytics-ui";
@@ -50,7 +49,6 @@ import { HelpTip } from "@/components/admin/help-tip";
 import {
   DATASETS_QUEUE_METRIC_TIPS,
   DATASETS_QUEUE_PAGE_TIP,
-  DATASETS_QUEUE_PANEL_TIP,
   DATASETS_PUBLISH_TIP,
 } from "@/lib/constants/datasets-queue-tooltips";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -475,7 +473,7 @@ export default function DatasetsReviewPage() {
 
   return (
     <TooltipProvider delay={200}>
-    <div className="space-y-6">
+    <div className="space-y-4">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
@@ -525,57 +523,66 @@ export default function DatasetsReviewPage() {
           ))}
         </div>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
           <MetricCard
+            compact
             label="Pending review"
             value={pendingSummary.data ?? 0}
             hint="Awaiting first review"
             tip={DATASETS_QUEUE_METRIC_TIPS.pending}
             icon={FileCheck}
             tone="warning"
+            active={tab === "pending"}
+            onClick={() => { setTab("pending"); setPage(1); }}
           />
           <MetricCard
+            compact
             label="Under review"
             value={underReviewSummary.data ?? 0}
             hint="Assigned to a reviewer"
             tip={DATASETS_QUEUE_METRIC_TIPS.under_review}
             icon={Database}
             tone="info"
+            active={tab === "under_review"}
+            onClick={() => { setTab("under_review"); setPage(1); }}
           />
           <MetricCard
+            compact
             label="Approved"
             value={approvedSummary.data ?? 0}
             hint="Ready to publish"
             tip={DATASETS_QUEUE_METRIC_TIPS.approved}
             icon={Globe}
             tone="warning"
+            active={tab === "approved"}
+            onClick={() => { setTab("approved"); setPage(1); }}
           />
           <MetricCard
+            compact
             label="Published"
             value={publishedSummary.data ?? 0}
             hint="Live on catalogue"
             tip={DATASETS_QUEUE_METRIC_TIPS.published}
             icon={Globe}
             tone="success"
+            active={tab === "published"}
+            onClick={() => { setTab("published"); setPage(1); }}
           />
           <MetricCard
+            compact
             label="Rejected"
             value={rejectedSummary.data ?? 0}
             hint="Returned to submitter"
             tip={DATASETS_QUEUE_METRIC_TIPS.rejected}
             icon={Archive}
             tone="destructive"
+            active={tab === "rejected"}
+            onClick={() => { setTab("rejected"); setPage(1); }}
           />
         </div>
       )}
 
-      <Panel
-        title="Dataset queue"
-        titleTip={DATASETS_QUEUE_PANEL_TIP}
-        description="Filter by workflow status or search title, format, and development partner."
-        icon={FileCheck}
-        tone="info"
-      >
+      <div className="rounded-2xl border bg-card p-4 sm:p-5">
         <div className="space-y-4">
           <div className="rounded-xl border bg-muted/30 p-1">
             <div className="flex flex-wrap gap-1" role="tablist" aria-label="Dataset status">
@@ -683,7 +690,7 @@ export default function DatasetsReviewPage() {
             </div>
           )}
         </div>
-      </Panel>
+      </div>
 
       <div aria-busy={isFetching || isSearchPending} className="space-y-4">
         {isError ? (
