@@ -14,6 +14,7 @@ import {
   X,
   XCircle,
 } from "lucide-react";
+import { useQueries } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -46,11 +47,15 @@ import {
   useApproveAccessRequest,
   useDenyAccessRequest,
 } from "@/lib/hooks/useAccessRequests";
-import type { AccessRequest, AccessRequestStatus } from "@/lib/api/access-requests";
+import {
+  getAccessRequests,
+  type AccessRequest,
+  type AccessRequestStatus,
+} from "@/lib/api/access-requests";
 import {
   DataTableShell,
   METRIC_TONE,
-  Panel,
+  MetricCard,
   tabToneClass,
   type MetricTone,
 } from "@/components/admin/admin-analytics-ui";
@@ -60,7 +65,6 @@ import {
   ACCESS_REQUESTS_DENY_REASON_TIP,
   ACCESS_REQUESTS_DENY_TIP,
   ACCESS_REQUESTS_PAGE_TIP,
-  ACCESS_REQUESTS_PANEL_TIP,
   ACCESS_REQUESTS_TAB_TIPS,
 } from "@/lib/constants/access-requests-tooltips";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -133,6 +137,40 @@ export default function AccessRequestsPage() {
   const total = meta?.total ?? 0;
   const totalPages = meta?.totalPages ?? 1;
   const isSearchPending = query.trim() !== debouncedQuery;
+
+  const [totalSummary, pendingSummary, approvedSummary, deniedSummary] = useQueries({
+    queries: [
+      {
+        queryKey: ["access-requests", "summary", "total"],
+        queryFn: () => getAccessRequests({ page: 1, limit: 1 }),
+        select: (result: Awaited<ReturnType<typeof getAccessRequests>>) => result.meta.total,
+        enabled: canView,
+      },
+      {
+        queryKey: ["access-requests", "summary", "pending"],
+        queryFn: () => getAccessRequests({ page: 1, limit: 1, status: "pending" }),
+        select: (result: Awaited<ReturnType<typeof getAccessRequests>>) => result.meta.total,
+        enabled: canView,
+      },
+      {
+        queryKey: ["access-requests", "summary", "approved"],
+        queryFn: () => getAccessRequests({ page: 1, limit: 1, status: "approved" }),
+        select: (result: Awaited<ReturnType<typeof getAccessRequests>>) => result.meta.total,
+        enabled: canView,
+      },
+      {
+        queryKey: ["access-requests", "summary", "denied"],
+        queryFn: () => getAccessRequests({ page: 1, limit: 1, status: "denied" }),
+        select: (result: Awaited<ReturnType<typeof getAccessRequests>>) => result.meta.total,
+        enabled: canView,
+      },
+    ],
+  });
+  const statsLoading =
+    totalSummary.isLoading ||
+    pendingSummary.isLoading ||
+    approvedSummary.isLoading ||
+    deniedSummary.isLoading;
 
   const approve = (id: string) =>
     approveMutation.mutate(id, {
@@ -212,13 +250,54 @@ export default function AccessRequestsPage() {
         )}
       </div>
 
-      <Panel
-        title="Requests"
-        titleTip={ACCESS_REQUESTS_PANEL_TIP}
-        description="Filter by status or search requester name, email, or dataset title."
-        icon={KeyRound}
-        tone="info"
-      >
+      {statsLoading ? (
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          {[...Array(4)].map((_, i) => (
+            <Skeleton key={i} className="h-20 rounded-2xl" />
+          ))}
+        </div>
+      ) : (
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <MetricCard
+            compact
+            label="Total Requests"
+            value={totalSummary.data ?? 0}
+            hint="All statuses"
+            tone="muted"
+            icon={KeyRound}
+            tip={ACCESS_REQUESTS_TAB_TIPS.all}
+          />
+          <MetricCard
+            compact
+            label="Pending"
+            value={pendingSummary.data ?? 0}
+            hint="Awaiting your decision"
+            tone="warning"
+            icon={AlertCircle}
+            tip={ACCESS_REQUESTS_TAB_TIPS.pending}
+          />
+          <MetricCard
+            compact
+            label="Approved"
+            value={approvedSummary.data ?? 0}
+            hint="Access granted"
+            tone="success"
+            icon={CheckCircle2}
+            tip={ACCESS_REQUESTS_TAB_TIPS.approved}
+          />
+          <MetricCard
+            compact
+            label="Denied"
+            value={deniedSummary.data ?? 0}
+            hint="Access refused"
+            tone="destructive"
+            icon={XCircle}
+            tip={ACCESS_REQUESTS_TAB_TIPS.denied}
+          />
+        </div>
+      )}
+
+      <div className="rounded-2xl border bg-card p-4 sm:p-5">
         <div className="space-y-4">
           <div className="rounded-xl border bg-muted/30 p-1">
             <div className="flex flex-wrap gap-1" role="tablist" aria-label="Request status">
@@ -293,7 +372,7 @@ export default function AccessRequestsPage() {
             </div>
           </div>
         </div>
-      </Panel>
+      </div>
 
       <div aria-busy={request.isFetching || isSearchPending} className="space-y-4">
         {request.isLoading ? (

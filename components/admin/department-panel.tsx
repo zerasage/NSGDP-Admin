@@ -27,6 +27,8 @@ import { cn } from "@/lib/utils";
 
 interface DepartmentPanelProps {
   isSuperAdmin: boolean;
+  /** Can add/remove members — super_admin or a manage:department-members holder. Viewing never requires this. */
+  canManageMembers: boolean;
   createOpen: boolean;
   onCreateOpenChange: (open: boolean) => void;
 }
@@ -41,7 +43,7 @@ function DepartmentStatusBadge({ active }: { active: boolean }) {
   );
 }
 
-export function DepartmentPanel({ isSuperAdmin, createOpen, onCreateOpenChange }: DepartmentPanelProps) {
+export function DepartmentPanel({ isSuperAdmin, canManageMembers, createOpen, onCreateOpenChange }: DepartmentPanelProps) {
   // Super admin sees every department; a manage:department-members-only
   // holder only sees department(s) they belong to.
   const allDepartments = useDepartments();
@@ -310,6 +312,7 @@ export function DepartmentPanel({ isSuperAdmin, createOpen, onCreateOpenChange }
           <DepartmentMemberManager
             departmentId={selectedDepartment.id}
             disabled={!selectedDepartment.is_active}
+            canManage={canManageMembers}
           />
         </div>
       </div>

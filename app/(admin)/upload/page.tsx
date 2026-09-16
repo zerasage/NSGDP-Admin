@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { FileText, Upload, MapPin, Scale, Settings, X, Lock, Search } from "lucide-react";
 import { Stepper } from "@/components/forms/stepper";
@@ -30,6 +30,7 @@ import {
 } from "@/components/ui/select";
 import { useCreateDataset } from "@/lib/hooks/useDatasets";
 import { useDevelopmentPartners } from "@/lib/hooks/useDevelopmentPartners";
+import { useDepartments, useMyDepartments } from "@/lib/hooks/useDepartments";
 import { useCategories } from "@/lib/hooks/useCategories";
 import { uploadFile } from "@/lib/api/uploads";
 import { NIGER_STATE_LGAS } from "@/lib/constants/core";
@@ -38,6 +39,27 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { useToast } from "@/lib/hooks/use-toast";
 import type { DatasetFormat, DatasetVisibility } from "@/lib/api/datasets";
 import { cn } from "@/lib/utils";
+
+interface UploadDraft {
+  currentStep: number;
+  developmentPartnerId: string;
+  title: string;
+  description: string;
+  categoryId: string;
+  tags: string[];
+  selectedLGAs: string[];
+  temporalCoverageStart: string;
+  temporalCoverageEnd: string;
+  diseaseIndicators: string[];
+  license: string;
+  methodology: string;
+  limitations: string;
+  visibility: DatasetVisibility;
+  responsibleDept: string;
+  contactPerson: string;
+  contactEmail: string;
+  updateFrequency: string;
+}
 
 const steps = [
   { id: 1, name: "Basic Info", icon: FileText },
@@ -107,41 +129,163 @@ export default function AdminUploadDatasetPage() {
   const presetOrgId = searchParams.get("orgId") ?? undefined;
   const presetAgency = searchParams.get("agency") === "1";
   const { user } = useAuth();
-  const { isLoading: permissionsLoading, can } = useAdminAccess();
+  const { isLoading: permissionsLoading, can, isSuperAdmin } = useAdminAccess();
   const canUpload = can("create:datasets");
   const { toast } = useToast();
   const createMutation = useCreateDataset();
   const { data: orgsData } = useDevelopmentPartners(1, 200);
   const { data: categoriesData } = useCategories();
+  // Only relevant for agency uploads — a dev-partner org's "responsible
+  // department" is their own internal team name, unrelated to our staff
+  // Department entity, so we only fetch/offer this dropdown in agency mode.
+  // Super admins pick from every department; other staff only from the
+  // department(s) they actually belong to.
+  const { data: allDepartmentsData } = useDepartments(presetAgency && isSuperAdmin);
+  const { data: myDepartmentsData } = useMyDepartments(presetAgency && !isSuperAdmin && user?.role === "staff");
+  const departmentOptions = isSuperAdmin ? allDepartmentsData ?? [] : myDepartmentsData ?? [];
 
-  const [currentStep, setCurrentStep] = useState(1);
+  // Draft autosave — lets the uploader leave mid-flow and pick up on the
+  // same step later. Scoped per upload context (agency vs a specific org)
+  // so switching context doesn't bleed a stale draft into the wrong form.
+  // Files can't be persisted this way (no way to serialize a File handle to
+  // localStorage), so uploadedFiles is deliberately excluded — the draft
+  // banner below tells the uploader to re-attach files if they left mid-way.
+  //
+  // Restored via lazy useState initializers (computed once, at first
+  // render) rather than an effect that calls setState after mount — that
+  // pattern causes an extra cascading render per restored field.
+  const draftKey = presetAgency
+    ? "upload-draft:agency"
+    : presetOrgId
+      ? `upload-draft:org-${presetOrgId}`
+      : "upload-draft:general";
+
+  const [initialDraft] = useState<UploadDraft | null>(() => {
+    if (typeof window === "undefined") return null;
+    try {
+      const raw = window.localStorage.getItem(draftKey);
+      return raw ? (JSON.parse(raw) as UploadDraft) : null;
+    } catch {
+      return null;
+    }
+  });
+  const [draftRestored, setDraftRestored] = useState(() => initialDraft !== null);
+
+  const [currentStep, setCurrentStep] = useState(initialDraft?.currentStep ?? 1);
   const [saving, setSaving] = useState(false);
   const [stepErrors, setStepErrors] = useState<Record<string, string>>({});
 
-  const [developmentPartnerId, setDevelopmentPartnerId] = useState(presetOrgId ?? "");
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
-  const [categoryId, setCategoryId] = useState("");
-  const [tags, setTags] = useState<string[]>([]);
+  const [developmentPartnerId, setDevelopmentPartnerId] = useState(
+    initialDraft?.developmentPartnerId ?? presetOrgId ?? "",
+  );
+  const [title, setTitle] = useState(initialDraft?.title ?? "");
+  const [description, setDescription] = useState(initialDraft?.description ?? "");
+  const [categoryId, setCategoryId] = useState(initialDraft?.categoryId ?? "");
+  const [tags, setTags] = useState<string[]>(initialDraft?.tags ?? []);
   const [tagInput, setTagInput] = useState("");
-  const [selectedLGAs, setSelectedLGAs] = useState<string[]>([]);
+  const [selectedLGAs, setSelectedLGAs] = useState<string[]>(initialDraft?.selectedLGAs ?? []);
   const [lgaFilter, setLgaFilter] = useState("");
   const filteredLGAs = NIGER_STATE_LGAS.filter((lga) =>
     lga.toLowerCase().includes(lgaFilter.trim().toLowerCase())
   );
-  const [temporalCoverageStart, setTemporalCoverageStart] = useState("");
-  const [temporalCoverageEnd, setTemporalCoverageEnd] = useState("");
-  const [diseaseIndicators, setDiseaseIndicators] = useState<string[]>([]);
+  const [temporalCoverageStart, setTemporalCoverageStart] = useState(
+    initialDraft?.temporalCoverageStart ?? "",
+  );
+  const [temporalCoverageEnd, setTemporalCoverageEnd] = useState(initialDraft?.temporalCoverageEnd ?? "");
+  const [diseaseIndicators, setDiseaseIndicators] = useState<string[]>(initialDraft?.diseaseIndicators ?? []);
   const [indicatorInput, setIndicatorInput] = useState("");
-  const [license, setLicense] = useState("");
-  const [methodology, setMethodology] = useState("");
-  const [limitations, setLimitations] = useState("");
-  const [visibility, setVisibility] = useState<DatasetVisibility>("public");
+  const [license, setLicense] = useState(initialDraft?.license ?? "");
+  const [methodology, setMethodology] = useState(initialDraft?.methodology ?? "");
+  const [limitations, setLimitations] = useState(initialDraft?.limitations ?? "");
+  const [visibility, setVisibility] = useState<DatasetVisibility>(initialDraft?.visibility ?? "public");
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
-  const [responsibleDept, setResponsibleDept] = useState("");
-  const [contactPerson, setContactPerson] = useState("");
-  const [contactEmail, setContactEmail] = useState("");
-  const [updateFrequency, setUpdateFrequency] = useState("");
+  const [responsibleDept, setResponsibleDept] = useState(initialDraft?.responsibleDept ?? "");
+  const [contactPerson, setContactPerson] = useState(initialDraft?.contactPerson ?? "");
+  const [contactEmail, setContactEmail] = useState(initialDraft?.contactEmail ?? "");
+  const [updateFrequency, setUpdateFrequency] = useState(initialDraft?.updateFrequency ?? "");
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(
+        draftKey,
+        JSON.stringify({
+          currentStep,
+          developmentPartnerId,
+          title,
+          description,
+          categoryId,
+          tags,
+          selectedLGAs,
+          temporalCoverageStart,
+          temporalCoverageEnd,
+          diseaseIndicators,
+          license,
+          methodology,
+          limitations,
+          visibility,
+          responsibleDept,
+          contactPerson,
+          contactEmail,
+          updateFrequency,
+        } satisfies UploadDraft),
+      );
+    } catch {
+      // Storage full or unavailable (e.g. private browsing) — drafts just
+      // won't persist this session, not worth surfacing as an error.
+    }
+  }, [
+    draftKey,
+    currentStep,
+    developmentPartnerId,
+    title,
+    description,
+    categoryId,
+    tags,
+    selectedLGAs,
+    temporalCoverageStart,
+    temporalCoverageEnd,
+    diseaseIndicators,
+    license,
+    methodology,
+    limitations,
+    visibility,
+    responsibleDept,
+    contactPerson,
+    contactEmail,
+    updateFrequency,
+  ]);
+
+  const clearDraft = () => {
+    try {
+      window.localStorage.removeItem(draftKey);
+    } catch {
+      // Ignore — nothing to clean up if storage isn't available.
+    }
+  };
+
+  const startOver = () => {
+    clearDraft();
+    setDraftRestored(false);
+    setCurrentStep(1);
+    setDevelopmentPartnerId(presetOrgId ?? "");
+    setTitle("");
+    setDescription("");
+    setCategoryId("");
+    setTags([]);
+    setSelectedLGAs([]);
+    setTemporalCoverageStart("");
+    setTemporalCoverageEnd("");
+    setDiseaseIndicators([]);
+    setLicense("");
+    setMethodology("");
+    setLimitations("");
+    setVisibility("public");
+    setResponsibleDept("");
+    setContactPerson("");
+    setContactEmail("");
+    setUpdateFrequency("");
+    setUploadedFiles([]);
+  };
 
   // Off by default — only fills the form when explicitly opted into via the
   // small checkbox in the header, and clears back out if unchecked.
@@ -298,6 +442,7 @@ export default function AdminUploadDatasetPage() {
           ? "Dataset saved as draft"
           : `Dataset created${uploadedFiles.length ? ` with ${uploadedFiles.length} file(s)` : ""} and submitted for review`,
       });
+      clearDraft();
       router.push(`/datasets/${dataset.slug}`);
     } catch (error) {
       toast({
@@ -374,6 +519,18 @@ export default function AdminUploadDatasetPage() {
           </label>
         </div>
       </div>
+
+      {draftRestored && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-info/25 bg-info/[0.06] px-4 py-3 text-sm">
+          <p className="text-muted-foreground">
+            Resumed your in-progress draft from step {currentStep}. Files aren&apos;t saved between
+            visits — re-attach them on the Upload Files step if you had any selected before.
+          </p>
+          <Button variant="ghost" size="sm" className="h-8 shrink-0" onClick={startOver}>
+            Start over
+          </Button>
+        </div>
+      )}
 
       {/* Mobile stepper: horizontal at top */}
       <Panel
@@ -772,19 +929,36 @@ export default function AdminUploadDatasetPage() {
             />
 
             <div className="space-y-4">
+              {(!presetAgency || isSuperAdmin || departmentOptions.length > 0) && (
               <div className="space-y-2">
                 <FieldLabelTooltip
                   htmlFor="responsibleDept"
                   label="Responsible department"
                   tooltip={UPLOAD_FIELD_TOOLTIPS.responsibleDept}
                 />
-                <Input
-                  id="responsibleDept"
-                  value={responsibleDept}
-                  onChange={(e) => setResponsibleDept(e.target.value)}
-                  placeholder="e.g., Disease Surveillance Unit"
-                />
+                {presetAgency ? (
+                  <Select value={responsibleDept} onValueChange={(v) => setResponsibleDept(v || "")}>
+                    <SelectTrigger id="responsibleDept" className="w-full">
+                      <SelectValue placeholder={isSuperAdmin ? "Select a department" : "Select your department"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {departmentOptions.map((dept) => (
+                        <SelectItem key={dept.id} value={dept.name}>
+                          {dept.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <Input
+                    id="responsibleDept"
+                    value={responsibleDept}
+                    onChange={(e) => setResponsibleDept(e.target.value)}
+                    placeholder="e.g., Disease Surveillance Unit"
+                  />
+                )}
               </div>
+              )}
 
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">

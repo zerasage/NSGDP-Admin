@@ -53,6 +53,7 @@ export async function getArchiveRequests(params?: {
   status?: ArchiveRequestStatus | "all";
   page?: number;
   limit?: number;
+  search?: string;
 }): Promise<ArchiveRequestsResponse> {
   const response = await apiClient.get<ApiResponse<ArchiveRequestsResponse>>(
     "/admin/archive-requests",

@@ -55,6 +55,7 @@ import {
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useToast } from "@/lib/hooks/use-toast";
 import { useAdminAccess } from "@/lib/hooks/useAdminAccess";
+import { useAuth } from "@/lib/auth";
 import { adminApi, archiveDataset, bulkArchiveDatasets, publishDataset, unarchiveDataset, type ArchiveDatasetPayload } from "@/lib/api/admin";
 import type { DatasetStatus } from "@/lib/api/datasets";
 import type { Visibility } from "@/types";
@@ -141,8 +142,12 @@ async function fetchStatusCount(
 export default function DatasetsReviewPage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const { isLoading: permissionsLoading, can, canAny } = useAdminAccess();
-  const canViewQueue = canAny("view:datasets", "validate:datasets", "approve:datasets", "publish:datasets");
+  const { isLoading: permissionsLoading, can, isSuperAdmin } = useAdminAccess();
+  const { user } = useAuth();
+  // Any staff can view the review queue — acting on a dataset (validate,
+  // approve, publish, etc.) still requires the specific delegated permission,
+  // checked separately below.
+  const canViewQueue = isSuperAdmin || user?.role === "staff";
   const canValidate = can("validate:datasets");
   // Narrower than it used to be: only the final validated -> approved
   // decision (or sending a validated dataset back to under_review) —
@@ -496,7 +501,7 @@ export default function DatasetsReviewPage() {
         <EmptyState
           icon={Lock}
           title="Access restricted"
-          description="Viewing the review queue requires view:datasets, validate:datasets, approve:datasets, or publish:datasets. Ask a super_admin to grant your group one of these."
+          description="The review queue is visible to agency staff and super admins only."
         />
       </div>
     );

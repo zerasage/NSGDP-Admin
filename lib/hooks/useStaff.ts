@@ -11,12 +11,13 @@ import {
   type StaffMemberListParams,
 } from '../api/staff';
 
-export function useStaffMembers(params?: StaffMemberListParams) {
+export function useStaffMembers(params?: StaffMemberListParams, enabled: boolean = true) {
   return useQuery({
     queryKey: ['admin-staff', params],
     queryFn: () => getStaffMembers(params),
     staleTime: 60 * 1000,
     placeholderData: keepPreviousData,
+    enabled,
   });
 }
 

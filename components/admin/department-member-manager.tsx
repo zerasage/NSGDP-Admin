@@ -14,16 +14,28 @@ import {
 import { useStaffMembers } from "@/lib/hooks/useStaff";
 import { useToast } from "@/lib/hooks/use-toast";
 
-export function DepartmentMemberManager({ departmentId, disabled = false }: { departmentId: string; disabled?: boolean }) {
+export function DepartmentMemberManager({
+  departmentId,
+  disabled = false,
+  canManage,
+}: {
+  departmentId: string;
+  disabled?: boolean;
+  /** Add/remove controls only render for super_admin or a manage:department-members holder. */
+  canManage: boolean;
+}) {
   const { data: department, isLoading } = useDepartment(departmentId);
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
-  const { data: staffData, isLoading: staffLoading, isFetching: staffFetching, isError: staffError } = useStaffMembers({
-    page: 1,
-    limit: 20,
-    search: debouncedSearch || undefined,
-    status: "active",
-  });
+  const { data: staffData, isLoading: staffLoading, isFetching: staffFetching, isError: staffError } = useStaffMembers(
+    {
+      page: 1,
+      limit: 20,
+      search: debouncedSearch || undefined,
+      status: "active",
+    },
+    canManage,
+  );
   const staff = useMemo(() => staffData?.data ?? [], [staffData]);
   const [actioningId, setActioningId] = useState<string | null>(null);
   const addMember = useAddDepartmentMember();
@@ -104,6 +116,7 @@ export function DepartmentMemberManager({ departmentId, disabled = false }: { de
                     Added {new Date(member.joined_at).toLocaleDateString()}
                   </div>
                 </div>
+                {canManage && (
                 <Button
                   variant="ghost"
                   size="sm"
@@ -114,12 +127,14 @@ export function DepartmentMemberManager({ departmentId, disabled = false }: { de
                   <X className="size-3.5 mr-1" />
                   {actioningId === member.user_id ? "Removing..." : "Remove"}
                 </Button>
+                )}
               </li>
             ))}
           </ul>
         )}
       </div>
 
+      {canManage && (
       <div>
         <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Add staff</p>
         <p className="mb-2 flex items-start gap-1.5 text-xs text-muted-foreground">
@@ -167,7 +182,9 @@ export function DepartmentMemberManager({ departmentId, disabled = false }: { de
           </ul>
         )}
       </div>
-      {disabled && <p className="border-l-4 border-amber-500 pl-3 text-sm">Members cannot be changed while this department is inactive.</p>}
+      )}
+      {canManage && disabled && <p className="border-l-4 border-amber-500 pl-3 text-sm">Members cannot be changed while this department is inactive.</p>}
+      {!canManage && <p className="text-xs text-muted-foreground">You can view this department because you&apos;re a member. Managing membership requires the manage:department-members permission.</p>}
     </div>
   );
 }

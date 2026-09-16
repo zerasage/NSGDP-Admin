@@ -51,7 +51,6 @@ import {
   DataTableShell,
   METRIC_TONE,
   MetricCard,
-  Panel,
   tabToneClass,
   type MetricTone,
 } from "@/components/admin/admin-analytics-ui";
@@ -64,7 +63,6 @@ import {
   CONTACT_MESSAGES_CLOSE_TIP,
   CONTACT_MESSAGES_METRIC_TIPS,
   CONTACT_MESSAGES_PAGE_TIP,
-  CONTACT_MESSAGES_PANEL_TIP,
   CONTACT_MESSAGES_REOPEN_TIP,
   CONTACT_MESSAGES_REPLY_TIP,
   CONTACT_MESSAGES_STAFF_NOTES_TIP,
@@ -215,19 +213,13 @@ export default function ContactMessagesPage() {
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <MetricCard label="Total" value={stats?.total ?? "—"} icon={Inbox} tone="muted" tip={CONTACT_MESSAGES_METRIC_TIPS.total} />
-        <MetricCard label="New" value={stats?.new ?? "—"} icon={Mail} tone="warning" tip={CONTACT_MESSAGES_METRIC_TIPS.new} />
-        <MetricCard label="Open" value={stats?.open ?? "—"} icon={Mail} tone="info" tip={CONTACT_MESSAGES_METRIC_TIPS.open} />
-        <MetricCard label="Closed" value={stats?.closed ?? "—"} icon={CheckCircle2} tone="success" tip={CONTACT_MESSAGES_METRIC_TIPS.closed} />
+        <MetricCard compact label="Total" value={stats?.total ?? "—"} hint="All messages" icon={Inbox} tone="muted" tip={CONTACT_MESSAGES_METRIC_TIPS.total} />
+        <MetricCard compact label="New" value={stats?.new ?? "—"} hint="Not yet opened" icon={Mail} tone="warning" tip={CONTACT_MESSAGES_METRIC_TIPS.new} />
+        <MetricCard compact label="Open" value={stats?.open ?? "—"} hint="Being handled" icon={Mail} tone="info" tip={CONTACT_MESSAGES_METRIC_TIPS.open} />
+        <MetricCard compact label="Closed" value={stats?.closed ?? "—"} hint="Resolved" icon={CheckCircle2} tone="success" tip={CONTACT_MESSAGES_METRIC_TIPS.closed} />
       </div>
 
-      <Panel
-        title="Inbox"
-        titleTip={CONTACT_MESSAGES_PANEL_TIP}
-        description="Filter by status or search name, email, subject, and message text."
-        icon={Mail}
-        tone="info"
-      >
+      <div className="rounded-2xl border bg-card p-4 sm:p-5">
         <div className="space-y-4">
           <div className="rounded-xl border bg-muted/30 p-1">
             <div className="flex flex-wrap gap-1" role="tablist" aria-label="Message status">
@@ -302,7 +294,7 @@ export default function ContactMessagesPage() {
             </div>
           </div>
         </div>
-      </Panel>
+      </div>
 
       <div aria-busy={isLoading || isFetching || isSearchPending} className="space-y-4">
         {isError ? (

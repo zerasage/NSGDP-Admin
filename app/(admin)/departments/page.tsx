@@ -1,7 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Building2, Lock, Plus, Users } from "lucide-react";
+import { useQueries } from "@tanstack/react-query";
+import { Building2, Lock, Plus, UserX, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DepartmentPanel } from "@/components/admin/department-panel";
 import { HelpTip } from "@/components/admin/help-tip";
@@ -15,11 +16,19 @@ import {
 } from "@/lib/constants/department-tooltips";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useAdminAccess } from "@/lib/hooks/useAdminAccess";
-import { useDepartments, useMyDepartments } from "@/lib/hooks/useDepartments";
+import { useAuth } from "@/lib/auth";
+import {
+  useDepartments,
+  useMyDepartments,
+  useDepartmentStats,
+} from "@/lib/hooks/useDepartments";
+import { getDepartment } from "@/lib/api/departments";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export default function DepartmentsPage() {
   const { isSuperAdmin, can, isLoading: permissionsLoading } = useAdminAccess();
+  const { user } = useAuth();
+  const isStaff = user?.role === "staff";
   const canManageDepartmentMembers = can("manage:department-members");
   const [createOpen, setCreateOpen] = useState(false);
 
@@ -29,22 +38,49 @@ export default function DepartmentsPage() {
     ? allDepartments
     : myDepartments;
 
+  // Super admin: agency-wide deduped stats from the backend (summing each
+  // department's member_count would double-count staff in 2+ departments).
+  const agencyStats = useDepartmentStats(isSuperAdmin);
+
+  // Non-super-admin staff: only ever a handful of "my" departments, so it's
+  // cheap to fetch each one's member list here and dedupe client-side rather
+  // than needing a "my-scoped" version of the stats endpoint.
+  const myDepartmentDetails = useQueries({
+    queries: (isSuperAdmin ? [] : departments ?? []).map((d) => ({
+      queryKey: ["departments", d.id],
+      queryFn: () => getDepartment(d.id),
+    })),
+  });
+  const myUniqueMembers = useMemo(() => {
+    if (isSuperAdmin) return 0;
+    const ids = new Set<string>();
+    for (const q of myDepartmentDetails) {
+      for (const m of q.data?.members ?? []) ids.add(m.user_id);
+    }
+    return ids.size;
+  }, [isSuperAdmin, myDepartmentDetails]);
+  const myMembersLoading = !isSuperAdmin && myDepartmentDetails.some((q) => q.isLoading);
+
   const stats = useMemo(() => {
     const list = departments ?? [];
     return {
       total: list.length,
       active: list.filter((d) => d.is_active).length,
-      members: list.reduce((sum, d) => sum + (d.member_count ?? 0), 0),
+      members: myUniqueMembers,
     };
-  }, [departments]);
+  }, [departments, myUniqueMembers]);
 
-  if (!permissionsLoading && !isSuperAdmin && !canManageDepartmentMembers) {
+  // Viewing only requires being staff (or super_admin) — membership itself,
+  // not manage:department-members, is what makes a department visible.
+  // Managing members within it is a separate, narrower gate applied inside
+  // DepartmentPanel/DepartmentMemberManager.
+  if (!permissionsLoading && !isSuperAdmin && !isStaff) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center">
         <EmptyState
           icon={Lock}
           title="Access restricted"
-          description="Viewing departments requires manage:department-members (or super_admin). Ask a super_admin to grant your group this permission."
+          description="Departments are visible to agency staff and super admins only."
         />
       </div>
     );
@@ -65,7 +101,58 @@ export default function DepartmentsPage() {
         </p>
       </div>
 
-      {departmentsLoading ? (
+      {isSuperAdmin ? (
+        agencyStats.isLoading ? (
+          <div className="grid gap-4 sm:grid-cols-3 xl:grid-cols-5">
+            {[...Array(5)].map((_, i) => (
+              <Skeleton key={i} className="h-28 rounded-2xl" />
+            ))}
+          </div>
+        ) : (
+          <div className="grid gap-4 sm:grid-cols-3 xl:grid-cols-5">
+            <MetricCard
+              label="Total departments"
+              value={agencyStats.data?.totalDepartments ?? 0}
+              hint="Active and inactive"
+              icon={Building2}
+              tone="primary"
+              tip={DEPARTMENTS_METRIC_TIPS.total}
+            />
+            <MetricCard
+              label="Active departments"
+              value={agencyStats.data?.activeDepartments ?? 0}
+              hint="Open to membership changes"
+              icon={Building2}
+              tone="success"
+              tip={DEPARTMENTS_METRIC_TIPS.active}
+            />
+            <MetricCard
+              label="Total members"
+              value={agencyStats.data?.uniqueMembers ?? 0}
+              hint="Distinct staff, deduped"
+              icon={Users}
+              tone="info"
+              tip={DEPARTMENTS_METRIC_TIPS.members}
+            />
+            <MetricCard
+              label="Staff in agency"
+              value={agencyStats.data?.totalStaff ?? 0}
+              hint="All active staff accounts"
+              icon={Users}
+              tone="muted"
+              tip={DEPARTMENTS_METRIC_TIPS.totalStaff}
+            />
+            <MetricCard
+              label="Staff without a department"
+              value={agencyStats.data?.staffWithoutDepartment ?? 0}
+              hint="Not yet assigned anywhere"
+              icon={UserX}
+              tone="warning"
+              tip={DEPARTMENTS_METRIC_TIPS.staffWithoutDepartment}
+            />
+          </div>
+        )
+      ) : departmentsLoading || myMembersLoading ? (
         <div className="grid gap-4 sm:grid-cols-3">
           {[...Array(3)].map((_, i) => (
             <Skeleton key={i} className="h-28 rounded-2xl" />
@@ -74,7 +161,7 @@ export default function DepartmentsPage() {
       ) : (
         <div className="grid gap-4 sm:grid-cols-3">
           <MetricCard
-            label={isSuperAdmin ? "Total departments" : "Your departments"}
+            label="Your departments"
             value={stats.total}
             hint="Active and inactive"
             icon={Building2}
@@ -92,7 +179,7 @@ export default function DepartmentsPage() {
           <MetricCard
             label="Total members"
             value={stats.members}
-            hint="Staff across these departments"
+            hint="Distinct staff, deduped"
             icon={Users}
             tone="info"
             tip={DEPARTMENTS_METRIC_TIPS.members}
@@ -124,6 +211,7 @@ export default function DepartmentsPage() {
       >
         <DepartmentPanel
           isSuperAdmin={isSuperAdmin}
+          canManageMembers={isSuperAdmin || canManageDepartmentMembers}
           createOpen={createOpen}
           onCreateOpenChange={setCreateOpen}
         />

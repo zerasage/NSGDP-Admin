@@ -12,6 +12,7 @@ export function useArchiveRequests(params?: {
   status?: ArchiveRequestStatus | "all";
   page?: number;
   limit?: number;
+  search?: string;
   enabled?: boolean;
 }) {
   const { enabled = true, ...query } = params ?? {};

@@ -33,6 +33,15 @@ export interface DepartmentDetail extends Department {
   members: DepartmentMember[];
 }
 
+export interface DepartmentStats {
+  totalDepartments: number;
+  activeDepartments: number;
+  /** Distinct staff across all departments — a staff member in 2+ departments is counted once. */
+  uniqueMembers: number;
+  totalStaff: number;
+  staffWithoutDepartment: number;
+}
+
 export interface CreateDepartmentPayload {
   name: string;
   description?: string;
@@ -53,6 +62,12 @@ export async function getDepartments(): Promise<Department[]> {
 /** Departments the current user belongs to — used by non-super-admin viewers. */
 export async function getMyDepartments(): Promise<Department[]> {
   const response = await apiClient.get<ApiResponse<Department[]>>('/admin/departments/me');
+  return response.data.data;
+}
+
+/** Super admin only — agency-wide, deduped department stats. */
+export async function getDepartmentStats(): Promise<DepartmentStats> {
+  const response = await apiClient.get<ApiResponse<DepartmentStats>>('/admin/departments/stats');
   return response.data.data;
 }
 

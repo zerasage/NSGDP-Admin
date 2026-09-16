@@ -167,8 +167,11 @@ export default function DatasetDetailPage({
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { user } = useAuth();
-  const { can, canAny } = useAdminAccess();
-  const canView = canAny("view:datasets", "validate:datasets", "approve:datasets", "publish:datasets");
+  const { can, canAny, isSuperAdmin } = useAdminAccess();
+  // Viewing a dataset's admin detail only requires being staff — acting on
+  // it (validate/approve/publish/etc.) still requires the specific
+  // delegated permission, checked separately below.
+  const canView = isSuperAdmin || user?.role === "staff";
   const canValidate = can("validate:datasets");
   // Narrower than it used to be: only the final validated -> approved
   // decision — everything upstream is now canValidate's job.
@@ -466,7 +469,7 @@ export default function DatasetDetailPage({
       <EmptyState
         icon={Lock}
         title="Access restricted"
-        description="Viewing dataset details requires view:datasets, validate:datasets, approve:datasets, or publish:datasets. Ask a super_admin to grant your group one of these."
+        description="Dataset details are visible to agency staff and super admins only."
       />
     );
   }

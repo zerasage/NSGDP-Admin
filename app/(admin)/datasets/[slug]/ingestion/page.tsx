@@ -82,8 +82,10 @@ export default function DatasetIngestionPage({
   const searchParams = useSearchParams();
   const tab = parseTab(searchParams.get("tab"));
   const { user } = useAuth();
-  const { can, canAny } = useAdminAccess();
-  const canView = canAny("validate:datasets", "approve:datasets", "publish:datasets", "manage:indicators");
+  const { can, isSuperAdmin } = useAdminAccess();
+  // Viewing ingestion detail only requires being staff — managing it
+  // (indicators/publishing) still requires the specific permission.
+  const canView = isSuperAdmin || user?.role === "staff";
   const canManageIndicators = can("manage:indicators");
   const canPublish = can("publish:datasets");
   const queryClient = useQueryClient();
@@ -206,7 +208,7 @@ export default function DatasetIngestionPage({
     return (
       <EmptyState
         title="Access restricted"
-        description="Viewing ingestion requires validate:datasets, approve:datasets, publish:datasets, or manage:indicators."
+        description="Ingestion detail is visible to agency staff and super admins only."
       />
     );
   }

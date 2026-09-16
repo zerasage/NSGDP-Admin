@@ -54,7 +54,6 @@ import {
   DataTableShell,
   METRIC_TONE,
   MetricCard,
-  Panel,
   tabToneClass,
   type MetricTone,
 } from "@/components/admin/admin-analytics-ui";
@@ -63,7 +62,6 @@ import {
   USERS_EXPORT_TIP,
   USERS_METRIC_TIPS,
   USERS_PAGE_TIP,
-  USERS_PANEL_TIP,
   USERS_REACTIVATE_TIP,
   USERS_ROLE_FILTER_TIP,
   USERS_SUSPEND_TIP,
@@ -278,22 +276,37 @@ export default function AdminUsersPage() {
             Review platform accounts, access roles, and account status
           </p>
         </div>
-        {!isLoading && (
-          <Badge variant="outline" className="rounded-full px-3 py-1 text-xs font-medium tabular-nums">
-            {total} {total === 1 ? "user" : "users"}
-          </Badge>
-        )}
+        <div className="flex w-full items-center gap-2 sm:w-auto">
+          {!isLoading && (
+            <Badge variant="outline" className="rounded-full px-3 py-1 text-xs font-medium tabular-nums">
+              {total} {total === 1 ? "user" : "users"}
+            </Badge>
+          )}
+          <div className="flex items-center gap-1.5">
+            <Button
+              variant="outline"
+              className="h-9"
+              onClick={exportCurrentPage}
+              disabled={users.length === 0}
+            >
+              <Download className="size-4" aria-hidden="true" />
+              Export page
+            </Button>
+            <HelpTip content={USERS_EXPORT_TIP} label="About export page" />
+          </div>
+        </div>
       </div>
 
       {statsLoading ? (
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
           {[...Array(3)].map((_, i) => (
-            <Skeleton key={i} className="h-28 rounded-2xl" />
+            <Skeleton key={i} className="h-20 rounded-2xl" />
           ))}
         </div>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
           <MetricCard
+            compact
             label="Total users"
             value={stats?.total ?? 0}
             hint="All registered accounts"
@@ -302,6 +315,7 @@ export default function AdminUsersPage() {
             tone="primary"
           />
           <MetricCard
+            compact
             label="Active"
             value={stats?.byStatus.active ?? 0}
             hint="Can sign in today"
@@ -310,6 +324,7 @@ export default function AdminUsersPage() {
             tone="success"
           />
           <MetricCard
+            compact
             label="Suspended"
             value={stats?.byStatus.suspended ?? 0}
             hint="Access revoked"
@@ -320,27 +335,7 @@ export default function AdminUsersPage() {
         </div>
       )}
 
-      <Panel
-        title="User directory"
-        titleTip={USERS_PANEL_TIP}
-        description="Filter by status or role, or search by name or email."
-        icon={Users}
-        tone="info"
-        action={
-          <div className="flex items-center gap-1">
-            <Button
-              variant="outline"
-              className="h-9 w-full sm:w-auto"
-              onClick={exportCurrentPage}
-              disabled={users.length === 0}
-            >
-              <Download className="size-4" aria-hidden="true" />
-              Export page
-            </Button>
-            <HelpTip content={USERS_EXPORT_TIP} label="About export page" />
-          </div>
-        }
-      >
+      <div className="rounded-2xl border bg-card p-4 sm:p-5">
         <div className="space-y-4">
           <div className="scrollbar-hide overflow-x-auto rounded-xl border bg-muted/30 p-1">
             <div className="flex w-max min-w-full flex-nowrap gap-1" role="tablist" aria-label="User status">
@@ -446,7 +441,7 @@ export default function AdminUsersPage() {
             </div>
           </div>
         </div>
-      </Panel>
+      </div>
 
       <div aria-busy={isLoading || isFetching || isSearchPending} className="space-y-4">
         {isError ? (

@@ -39,7 +39,6 @@ import {
   DataTableShell,
   METRIC_TONE,
   MetricCard,
-  Panel,
 } from "@/components/admin/admin-analytics-ui";
 import { cn } from "@/lib/utils";
 import { formatDate } from "@/lib/utils/date";
@@ -50,7 +49,6 @@ import {
   GROUPS_CREATE_TIP,
   GROUPS_METRIC_TIPS,
   GROUPS_PAGE_TIP,
-  GROUPS_PANEL_TIP,
 } from "@/lib/constants/groups-tooltips";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import type { AdminGroup } from "@/lib/api/groups";
@@ -167,22 +165,34 @@ export default function AdminCollectionsPage() {
             2024–2026&quot;
           </p>
         </div>
-        {!isLoading && (
-          <Badge variant="outline" className="rounded-full px-3 py-1 text-xs font-medium tabular-nums">
-            {total} {total === 1 ? "collection" : "collections"}
-          </Badge>
-        )}
+        <div className="flex w-full items-center gap-2 sm:w-auto">
+          {!isLoading && (
+            <Badge variant="outline" className="rounded-full px-3 py-1 text-xs font-medium tabular-nums">
+              {total} {total === 1 ? "collection" : "collections"}
+            </Badge>
+          )}
+          {canManage && (
+            <div className="flex items-center gap-1.5">
+              <Button className="h-9" onClick={openCreate}>
+                <Plus className="size-4" aria-hidden="true" />
+                Create collection
+              </Button>
+              <HelpTip content={GROUPS_CREATE_TIP} label="About create collection" />
+            </div>
+          )}
+        </div>
       </div>
 
       {statsLoading ? (
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           {[...Array(4)].map((_, i) => (
-            <Skeleton key={i} className="h-28 rounded-2xl" />
+            <Skeleton key={i} className="h-20 rounded-2xl" />
           ))}
         </div>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           <MetricCard
+            compact
             label="Total collections"
             value={totalSummary.data ?? 0}
             hint="Curated sets on the portal"
@@ -191,6 +201,7 @@ export default function AdminCollectionsPage() {
             tone="primary"
           />
           <MetricCard
+            compact
             label="Featured"
             value={featuredSummary.data ?? 0}
             hint="Highlighted on the portal"
@@ -199,6 +210,7 @@ export default function AdminCollectionsPage() {
             tone="warning"
           />
           <MetricCard
+            compact
             label="Dataset links"
             value={aggregatesSummary.data?.datasetLinks ?? 0}
             hint={aggregateHint}
@@ -207,6 +219,7 @@ export default function AdminCollectionsPage() {
             tone="info"
           />
           <MetricCard
+            compact
             label="Document links"
             value={aggregatesSummary.data?.documentLinks ?? 0}
             hint={aggregateHint}
@@ -217,24 +230,7 @@ export default function AdminCollectionsPage() {
         </div>
       )}
 
-      <Panel
-        title="Collection directory"
-        titleTip={GROUPS_PANEL_TIP}
-        description="Search by name or description."
-        icon={FolderKanban}
-        tone="info"
-        action={
-          canManage ? (
-            <div className="flex w-full items-center gap-1.5 sm:w-auto">
-              <Button className="h-9 flex-1 sm:flex-none" onClick={openCreate}>
-                <Plus className="size-4" aria-hidden="true" />
-                Create collection
-              </Button>
-              <HelpTip content={GROUPS_CREATE_TIP} label="About create collection" />
-            </div>
-          ) : undefined
-        }
-      >
+      <div className="rounded-2xl border bg-card p-4 sm:p-5">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex flex-1 flex-col gap-3 sm:flex-row">
             <div className="relative w-full sm:max-w-sm">
@@ -280,7 +276,7 @@ export default function AdminCollectionsPage() {
             </span>
           </div>
         </div>
-      </Panel>
+      </div>
 
       <div aria-busy={isLoading || isFetching || isSearchPending} className="space-y-4">
         {isError ? (

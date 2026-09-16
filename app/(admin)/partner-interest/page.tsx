@@ -15,6 +15,7 @@ import {
   X,
   XCircle,
 } from "lucide-react";
+import { useQueries } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -42,20 +43,21 @@ import {
 } from "@/components/ui/table";
 import { useToast } from "@/lib/hooks/use-toast";
 import { useAdminAccess } from "@/lib/hooks/useAdminAccess";
-import { 
-  usePartnerInterests, 
-  useReviewPartnerInterest 
+import {
+  usePartnerInterests,
+  useReviewPartnerInterest
 } from "@/lib/hooks/usePartnerInterest";
-import type { 
-  PartnerInterest, 
-  PartnerInterestStatus 
+import {
+  getPartnerInterests,
+  type PartnerInterest,
+  type PartnerInterestStatus
 } from "@/lib/api/partner-interest";
 import { cn } from "@/lib/utils";
 import { formatDate } from "@/lib/utils/date";
 import {
   DataTableShell,
   METRIC_TONE,
-  Panel,
+  MetricCard,
   tabToneClass,
   type MetricTone,
 } from "@/components/admin/admin-analytics-ui";
@@ -72,7 +74,6 @@ import {
   PARTNER_INTEREST_DECLINE_TIP,
   PARTNER_INTEREST_INFO_TIP,
   PARTNER_INTEREST_PAGE_TIP,
-  PARTNER_INTEREST_PANEL_TIP,
   PARTNER_INTEREST_TAB_TIPS,
 } from "@/lib/constants/partner-interest-tooltips";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -145,6 +146,36 @@ export default function PartnerInterestPage() {
   );
   
   const reviewMutation = useReviewPartnerInterest();
+
+  const [totalSummary, pendingSummary, approvedSummary, declinedSummary] = useQueries({
+    queries: [
+      {
+        queryKey: ["partner-interest", "summary", "total"],
+        queryFn: () => getPartnerInterests({ page: 1, limit: 1 }),
+        select: (result: Awaited<ReturnType<typeof getPartnerInterests>>) => result.total,
+      },
+      {
+        queryKey: ["partner-interest", "summary", "pending"],
+        queryFn: () => getPartnerInterests({ page: 1, limit: 1, status: "pending" }),
+        select: (result: Awaited<ReturnType<typeof getPartnerInterests>>) => result.total,
+      },
+      {
+        queryKey: ["partner-interest", "summary", "approved"],
+        queryFn: () => getPartnerInterests({ page: 1, limit: 1, status: "approved" }),
+        select: (result: Awaited<ReturnType<typeof getPartnerInterests>>) => result.total,
+      },
+      {
+        queryKey: ["partner-interest", "summary", "declined"],
+        queryFn: () => getPartnerInterests({ page: 1, limit: 1, status: "declined" }),
+        select: (result: Awaited<ReturnType<typeof getPartnerInterests>>) => result.total,
+      },
+    ],
+  });
+  const statsLoading =
+    totalSummary.isLoading ||
+    pendingSummary.isLoading ||
+    approvedSummary.isLoading ||
+    declinedSummary.isLoading;
 
   const interests = data?.data ?? [];
   const total = data?.total ?? 0;
@@ -256,13 +287,54 @@ export default function PartnerInterestPage() {
         </p>
       </div>
 
-      <Panel
-        title="Submissions"
-        titleTip={PARTNER_INTEREST_PANEL_TIP}
-        description="Filter by status or search organisation, contact, and message text."
-        icon={Handshake}
-        tone="info"
-      >
+      {statsLoading ? (
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          {[...Array(4)].map((_, i) => (
+            <Skeleton key={i} className="h-20 rounded-2xl" />
+          ))}
+        </div>
+      ) : (
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <MetricCard
+            compact
+            label="Total submissions"
+            value={totalSummary.data ?? 0}
+            hint="All statuses"
+            tip={PARTNER_INTEREST_TAB_TIPS.all}
+            icon={Handshake}
+            tone="primary"
+          />
+          <MetricCard
+            compact
+            label="Pending"
+            value={pendingSummary.data ?? 0}
+            hint="Awaiting your decision"
+            tip={PARTNER_INTEREST_TAB_TIPS.pending}
+            icon={Building2}
+            tone="warning"
+          />
+          <MetricCard
+            compact
+            label="Approved"
+            value={approvedSummary.data ?? 0}
+            hint="Vetted for follow-up"
+            tip={PARTNER_INTEREST_TAB_TIPS.approved}
+            icon={CheckCircle2}
+            tone="success"
+          />
+          <MetricCard
+            compact
+            label="Declined"
+            value={declinedSummary.data ?? 0}
+            hint="Not proceeding"
+            tip={PARTNER_INTEREST_TAB_TIPS.declined}
+            icon={XCircle}
+            tone="destructive"
+          />
+        </div>
+      )}
+
+      <div className="rounded-2xl border bg-card p-4 sm:p-5">
         <div className="space-y-4">
           <div className="rounded-xl border bg-muted/30 p-1">
             <div className="flex flex-wrap gap-1" role="tablist" aria-label="Submission status">
@@ -337,7 +409,7 @@ export default function PartnerInterestPage() {
             </div>
           </div>
         </div>
-      </Panel>
+      </div>
 
       <div aria-busy={isLoading || isFetching || isSearchPending} className="space-y-4">
         {isError ? (

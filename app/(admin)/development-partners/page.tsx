@@ -44,7 +44,6 @@ import {
   DataTableShell,
   METRIC_TONE,
   MetricCard,
-  Panel,
   tabToneClass,
   type MetricTone,
 } from "@/components/admin/admin-analytics-ui";
@@ -53,7 +52,6 @@ import {
   DEVELOPMENT_PARTNERS_ADD_TIP,
   DEVELOPMENT_PARTNERS_METRIC_TIPS,
   DEVELOPMENT_PARTNERS_PAGE_TIP,
-  DEVELOPMENT_PARTNERS_PANEL_TIP,
   DEVELOPMENT_PARTNERS_TAB_TIPS,
 } from "@/lib/constants/development-partner-tooltips";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -177,46 +175,67 @@ export default function AdminDevelopmentPartnersPage() {
             Manage development partners, agreements, and dataset ownership
           </p>
         </div>
-        {!isLoading && (
-          <Badge variant="outline" className="rounded-full px-3 py-1 text-xs font-medium tabular-nums">
-            {total} {total === 1 ? "development partner" : "development partners"}
-          </Badge>
-        )}
+        <div className="flex w-full items-center gap-2 sm:w-auto">
+          {!isLoading && (
+            <Badge variant="outline" className="rounded-full px-3 py-1 text-xs font-medium tabular-nums">
+              {total} {total === 1 ? "development partner" : "development partners"}
+            </Badge>
+          )}
+          {canCreate && (
+            <div className="flex items-center gap-1.5">
+              <Button className="h-9" onClick={() => setCreateModalOpen(true)}>
+                <Plus className="size-4" aria-hidden="true" />
+                Add development partner
+              </Button>
+              <HelpTip content={DEVELOPMENT_PARTNERS_ADD_TIP} label="About add development partner" />
+            </div>
+          )}
+        </div>
       </div>
 
       {statsLoading ? (
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           {[...Array(4)].map((_, i) => (
-            <Skeleton key={i} className="h-28 rounded-2xl" />
+            <Skeleton key={i} className="h-20 rounded-2xl" />
           ))}
         </div>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           <MetricCard
+            compact
             label="Total partners"
             value={totalSummary.data ?? 0}
             hint="Contributing development partners"
             tip={DEVELOPMENT_PARTNERS_METRIC_TIPS.total}
             icon={Building2}
             tone="primary"
+            active={status === "all"}
+            onClick={() => { setStatus("all"); setPage(1); }}
           />
           <MetricCard
+            compact
             label="Active"
             value={activeSummary.data ?? 0}
             hint="Enabled on the platform"
             tip={DEVELOPMENT_PARTNERS_METRIC_TIPS.active}
             icon={Building2}
             tone="success"
+            active={status === "active"}
+            onClick={() => { setStatus("active"); setPage(1); }}
           />
           <MetricCard
+            compact
             label="Inactive"
             value={inactiveSummary.data ?? 0}
             hint="Disabled or suspended"
             tip={DEVELOPMENT_PARTNERS_METRIC_TIPS.inactive}
             icon={Building2}
             tone="muted"
+            active={status === "inactive"}
+            onClick={() => { setStatus("inactive"); setPage(1); }}
           />
           <MetricCard
+            compact
             label="Missing agreements"
             value={agreementsSummary.data?.missing ?? 0}
             hint={agreementHint}
@@ -227,24 +246,7 @@ export default function AdminDevelopmentPartnersPage() {
         </div>
       )}
 
-      <Panel
-        title="Development partner directory"
-        titleTip={DEVELOPMENT_PARTNERS_PANEL_TIP}
-        description="Filter by status or type, or search by name, acronym, or email."
-        icon={Building2}
-        tone="info"
-        action={
-          canCreate ? (
-            <div className="flex w-full items-center gap-1.5 sm:w-auto">
-              <Button className="h-9 flex-1 sm:flex-none" onClick={() => setCreateModalOpen(true)}>
-                <Plus className="size-4" aria-hidden="true" />
-                Add development partner
-              </Button>
-              <HelpTip content={DEVELOPMENT_PARTNERS_ADD_TIP} label="About add development partner" />
-            </div>
-          ) : undefined
-        }
-      >
+      <div className="rounded-2xl border bg-card p-4 sm:p-5">
         <div className="space-y-4">
           <div className="rounded-xl border bg-muted/30 p-1">
             <div className="flex flex-wrap gap-1" role="tablist" aria-label="Development partner status">
@@ -347,7 +349,7 @@ export default function AdminDevelopmentPartnersPage() {
             </div>
           </div>
         </div>
-      </Panel>
+      </div>
 
       <div aria-busy={isLoading || isFetching || isSearchPending} className="space-y-4">
         {isError ? (

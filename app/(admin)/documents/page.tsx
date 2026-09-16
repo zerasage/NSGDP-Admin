@@ -45,7 +45,6 @@ import {
   DataTableShell,
   METRIC_TONE,
   MetricCard,
-  Panel,
   tabToneClass,
   type MetricTone,
 } from "@/components/admin/admin-analytics-ui";
@@ -54,7 +53,6 @@ import {
   DOCUMENTS_CREATE_TIP,
   DOCUMENTS_METRIC_TIPS,
   DOCUMENTS_PAGE_TIP,
-  DOCUMENTS_PANEL_TIP,
   DOCUMENTS_TAB_TIPS,
 } from "@/lib/constants/documents-tooltips";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -214,22 +212,34 @@ export default function AdminDocumentsPage() {
             SOPs, policies, guidelines, reports, and research — the platform&apos;s document repository
           </p>
         </div>
-        {!isLoading && (
-          <Badge variant="outline" className="rounded-full px-3 py-1 text-xs font-medium tabular-nums">
-            {total} {total === 1 ? "document" : "documents"}
-          </Badge>
-        )}
+        <div className="flex w-full items-center gap-2 sm:w-auto">
+          {!isLoading && (
+            <Badge variant="outline" className="rounded-full px-3 py-1 text-xs font-medium tabular-nums">
+              {total} {total === 1 ? "document" : "documents"}
+            </Badge>
+          )}
+          {canManage && (
+            <div className="flex items-center gap-1.5">
+              <Button className="h-9" onClick={openCreate}>
+                <Plus className="size-4" aria-hidden="true" />
+                Create document
+              </Button>
+              <HelpTip content={DOCUMENTS_CREATE_TIP} label="About create document" />
+            </div>
+          )}
+        </div>
       </div>
 
       {statsLoading ? (
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           {[...Array(4)].map((_, i) => (
-            <Skeleton key={i} className="h-28 rounded-2xl" />
+            <Skeleton key={i} className="h-20 rounded-2xl" />
           ))}
         </div>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           <MetricCard
+            compact
             label="Total documents"
             value={totalSummary.data ?? 0}
             hint="All statuses"
@@ -238,6 +248,7 @@ export default function AdminDocumentsPage() {
             tone="primary"
           />
           <MetricCard
+            compact
             label="Published"
             value={publishedSummary.data ?? 0}
             hint="On the public catalogue"
@@ -246,6 +257,7 @@ export default function AdminDocumentsPage() {
             tone="success"
           />
           <MetricCard
+            compact
             label="Drafts"
             value={draftSummary.data ?? 0}
             hint="Not yet published"
@@ -254,6 +266,7 @@ export default function AdminDocumentsPage() {
             tone="warning"
           />
           <MetricCard
+            compact
             label="Archived"
             value={archivedSummary.data ?? 0}
             hint="Removed from catalogue"
@@ -264,24 +277,7 @@ export default function AdminDocumentsPage() {
         </div>
       )}
 
-      <Panel
-        title="Document directory"
-        titleTip={DOCUMENTS_PANEL_TIP}
-        description="Filter by status or type, or search by title or description."
-        icon={FileText}
-        tone="info"
-        action={
-          canManage ? (
-            <div className="flex w-full items-center gap-1.5 sm:w-auto">
-              <Button className="h-9 flex-1 sm:flex-none" onClick={openCreate}>
-                <Plus className="size-4" aria-hidden="true" />
-                Create document
-              </Button>
-              <HelpTip content={DOCUMENTS_CREATE_TIP} label="About create document" />
-            </div>
-          ) : undefined
-        }
-      >
+      <div className="rounded-2xl border bg-card p-4 sm:p-5">
         <div className="space-y-4">
           <div className="rounded-xl border bg-muted/30 p-1">
             <div className="flex flex-wrap gap-1" role="tablist" aria-label="Document status">
@@ -382,7 +378,7 @@ export default function AdminDocumentsPage() {
             </div>
           </div>
         </div>
-      </Panel>
+      </div>
 
       <div aria-busy={isLoading || isFetching || isSearchPending} className="space-y-4">
         {isError ? (

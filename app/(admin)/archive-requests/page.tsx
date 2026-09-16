@@ -1,17 +1,21 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
   CheckCircle2,
   Eye,
   Loader2,
+  RotateCcw,
+  Search,
   Undo2,
+  X,
   XCircle,
   AlertCircle,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { EmptyState } from "@/components/feedback/empty-state";
 import { Pagination } from "@/components/data/pagination";
 import { TableRowSkeleton } from "@/components/feedback/skeletons";
@@ -46,7 +50,6 @@ import {
   DataTableShell,
   METRIC_TONE,
   MetricCard,
-  Panel,
   tabToneClass,
   type MetricTone,
 } from "@/components/admin/admin-analytics-ui";
@@ -101,15 +104,27 @@ export default function ArchiveRequestsPage() {
   const isSuperAdmin = user?.role === "super_admin";
   const [tab, setTab] = useState<ArchiveRequestStatus | "all">("pending");
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
+  const [query, setQuery] = useState("");
+  const [debouncedQuery, setDebouncedQuery] = useState("");
   const [detailsId, setDetailsId] = useState<string | null>(null);
   const [reviewId, setReviewId] = useState<string | null>(null);
   const [reviewMode, setReviewMode] = useState<"approve" | "deny">("approve");
   const [reviewComment, setReviewComment] = useState("");
 
-  const { data, isLoading } = useArchiveRequests({
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedQuery(query.trim());
+      setPage(1);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [query]);
+
+  const { data, isLoading, isFetching, isError, refetch } = useArchiveRequests({
     status: tab === "all" ? undefined : tab,
     page,
-    limit: 20,
+    limit: pageSize,
+    search: debouncedQuery || undefined,
     enabled: isSuperAdmin,
   });
   const approveMutation = useApproveArchiveRequest();
@@ -130,6 +145,7 @@ export default function ArchiveRequestsPage() {
   const rows = data?.data ?? [];
   const totalPages = data?.meta.totalPages ?? 1;
   const total = data?.meta.total ?? 0;
+  const isSearchPending = query.trim() !== debouncedQuery;
   const detailsRequest = rows.find((r) => r.id === detailsId);
   const reviewing = rows.find((r) => r.id === reviewId);
 
@@ -174,97 +190,176 @@ export default function ArchiveRequestsPage() {
         </div>
 
         {/* Metrics */}
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <MetricCard
+            compact
             label="Total Requests"
-            value={isLoading ? <Skeleton className="h-8 w-16" /> : total}
+            value={isLoading ? <Skeleton className="h-6 w-12" /> : total}
+            hint="All statuses"
             tone="muted"
             icon={Undo2}
             tip={TABS.find(t => t.key === "all")?.tip}
           />
           <MetricCard
+            compact
             label="Pending Review"
-            value={isLoading ? <Skeleton className="h-8 w-16" /> : pendingCount}
+            value={isLoading ? <Skeleton className="h-6 w-12" /> : pendingCount}
+            hint="Awaiting your decision"
             tone="warning"
             icon={AlertCircle}
             tip={TABS.find(t => t.key === "pending")?.tip}
           />
           <MetricCard
+            compact
             label="Approved"
-            value={isLoading ? <Skeleton className="h-8 w-16" /> : approvedCount}
+            value={isLoading ? <Skeleton className="h-6 w-12" /> : approvedCount}
+            hint="Dataset archived"
             tone="success"
             icon={CheckCircle2}
             tip={TABS.find(t => t.key === "approved")?.tip}
           />
           <MetricCard
+            compact
             label="Denied"
-            value={isLoading ? <Skeleton className="h-8 w-16" /> : deniedCount}
+            value={isLoading ? <Skeleton className="h-6 w-12" /> : deniedCount}
+            hint="Request denied"
             tone="destructive"
             icon={XCircle}
             tip={TABS.find(t => t.key === "denied")?.tip}
           />
         </div>
 
-        {/* Tabs */}
-        <div className="flex flex-wrap gap-2">
-          {TABS.map((item) => (
-            <button
-              key={item.key}
-              type="button"
-              onClick={() => {
-                setTab(item.key);
-                setPage(1);
-              }}
-              className={cn(
-                "rounded-full border px-3 py-1.5 text-sm transition-colors",
-                tab === item.key
-                  ? tabToneClass(item.tone)
-                  : "border-transparent bg-muted/50 text-muted-foreground hover:bg-muted",
+        {/* Filters */}
+        <div className="rounded-2xl border bg-card p-4 sm:p-5">
+          <div className="rounded-xl border bg-muted/30 p-1">
+            <div className="flex flex-wrap gap-1" role="tablist" aria-label="Archive request status">
+              {TABS.map((item) => (
+                <div key={item.key} className="inline-flex items-center gap-0.5">
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={tab === item.key}
+                    onClick={() => {
+                      setTab(item.key);
+                      setPage(1);
+                    }}
+                    className={cn(
+                      "min-h-9 rounded-lg px-3 py-2 text-xs font-medium transition-colors sm:text-sm",
+                      tab === item.key
+                        ? cn("shadow-sm", tabToneClass(item.tone))
+                        : "text-muted-foreground hover:bg-background/80 hover:text-foreground",
+                    )}
+                  >
+                    {item.label}
+                  </button>
+                  {tab === item.key ? (
+                    <HelpTip content={item.tip} label={`About ${item.label}`} />
+                  ) : null}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="relative w-full sm:max-w-sm">
+              <Search
+                className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+                aria-hidden="true"
+              />
+              <Input
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="Search requester, email, or dataset title"
+                className="h-10 pl-9 pr-10"
+                aria-label="Search archive requests"
+              />
+              {query && (
+                <button
+                  type="button"
+                  onClick={() => setQuery("")}
+                  className="absolute right-0 top-1/2 flex size-10 -translate-y-1/2 items-center justify-center text-muted-foreground hover:text-foreground"
+                  aria-label="Clear search"
+                >
+                  <X className="size-4" aria-hidden="true" />
+                </button>
               )}
-            >
-              {item.label}
-            </button>
-          ))}
+            </div>
+
+            <div className="flex min-h-5 items-center gap-2 text-xs text-muted-foreground" aria-live="polite">
+              {(isSearchPending || (isFetching && !isLoading)) && (
+                <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />
+              )}
+              <span>
+                {isSearchPending ? "Searching" : isFetching && !isLoading ? "Updating" : "Found"}{" "}
+                <span className="font-semibold tabular-nums text-foreground">{total}</span>{" "}
+                {total === 1 ? "result" : "results"}
+              </span>
+            </div>
+          </div>
         </div>
 
         {/* Table */}
-        <Panel 
-          title="Request Queue" 
-          titleTip="Review the reason and dataset details before approving or denying each request"
-        >
-          <DataTableShell>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Dataset</TableHead>
-                  <TableHead>Requester</TableHead>
-                  <TableHead>Reason</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Requested</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {isLoading ? (
-                  Array.from({ length: 5 }).map((_, i) => (
-                    <TableRowSkeleton key={i} cols={6} />
-                  ))
-                ) : rows.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={6} className="py-12">
-                      <EmptyState
-                        icon={Undo2}
-                        title={tab === "pending" ? "No pending requests" : "No requests found"}
-                        description={
-                          tab === "pending" 
-                            ? "There are no archive requests awaiting review at the moment."
-                            : "No archive requests match the current filter."
-                        }
-                      />
-                    </TableCell>
+        <div aria-busy={isLoading || isFetching} className="space-y-4">
+          {isError ? (
+            <div className="rounded-2xl border bg-card px-4 py-12 text-center">
+              <div className="mx-auto flex size-14 items-center justify-center rounded-full bg-destructive/10 text-destructive">
+                <AlertCircle className="size-7" aria-hidden="true" />
+              </div>
+              <h2 className="mt-4 text-base font-semibold">Could not load archive requests</h2>
+              <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
+                Check your connection and try loading the list again.
+              </p>
+              <Button variant="outline" className="mt-5 h-11 sm:h-8" onClick={() => refetch()}>
+                <RotateCcw className="size-4" aria-hidden="true" />
+                Try again
+              </Button>
+            </div>
+          ) : isLoading ? (
+            <>
+              <div className="hidden overflow-hidden rounded-2xl border bg-card xl:block">
+                <Table>
+                  <TableBody>
+                    {Array.from({ length: 5 }).map((_, i) => (
+                      <TableRowSkeleton key={i} cols={6} />
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+              <div className="grid gap-3 xl:hidden">
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <Skeleton key={i} className="h-52 rounded-xl" />
+                ))}
+              </div>
+            </>
+          ) : rows.length === 0 ? (
+            <div className="rounded-2xl border bg-card">
+              <EmptyState
+                icon={Undo2}
+                title={tab === "pending" ? "No pending requests" : "No requests found"}
+                description={
+                  tab === "pending"
+                    ? "There are no archive requests awaiting review at the moment."
+                    : "No archive requests match the current filter."
+                }
+              />
+            </div>
+          ) : (
+            <>
+            <DataTableShell>
+              <div className="hidden xl:block">
+              <Table>
+                <TableHeader>
+                  <TableRow className="h-11 bg-muted/40 text-[11px] uppercase tracking-wide hover:bg-muted/40">
+                    <TableHead className="h-11 px-4">Dataset</TableHead>
+                    <TableHead className="h-11 px-4">Requester</TableHead>
+                    <TableHead className="h-11 px-4">Reason</TableHead>
+                    <TableHead className="h-11 px-4">Status</TableHead>
+                    <TableHead className="h-11 px-4">Requested</TableHead>
+                    <TableHead className="h-11 px-4 text-right">Actions</TableHead>
                   </TableRow>
-                ) : (
-                  rows.map((row) => {
+                </TableHeader>
+                <TableBody>
+                  {rows.map((row) => {
                     const status = STATUS_CONFIG[row.status];
                     const requesterName = row.requester
                       ? [row.requester.first_name, row.requester.last_name]
@@ -272,8 +367,8 @@ export default function ArchiveRequestsPage() {
                           .join(" ") || row.requester.email
                       : "Unknown";
                     return (
-                      <TableRow key={row.id}>
-                        <TableCell>
+                      <TableRow key={row.id} className="hover:bg-muted/30">
+                        <TableCell className="px-4 py-3.5">
                           <div className="space-y-1">
                             {row.dataset ? (
                               <Link
@@ -291,13 +386,13 @@ export default function ArchiveRequestsPage() {
                             </p>
                           </div>
                         </TableCell>
-                        <TableCell>
+                        <TableCell className="px-4 py-3.5">
                           <div className="text-sm">{requesterName}</div>
                           <div className="text-xs text-muted-foreground">
                             {row.requester?.email}
                           </div>
                         </TableCell>
-                        <TableCell className="max-w-xs">
+                        <TableCell className="max-w-xs px-4 py-3.5">
                           <div className="flex items-center gap-2">
                             <span className="min-w-0 flex-1 truncate text-sm" title={row.reason}>
                               {row.reason}
@@ -314,18 +409,18 @@ export default function ArchiveRequestsPage() {
                             </Button>
                           </div>
                         </TableCell>
-                        <TableCell>
-                          <Badge 
+                        <TableCell className="px-4 py-3.5">
+                          <Badge
                             variant="outline"
                             className={cn("border text-xs", METRIC_TONE[status.tone].well, METRIC_TONE[status.tone].icon)}
                           >
                             {status.label}
                           </Badge>
                         </TableCell>
-                        <TableCell className="text-sm text-muted-foreground">
+                        <TableCell className="px-4 py-3.5 text-sm text-muted-foreground">
                           {formatDate(row.created_at)}
                         </TableCell>
-                        <TableCell className="text-right">
+                        <TableCell className="px-4 py-3.5 text-right">
                           {row.status === "pending" ? (
                             <div className="flex justify-end gap-2">
                               <Button
@@ -360,22 +455,129 @@ export default function ArchiveRequestsPage() {
                         </TableCell>
                       </TableRow>
                     );
-                  })
-                )}
-              </TableBody>
-            </Table>
-          </DataTableShell>
-          {totalPages > 1 && (
+                  })}
+                </TableBody>
+              </Table>
+              </div>
+            </DataTableShell>
+
+            <div className="grid gap-3 xl:hidden">
+              {rows.map((row) => {
+                const status = STATUS_CONFIG[row.status];
+                const requesterName = row.requester
+                  ? [row.requester.first_name, row.requester.last_name]
+                      .filter(Boolean)
+                      .join(" ") || row.requester.email
+                  : "Unknown";
+                return (
+                  <article key={row.id} className="space-y-4 rounded-xl border bg-card p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        {row.dataset ? (
+                          <Link
+                            href={`/datasets/${row.dataset.slug}`}
+                            className="line-clamp-2 text-sm font-semibold leading-5 hover:underline"
+                          >
+                            {row.dataset.title}
+                          </Link>
+                        ) : (
+                          <p className="line-clamp-2 text-sm font-semibold leading-5 text-muted-foreground">
+                            Dataset removed
+                          </p>
+                        )}
+                        <p className="mt-1 text-xs text-muted-foreground">{requesterName}</p>
+                      </div>
+                      <Badge
+                        variant="outline"
+                        className={cn("shrink-0 border text-xs", METRIC_TONE[status.tone].well, METRIC_TONE[status.tone].icon)}
+                      >
+                        {status.label}
+                      </Badge>
+                    </div>
+
+                    <div className="rounded-lg bg-muted/40 p-3">
+                      <p className="line-clamp-3 text-sm text-muted-foreground">{row.reason}</p>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2 border-y py-3">
+                      <div>
+                        <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                          Requester
+                        </p>
+                        <p className="mt-1 truncate text-xs font-medium">{row.requester?.email}</p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                          Requested
+                        </p>
+                        <p className="mt-1 text-xs font-medium">{formatDate(row.created_at)}</p>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        className="h-8 gap-1 px-2 text-xs"
+                        onClick={() => setDetailsId(row.id)}
+                      >
+                        <Eye className="size-3.5" aria-hidden="true" />
+                        View reason
+                      </Button>
+                    </div>
+
+                    {row.status === "pending" ? (
+                      <div className="flex items-center gap-1.5">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-11 flex-1"
+                          onClick={() => {
+                            setReviewMode("deny");
+                            setReviewId(row.id);
+                            setReviewComment("");
+                          }}
+                        >
+                          <XCircle className="size-3.5" aria-hidden="true" />
+                          Deny
+                        </Button>
+                        <Button
+                          size="sm"
+                          className="h-11 flex-1"
+                          onClick={() => {
+                            setReviewMode("approve");
+                            setReviewId(row.id);
+                            setReviewComment("");
+                          }}
+                        >
+                          <CheckCircle2 className="size-3.5" aria-hidden="true" />
+                          Archive
+                        </Button>
+                      </div>
+                    ) : null}
+                  </article>
+                );
+              })}
+            </div>
+            </>
+          )}
+
+          {!isLoading && rows.length > 0 && (
             <Pagination
               page={page}
-              totalPages={totalPages}
-              pageSize={20}
+              totalPages={Math.max(1, totalPages)}
+              pageSize={pageSize}
               total={total}
               onPageChange={setPage}
-              className="mt-4"
+              onPageSizeChange={(size) => {
+                setPageSize(size);
+                setPage(1);
+              }}
+              className="rounded-xl border bg-card px-4 py-3"
             />
           )}
-        </Panel>
+        </div>
 
         {/* Request Details Dialog */}
         <Dialog open={!!detailsId} onOpenChange={(open) => !open && setDetailsId(null)}>

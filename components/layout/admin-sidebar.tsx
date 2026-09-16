@@ -140,6 +140,14 @@ function AdminNavLinks({ onNavigate }: { onNavigate?: () => void }) {
       {adminNavItems
         .filter((item) => {
           if (item.superAdminOnly) return isSuperAdmin;
+          // Departments and Review Queue: visible to any staff member, not
+          // just holders of the specific delegated permissions — viewing
+          // shouldn't require a permission, only acting (validate/approve/
+          // publish, manage department members, etc.) does, enforced inside
+          // each page/endpoint itself.
+          if (item.href === "/departments" || item.href === "/datasets") {
+            return isSuperAdmin || user?.role === "staff";
+          }
           if (item.anyPermission) return isSuperAdmin || canAny(...item.anyPermission);
           return true;
         })

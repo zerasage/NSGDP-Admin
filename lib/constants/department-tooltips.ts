@@ -4,7 +4,9 @@ export const DEPARTMENTS_PAGE_TIP =
 export const DEPARTMENTS_METRIC_TIPS = {
   total: "Every department defined on the platform, active or inactive.",
   active: "Departments currently open to membership changes.",
-  members: "Staff assigned across all departments — one staff member can belong to multiple departments.",
+  members: "Distinct staff assigned to at least one department — counted once even if they belong to several.",
+  totalStaff: "Active agency staff accounts platform-wide.",
+  staffWithoutDepartment: "Active staff not yet assigned to any department.",
 } as const;
 
 export const DEPARTMENTS_WORKSPACE_PANEL_TIP =

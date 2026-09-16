@@ -19,6 +19,7 @@ import { formatDistanceToNow } from "date-fns";
 import { useDashboardStats, useDashboardActivity } from "@/lib/hooks/useDashboard";
 import { useNotifications } from "@/lib/hooks/useNotifications";
 import { useAdminAccess } from "@/lib/hooks/useAdminAccess";
+import { useAuth } from "@/lib/auth";
 import { getAdminNotificationHref } from "@/lib/api/notifications";
 import { ActivityGraph } from "@/components/charts/activity-graph";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -55,8 +56,11 @@ const STATUS_TONE: Record<string, MetricTone> = {
 };
 
 export default function AdminDashboardPage() {
-  const { can, canAny } = useAdminAccess();
-  const canReviewQueue = canAny("validate:datasets", "approve:datasets", "publish:datasets");
+  const { can, isSuperAdmin } = useAdminAccess();
+  const { user } = useAuth();
+  // Viewing the queue only requires being staff — acting on a dataset
+  // still requires the specific delegated permission.
+  const canReviewQueue = isSuperAdmin || user?.role === "staff";
   const canUpload = can("create:datasets");
   const { data: stats, isLoading, isError, error, refetch, isFetching } = useDashboardStats();
   const { data: activity, isLoading: isActivityLoading } = useDashboardActivity();
