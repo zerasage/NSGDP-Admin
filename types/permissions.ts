@@ -5,7 +5,8 @@
  * beyond their core role's default permissions.
  */
 export type PermissionAction =
-  | "approve:datasets"       // Advance dataset to Approved after QA checklist
+  | "approve:datasets"       // Approver tier: final sign-off on a validated dataset, or send it back to under_review
+  | "validate:datasets"      // Validator tier: QA checklist, mark under review, reject, request revision, mark validated
   | "publish:datasets"       // Move approved dataset to Published
   | "invite:users"           // Invite new users (org-scoped)
   | "invite:staff"           // Invite/manage agency staff invites and view the staff roster
@@ -57,7 +58,8 @@ export const isPowerfulPermission = (action: PermissionAction) =>
   POWERFUL_PERMISSION_ACTIONS.has(action);
 
 export const PERMISSION_ACTION_LABELS: Record<PermissionAction, string> = {
-  "approve:datasets": "Approve Datasets",
+  "approve:datasets": "Approve Datasets (Final Sign-off)",
+  "validate:datasets": "Validate Datasets",
   "publish:datasets": "Publish Datasets",
   "invite:users": "Invite Users (org-scoped)",
   "invite:staff": "Invite Agency Staff",
@@ -95,7 +97,9 @@ export const PERMISSION_ACTION_LABELS: Record<PermissionAction, string> = {
 
 export const PERMISSION_ACTION_DESCRIPTIONS: Record<PermissionAction, string> = {
   "approve:datasets":
-    "Can mark a dataset as validated after the QA checklist and advance it to Approved.",
+    "Approver tier: gives final sign-off on an already-validated dataset (validated → approved, with a comment), or sends it back to under_review (with a required comment) for the Validator to reconsider. Does not cover the QA checklist, mark-under-review, reject, or request-revision — that's validate:datasets.",
+  "validate:datasets":
+    "Validator tier: runs the QA checklist, marks a dataset under review, and either marks it validated (ready for an Approver's final sign-off), rejects it outright, or requests revision from the submitter.",
   "publish:datasets":
     "Can move a director-approved dataset to Published status in the public catalogue.",
   "invite:users":
@@ -174,6 +178,7 @@ export const PERMISSION_ACTION_GROUPS: Array<{ label: string; actions: Permissio
     label: "Datasets",
     actions: [
       "create:datasets",
+      "validate:datasets",
       "approve:datasets",
       "publish:datasets",
       "archive:datasets",

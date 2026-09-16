@@ -36,10 +36,16 @@ export const LIFECYCLE_PIPELINE: Array<{
       "Single review gate — complete the 8-dimension QA checklist (metadata, technical, and quality checks).",
   },
   {
+    stage: "validated",
+    label: "Validated",
+    role: "Validator",
+    description: "Checklist passed; awaiting an Approver's final sign-off.",
+  },
+  {
     stage: "approved",
     label: "Approved",
     role: "Repo Admin / Director",
-    description: "Checklist passed; awaiting director sign-off before publication.",
+    description: "Approver has given final sign-off; awaiting publication.",
   },
   {
     stage: "published",
@@ -64,6 +70,7 @@ export function normalizeLifecycleStage(stage: string): LifecycleStage {
     draft: "draft",
     submitted: "submitted",
     under_review: "under_review",
+    validated: "validated",
     approved: "approved",
     published: "published",
     archived: "archived",

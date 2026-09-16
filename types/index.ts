@@ -19,11 +19,12 @@ export type DatasetStatus =
   | "rejected"
   | "archived";
 
-/** 5-step governance lifecycle — checklist-driven review replaces micro-gates */
+/** Governance lifecycle — checklist-driven review replaces micro-gates */
 export type LifecycleStage =
   | "draft"
   | "submitted"
   | "under_review"
+  | "validated"
   | "approved"
   | "published"
   | "archived";
@@ -32,6 +33,7 @@ export const LIFECYCLE_LABELS: Record<LifecycleStage, string> = {
   draft: "Draft",
   submitted: "Submitted",
   under_review: "Under Review",
+  validated: "Validated",
   approved: "Approved",
   published: "Published",
   archived: "Archived",

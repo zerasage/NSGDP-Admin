@@ -16,13 +16,30 @@ async function fetchAdminListTotal(path: string): Promise<number> {
   return response.data.data.meta.total;
 }
 
-/** Pending + under-review dataset submissions awaiting staff action. */
-export async function fetchDatasetReviewBadgeCount(): Promise<number> {
-  const [pending, underReview] = await Promise.all([
-    fetchAdminListTotal("/admin/review-queue"),
-    fetchAdminListTotal("/admin/review-queue/under-review"),
-  ]);
-  return pending + underReview;
+/**
+ * Dataset submissions awaiting the caller's own action — pending +
+ * under-review counts only for a Validator (validate:datasets), the
+ * validated count only for an Approver (approve:datasets), both for anyone
+ * holding both. Which counts to fetch is passed in rather than inferred
+ * here, since the two now hit differently-gated endpoints and a holder of
+ * only one would 403 on the other's queries.
+ */
+export async function fetchDatasetReviewBadgeCount(options: {
+  includeValidatorCounts: boolean;
+  includeApproverCount: boolean;
+}): Promise<number> {
+  const requests: Promise<number>[] = [];
+  if (options.includeValidatorCounts) {
+    requests.push(
+      fetchAdminListTotal("/admin/review-queue"),
+      fetchAdminListTotal("/admin/review-queue/under-review"),
+    );
+  }
+  if (options.includeApproverCount) {
+    requests.push(fetchAdminListTotal("/admin/review-queue/validated"));
+  }
+  const totals = await Promise.all(requests);
+  return totals.reduce((sum, n) => sum + n, 0);
 }
 
 export async function fetchDocumentReviewBadgeCount(): Promise<number> {

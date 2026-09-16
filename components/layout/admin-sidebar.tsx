@@ -61,7 +61,7 @@ export const adminNavItems: Array<{
     label: "Review Queue",
     icon: FileCheck,
     badgeKey: "datasetReviewQueue",
-    anyPermission: ["view:datasets", "approve:datasets", "publish:datasets"],
+    anyPermission: ["view:datasets", "validate:datasets", "approve:datasets", "publish:datasets"],
   },
   { href: "/upload?agency=1", label: "Upload to Agency", icon: Upload, anyPermission: ["create:datasets"] },
   { href: "/ingestion-ops", label: "Ingestion Ops", icon: Activity, anyPermission: ["manage:indicators"] },

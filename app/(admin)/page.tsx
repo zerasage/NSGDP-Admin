@@ -56,7 +56,7 @@ const STATUS_TONE: Record<string, MetricTone> = {
 
 export default function AdminDashboardPage() {
   const { can, canAny } = useAdminAccess();
-  const canReviewQueue = canAny("approve:datasets", "publish:datasets");
+  const canReviewQueue = canAny("validate:datasets", "approve:datasets", "publish:datasets");
   const canUpload = can("create:datasets");
   const { data: stats, isLoading, isError, error, refetch, isFetching } = useDashboardStats();
   const { data: activity, isLoading: isActivityLoading } = useDashboardActivity();

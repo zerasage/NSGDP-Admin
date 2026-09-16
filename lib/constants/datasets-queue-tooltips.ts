@@ -4,6 +4,8 @@ export const DATASETS_QUEUE_PAGE_TIP =
 export const DATASETS_QUEUE_METRIC_TIPS = {
   pending: "Submitted and waiting for a reviewer to open the dataset.",
   under_review: "A reviewer has started but not yet approved or rejected.",
+  validated:
+    "A Validator has completed the QA checklist and marked this dataset validated — awaiting an Approver's final sign-off.",
   approved:
     "Accepted for the catalogue but not yet visible on the public portal — use Publish.",
   published: "Live on the public catalogue (approved and published).",

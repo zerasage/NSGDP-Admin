@@ -8,6 +8,15 @@ const CONFIG: Record<DatasetStatus, { label: string; className: string }> = {
     label: "Under Review",
     className: "bg-info text-info-foreground",
   },
+  // A Validator has run the QA checklist and moved this forward — an
+  // internal checkpoint distinct from both under_review (still with the
+  // Validator) and approved (final sign-off, an Approver's job). Deliberately
+  // a different tone (purple) than either, since it's neither — matches
+  // LifecycleBadge's "purple" for the same stage.
+  validated: {
+    label: "Validated",
+    className: "bg-purple-600 text-white dark:bg-purple-500",
+  },
   // Approval and publishing are separate — an approved dataset isn't
   // necessarily visible to the public yet. See `publishedAt` below.
   approved: {

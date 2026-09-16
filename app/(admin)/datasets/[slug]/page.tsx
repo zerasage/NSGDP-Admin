@@ -34,6 +34,7 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { EmptyState } from "@/components/feedback/empty-state";
 import { StatusBadge } from "@/components/data/status-badge";
+import { ReviewCommentThread } from "@/components/data/review-comment-thread";
 import { apiClient } from "@/lib/api/client";
 import { adminApi, archiveDataset, getUserById, publishDataset, publishDatasetAnalytics, unarchiveDataset, unpublishDataset, retractDataset, type ArchiveDatasetPayload } from "@/lib/api/admin";
 import { ArchiveDatasetDialog } from "@/components/admin/archive-dataset-dialog";
@@ -167,7 +168,10 @@ export default function DatasetDetailPage({
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const { can, canAny } = useAdminAccess();
-  const canView = canAny("view:datasets", "approve:datasets", "publish:datasets");
+  const canView = canAny("view:datasets", "validate:datasets", "approve:datasets", "publish:datasets");
+  const canValidate = can("validate:datasets");
+  // Narrower than it used to be: only the final validated -> approved
+  // decision — everything upstream is now canValidate's job.
   const canApprove = can("approve:datasets");
   const canPublish = can("publish:datasets");
   const canArchive = can("archive:datasets");
@@ -462,7 +466,7 @@ export default function DatasetDetailPage({
       <EmptyState
         icon={Lock}
         title="Access restricted"
-        description="Viewing dataset details requires view:datasets, approve:datasets, or publish:datasets. Ask a super_admin to grant your group one of these."
+        description="Viewing dataset details requires view:datasets, validate:datasets, approve:datasets, or publish:datasets. Ask a super_admin to grant your group one of these."
       />
     );
   }
@@ -625,10 +629,16 @@ export default function DatasetDetailPage({
               {ingestionCtaLabel(displayIngestionStatus, pendingAliases)}
             </Button>
           )}
-          {canApprove && (dataset.status === 'pending' || dataset.status === 'under_review') && (
+          {canValidate && (dataset.status === 'pending' || dataset.status === 'under_review') && (
             <Button size="sm" className="gap-1.5" onClick={() => router.push(`/datasets/${slug}/review`)}>
               <Eye className="size-4" aria-hidden="true" />
               {dataset.status === "under_review" ? "Continue review" : "Review dataset"}
+            </Button>
+          )}
+          {canApprove && dataset.status === 'validated' && (
+            <Button size="sm" className="gap-1.5" onClick={() => router.push(`/datasets/${slug}/approve`)}>
+              <Eye className="size-4" aria-hidden="true" />
+              Give final approval
             </Button>
           )}
           {canPublish && dataset.status === 'approved' && !dataset.published_at && (
@@ -906,6 +916,8 @@ export default function DatasetDetailPage({
               </CardContent>
             </Card>
           )}
+
+          {canView && <ReviewCommentThread slug={slug} />}
 
           {dataset.status === 'archived' && (dataset.archived_reason || dataset.archived_at) && (
             <Card className="border-muted bg-muted/30">

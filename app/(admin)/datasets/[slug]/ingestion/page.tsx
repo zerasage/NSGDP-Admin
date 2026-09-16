@@ -83,7 +83,7 @@ export default function DatasetIngestionPage({
   const tab = parseTab(searchParams.get("tab"));
   const { user } = useAuth();
   const { can, canAny } = useAdminAccess();
-  const canView = canAny("approve:datasets", "publish:datasets", "manage:indicators");
+  const canView = canAny("validate:datasets", "approve:datasets", "publish:datasets", "manage:indicators");
   const canManageIndicators = can("manage:indicators");
   const canPublish = can("publish:datasets");
   const queryClient = useQueryClient();
@@ -206,7 +206,7 @@ export default function DatasetIngestionPage({
     return (
       <EmptyState
         title="Access restricted"
-        description="Viewing ingestion requires approve:datasets, publish:datasets, or manage:indicators."
+        description="Viewing ingestion requires validate:datasets, approve:datasets, publish:datasets, or manage:indicators."
       />
     );
   }

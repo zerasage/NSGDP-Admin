@@ -1,14 +1,27 @@
 "use client";
 
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "@/lib/api/client";
 import { useToast } from "@/lib/hooks/use-toast";
 
+export interface ReviewHistoryEntry {
+  actorId: string;
+  actorName: string;
+  actionType: string;
+  comment: string | null;
+  createdAt: string;
+}
+
 /**
- * Shared approve / reject / request-revision / mark-under-review mutations
- * for the dataset review pages. `invalidateKeys` lets each page decide what
- * to refetch on success (the list page and the detail page cache under
- * different query keys).
+ * Shared validate / approve / send-back / reject / request-revision /
+ * mark-under-review mutations for the dataset review pages.
+ * `invalidateKeys` lets each page decide what to refetch on success (the
+ * list page and the detail page cache under different query keys).
+ *
+ * Two-tier review: validateMutation is the Validator's action
+ * (pending/under_review -> validated, posts /validate); finalizeMutation and
+ * sendBackMutation are the Approver's actions (validated -> approved, or
+ * validated -> under_review with a required comment).
  */
 export function useDatasetReview(invalidateKeys: unknown[][] = [["datasets"]]) {
   const { toast } = useToast();
@@ -24,7 +37,17 @@ export function useDatasetReview(invalidateKeys: unknown[][] = [["datasets"]]) {
       variant: "destructive",
     });
 
-  const approveMutation = useMutation({
+  const validateMutation = useMutation({
+    mutationFn: ({ slug, comment }: { slug: string; comment?: string }) =>
+      apiClient.post(`/admin/datasets/${slug}/validate`, { comment }),
+    onSuccess: () => {
+      toast({ title: "Success", description: "Dataset validated successfully" });
+      invalidate();
+    },
+    onError: onError("Failed to validate dataset"),
+  });
+
+  const finalizeMutation = useMutation({
     mutationFn: ({ slug, comment }: { slug: string; comment?: string }) =>
       apiClient.post(`/admin/datasets/${slug}/approve`, { comment }),
     onSuccess: () => {
@@ -32,6 +55,16 @@ export function useDatasetReview(invalidateKeys: unknown[][] = [["datasets"]]) {
       invalidate();
     },
     onError: onError("Failed to approve dataset"),
+  });
+
+  const sendBackMutation = useMutation({
+    mutationFn: ({ slug, comment }: { slug: string; comment: string }) =>
+      apiClient.post(`/admin/datasets/${slug}/send-back`, { comment }),
+    onSuccess: () => {
+      toast({ title: "Success", description: "Dataset sent back to under review" });
+      invalidate();
+    },
+    onError: onError("Failed to send dataset back to under review"),
   });
 
   const rejectMutation = useMutation({
@@ -63,5 +96,26 @@ export function useDatasetReview(invalidateKeys: unknown[][] = [["datasets"]]) {
     onError: onError("Failed to mark dataset as under review"),
   });
 
-  return { approveMutation, rejectMutation, requestRevisionMutation, markUnderReviewMutation };
+  return {
+    validateMutation,
+    finalizeMutation,
+    sendBackMutation,
+    rejectMutation,
+    requestRevisionMutation,
+    markUnderReviewMutation,
+  };
+}
+
+/** Chronological, attributed comment history for a dataset's review. */
+export function useReviewHistory(slug: string) {
+  return useQuery({
+    queryKey: ["datasets", slug, "review-history"],
+    queryFn: async () => {
+      const response = await apiClient.get<{ data: ReviewHistoryEntry[] }>(
+        `/admin/datasets/${slug}/review-history`,
+      );
+      return response.data.data;
+    },
+    enabled: !!slug,
+  });
 }

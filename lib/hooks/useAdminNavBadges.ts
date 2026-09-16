@@ -32,7 +32,10 @@ export function useAdminNavBadges(): {
   const { can, canAny } = useAdminAccess();
   const isSuperAdmin = user?.role === "super_admin";
 
-  const canDatasetQueue = isSuperAdmin || canAny("approve:datasets", "publish:datasets");
+  const canDatasetQueueValidate = isSuperAdmin || can("validate:datasets");
+  const canDatasetQueueApprove = isSuperAdmin || can("approve:datasets");
+  const canDatasetQueue =
+    canDatasetQueueValidate || canDatasetQueueApprove || isSuperAdmin || can("publish:datasets");
   const canDocumentQueue = isSuperAdmin || can("manage:documents");
   const canAccessRequests =
     isSuperAdmin || canAny("view:access-requests", "approve:access-requests");
@@ -45,8 +48,17 @@ export function useAdminNavBadges(): {
   const results = useQueries({
     queries: [
       {
-        queryKey: ["admin-nav-badge", "datasetReviewQueue"],
-        queryFn: fetchDatasetReviewBadgeCount,
+        queryKey: [
+          "admin-nav-badge",
+          "datasetReviewQueue",
+          canDatasetQueueValidate,
+          canDatasetQueueApprove,
+        ],
+        queryFn: () =>
+          fetchDatasetReviewBadgeCount({
+            includeValidatorCounts: canDatasetQueueValidate,
+            includeApproverCount: canDatasetQueueApprove,
+          }),
         enabled: canDatasetQueue,
         staleTime: BADGE_STALE_MS,
         refetchInterval: BADGE_STALE_MS,

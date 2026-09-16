@@ -89,7 +89,7 @@ export default function DatasetReviewScreenPage({
   const { toast } = useToast();
   const { user } = useAuth();
   const { can, canAny } = useAdminAccess();
-  const canApprove = can("approve:datasets");
+  const canValidate = can("validate:datasets");
   const canEditVisibility = canAny("approve:datasets", "publish:datasets");
   const canArchive = can("archive:datasets");
 
@@ -97,6 +97,8 @@ export default function DatasetReviewScreenPage({
   const [qa, setQA] = useState<QAState>(initQAState());
   const [revisionOpen, setRevisionOpen] = useState(false);
   const [revisionComment, setRevisionComment] = useState("");
+  const [rejectOpen, setRejectOpen] = useState(false);
+  const [rejectReason, setRejectReason] = useState("");
   const [archiveOpen, setArchiveOpen] = useState(false);
   const [archiveReason, setArchiveReason] = useState("");
 
@@ -125,9 +127,8 @@ export default function DatasetReviewScreenPage({
 
   const category = categoriesData?.data?.find((c) => c.id === dataset?.category_id);
 
-  const { markUnderReviewMutation, requestRevisionMutation } = useDatasetReview([
-    ["dataset", slug],
-  ]);
+  const { markUnderReviewMutation, requestRevisionMutation, validateMutation, rejectMutation } =
+    useDatasetReview([["dataset", slug]]);
   const saveChecklistMutation = useSaveQAChecklist();
 
   const stage: LifecycleStage = stageOverride ?? (dataset ? toLifecycleStage(dataset.status) : "under_review");
@@ -135,20 +136,20 @@ export default function DatasetReviewScreenPage({
   // Opening the review screen means active review — mirrors the prototype's intent,
   // now backed by a real transition instead of local-only state.
   useEffect(() => {
-    if (canApprove && dataset?.status === "pending" && !markUnderReviewMutation.isPending) {
+    if (canValidate && dataset?.status === "pending" && !markUnderReviewMutation.isPending) {
       markUnderReviewMutation.mutate(slug);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dataset?.status, canApprove]);
+  }, [dataset?.status, canValidate]);
 
   const passCount = Object.values(qa).filter((v) => v.result === "pass").length;
   const failCount = Object.values(qa).filter((v) => v.result === "fail").length;
   const naCount = Object.values(qa).filter((v) => v.result === "na").length;
   const pendingCount = Object.values(qa).filter((v) => v.result === "pending").length;
   const allChecksPassed = isQAChecklistPassed(qa);
-  const canSendForApproval = allChecksPassed && stage === "under_review";
+  const canMarkValidated = allChecksPassed && stage === "under_review";
 
-  const handleSendForApproval = () => {
+  const handleMarkValidated = () => {
     const items = QA_DIMENSIONS.map((d) => ({
       dimensionId: d.id,
       result: qa[d.id].result,
@@ -158,9 +159,16 @@ export default function DatasetReviewScreenPage({
       { slug, items },
       {
         onSuccess: () => {
-          setStageOverride("approved");
-          toast({ title: "Success", description: "QA checklist complete — sent for director approval" });
-          router.push(`/datasets/${slug}/approve`);
+          validateMutation.mutate(
+            { slug },
+            {
+              onSuccess: () => {
+                setStageOverride("validated");
+                toast({ title: "Success", description: "Dataset validated — awaiting an approver's final sign-off" });
+                router.push("/datasets");
+              },
+            },
+          );
         },
         onError: (error: unknown) =>
           toast({
@@ -192,6 +200,25 @@ export default function DatasetReviewScreenPage({
     );
   };
 
+  const handleReject = () => {
+    if (rejectReason.length < 20) {
+      toast({
+        title: "Error",
+        description: "Rejection reason must be at least 20 characters",
+        variant: "destructive",
+      });
+      return;
+    }
+    rejectMutation.mutate(
+      { slug, reason: rejectReason },
+      {
+        onSuccess: () => {
+          router.push("/datasets");
+        },
+      }
+    );
+  };
+
   const handleArchive = () => {
     archiveDataset(slug, {
       reason: archiveReason.trim() || undefined,
@@ -209,12 +236,12 @@ export default function DatasetReviewScreenPage({
       );
   };
 
-  if (!canApprove) {
+  if (!canValidate) {
     return (
       <EmptyState
         icon={Lock}
         title="Access restricted"
-        description="Reviewing datasets requires the approve:datasets permission. Ask a super_admin to grant your group this permission."
+        description="Reviewing datasets requires the validate:datasets permission. Ask a super_admin to grant your group this permission."
       />
     );
   }
@@ -391,23 +418,23 @@ export default function DatasetReviewScreenPage({
                 </div>
               </div>
               <p className="text-xs leading-5 text-muted-foreground">
-                {canSendForApproval
-                  ? "All required checks passed. The dataset is ready for the director's decision."
-                  : "Complete every check with no failures before sending this dataset for director approval."}
+                {canMarkValidated
+                  ? "All required checks passed. The dataset is ready for an approver's final sign-off."
+                  : "Complete every check with no failures before marking this dataset validated."}
               </p>
               <div className="flex items-center gap-1.5">
                 <Button
                   className="h-11 min-w-0 flex-1 gap-1.5 sm:h-9"
-                  onClick={handleSendForApproval}
-                  disabled={!canSendForApproval || saveChecklistMutation.isPending}
+                  onClick={handleMarkValidated}
+                  disabled={!canMarkValidated || saveChecklistMutation.isPending || validateMutation.isPending}
                 >
                   <CheckCircle2 className="size-4" aria-hidden="true" />
-                  Send for director approval
+                  Mark as Validated
                   <Send className="size-4" aria-hidden="true" />
                 </Button>
                 <HelpTip
                   content={REVIEW_SEND_APPROVAL_TIP}
-                  label="About send for director approval"
+                  label="About mark as validated"
                 />
               </div>
               <div className="flex items-center gap-1.5">
@@ -424,6 +451,14 @@ export default function DatasetReviewScreenPage({
                   label="About request revision"
                 />
               </div>
+              <Button
+                variant="outline"
+                className="h-11 w-full gap-1.5 text-destructive hover:text-destructive sm:h-9"
+                onClick={() => setRejectOpen(true)}
+              >
+                <XCircle className="size-4" aria-hidden="true" />
+                Reject
+              </Button>
               {canArchive && (
                 <Button variant="ghost" className="h-11 w-full gap-1.5 sm:h-9" onClick={() => setArchiveOpen(true)}>
                   <Archive className="size-4" aria-hidden="true" />
@@ -461,6 +496,39 @@ export default function DatasetReviewScreenPage({
               disabled={requestRevisionMutation.isPending || revisionComment.length < 20}
             >
               Send revision request
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={rejectOpen} onOpenChange={setRejectOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Reject dataset</DialogTitle>
+            <DialogDescription>
+              Explain why this dataset is being rejected outright. The submitter will receive this feedback, and the dataset will not re-enter the review queue automatically.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label htmlFor="reject-reason">Rejection reason <span className="text-muted-foreground">(required)</span></Label>
+            <Textarea
+              id="reject-reason"
+              rows={4}
+              value={rejectReason}
+              onChange={(e) => setRejectReason(e.target.value)}
+              placeholder="E.g. Data does not meet quality standards. Missing required metadata fields…"
+              aria-required="true"
+            />
+            <p className="text-xs text-muted-foreground">{rejectReason.length}/20 characters minimum</p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRejectOpen(false)}>Cancel</Button>
+            <Button
+              variant="destructive"
+              onClick={handleReject}
+              disabled={rejectMutation.isPending || rejectReason.length < 20}
+            >
+              Reject dataset
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -10,7 +10,8 @@ interface ApiResponse<T> {
 
 // Mirrors nsgdp-backend src/modules/admin/constants/permission-actions.ts
 export type PermissionActionKey =
-  | 'approve:datasets'
+  | 'approve:datasets'      // Approver tier: final sign-off on a validated dataset, or send it back to under_review
+  | 'validate:datasets'     // Validator tier: QA checklist, mark under review, reject, request revision, mark validated
   | 'publish:datasets'
   | 'archive:datasets'
   | 'view:datasets'         // Read-only: see the review queue without approving/publishing/archiving

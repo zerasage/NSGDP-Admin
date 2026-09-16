@@ -27,6 +27,7 @@ export type DatasetStatus =
   | 'draft'
   | 'pending'
   | 'under_review'
+  | 'validated'
   | 'approved'
   | 'rejected'
   | 'archived';

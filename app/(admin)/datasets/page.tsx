@@ -6,6 +6,7 @@ import {
   AlertCircle,
   Archive,
   ArchiveRestore,
+  CheckCircle2,
   Eye,
   FileCheck,
   Globe,
@@ -101,6 +102,7 @@ const TABS: Array<{ key: QueueTab; label: string; tone: MetricTone }> = [
   { key: "all", label: "All datasets", tone: "muted" },
   { key: "pending", label: "Pending", tone: "warning" },
   { key: "under_review", label: "Under review", tone: "info" },
+  { key: "validated", label: "Validated", tone: "primary" },
   { key: "approved", label: "Approved", tone: "warning" },
   { key: "published", label: "Published", tone: "success" },
   { key: "rejected", label: "Rejected", tone: "destructive" },
@@ -140,7 +142,11 @@ export default function DatasetsReviewPage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { isLoading: permissionsLoading, can, canAny } = useAdminAccess();
-  const canViewQueue = canAny("view:datasets", "approve:datasets", "publish:datasets");
+  const canViewQueue = canAny("view:datasets", "validate:datasets", "approve:datasets", "publish:datasets");
+  const canValidate = can("validate:datasets");
+  // Narrower than it used to be: only the final validated -> approved
+  // decision (or sending a validated dataset back to under_review) —
+  // everything upstream is now canValidate's job.
   const canApprove = can("approve:datasets");
   const canPublish = can("publish:datasets");
   const canArchive = can("archive:datasets");
@@ -275,6 +281,12 @@ export default function DatasetsReviewPage() {
         );
         return response.data.data;
       }
+      if (tab === "validated") {
+        const response = await adminApi.get<{ data: DatasetPage }>(
+          `/admin/review-queue/validated?${params}`,
+        );
+        return response.data.data;
+      }
       if (tab === "published") {
         params.append("status", "approved");
         params.append("published", "true");
@@ -293,6 +305,7 @@ export default function DatasetsReviewPage() {
   const [
     pendingSummary,
     underReviewSummary,
+    validatedSummary,
     approvedSummary,
     publishedSummary,
     rejectedSummary,
@@ -306,6 +319,11 @@ export default function DatasetsReviewPage() {
       {
         queryKey: ["admin", "datasets", "summary", scope, "under_review"],
         queryFn: () => fetchQueueCount("/admin/review-queue/under-review", scope),
+        enabled: canViewQueue,
+      },
+      {
+        queryKey: ["admin", "datasets", "summary", scope, "validated"],
+        queryFn: () => fetchQueueCount("/admin/review-queue/validated", scope),
         enabled: canViewQueue,
       },
       {
@@ -329,6 +347,7 @@ export default function DatasetsReviewPage() {
   const statsLoading =
     pendingSummary.isLoading ||
     underReviewSummary.isLoading ||
+    validatedSummary.isLoading ||
     approvedSummary.isLoading ||
     publishedSummary.isLoading ||
     rejectedSummary.isLoading;
@@ -394,18 +413,30 @@ export default function DatasetsReviewPage() {
   };
 
   const renderActions = (dataset: Dataset, mobile = false) => {
+    // Review (pending/under_review) is the Validator's job now; Finalize
+    // (validated) is the Approver's — two different capabilities, two
+    // different destination pages.
     const isReviewable = dataset.status === "pending" || dataset.status === "under_review";
-    const reviewHref = isReviewable && canApprove
+    const isFinalizable = dataset.status === "validated";
+    const canActOnRow = (isReviewable && canValidate) || (isFinalizable && canApprove);
+    const primaryHref = isReviewable && canValidate
       ? `/datasets/${dataset.slug}/review`
-      : `/datasets/${dataset.slug}`;
+      : isFinalizable && canApprove
+        ? `/datasets/${dataset.slug}/approve`
+        : `/datasets/${dataset.slug}`;
+    const primaryLabel = isReviewable && canValidate
+      ? "Review"
+      : isFinalizable && canApprove
+        ? "Finalize"
+        : "View";
 
     return (
       <div className={cn("flex items-center gap-1.5", mobile && "w-full")}>
         <Link
-          href={reviewHref}
+          href={primaryHref}
           className={cn(
             buttonVariants({
-              variant: isReviewable && canApprove ? "default" : "outline",
+              variant: canActOnRow ? "default" : "outline",
               size: "sm",
             }),
             "gap-1.5",
@@ -413,7 +444,7 @@ export default function DatasetsReviewPage() {
           )}
         >
           <Eye className="size-3.5" aria-hidden="true" />
-          {isReviewable && canApprove ? "Review" : "View"}
+          {primaryLabel}
         </Link>
         {dataset.status === "approved" && !dataset.published_at && canPublish && (
           <div className={cn("inline-flex items-center gap-0.5", mobile && "flex-1")}>
@@ -465,7 +496,7 @@ export default function DatasetsReviewPage() {
         <EmptyState
           icon={Lock}
           title="Access restricted"
-          description="Viewing the review queue requires view:datasets, approve:datasets, or publish:datasets. Ask a super_admin to grant your group one of these."
+          description="Viewing the review queue requires view:datasets, validate:datasets, approve:datasets, or publish:datasets. Ask a super_admin to grant your group one of these."
         />
       </div>
     );
@@ -517,13 +548,13 @@ export default function DatasetsReviewPage() {
       </div>
 
       {statsLoading ? (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-          {[...Array(5)].map((_, i) => (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+          {[...Array(6)].map((_, i) => (
             <Skeleton key={i} className="h-28 rounded-2xl" />
           ))}
         </div>
       ) : (
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
           <MetricCard
             compact
             label="Pending review"
@@ -545,6 +576,17 @@ export default function DatasetsReviewPage() {
             tone="info"
             active={tab === "under_review"}
             onClick={() => { setTab("under_review"); setPage(1); }}
+          />
+          <MetricCard
+            compact
+            label="Validated"
+            value={validatedSummary.data ?? 0}
+            hint="Awaiting final approval"
+            tip={DATASETS_QUEUE_METRIC_TIPS.validated}
+            icon={CheckCircle2}
+            tone="primary"
+            active={tab === "validated"}
+            onClick={() => { setTab("validated"); setPage(1); }}
           />
           <MetricCard
             compact
@@ -807,7 +849,7 @@ export default function DatasetsReviewPage() {
                           <StatusBadge status={dataset.status} publishedAt={dataset.published_at} />
                         </TableCell>
                         <TableCell className="px-4 py-3.5">
-                          {dataset.status === "pending" || dataset.status === "under_review" ? (
+                          {dataset.status === "pending" || dataset.status === "under_review" || dataset.status === "validated" ? (
                             <AgeBadge submittedAt={dataset.submitted_at || dataset.created_at} />
                           ) : (
                             <span className="whitespace-nowrap text-xs text-muted-foreground">
@@ -886,7 +928,7 @@ export default function DatasetsReviewPage() {
                         Submitted
                       </p>
                       <div className="mt-1 truncate">
-                        {dataset.status === "pending" || dataset.status === "under_review" ? (
+                        {dataset.status === "pending" || dataset.status === "under_review" || dataset.status === "validated" ? (
                           <AgeBadge submittedAt={dataset.submitted_at || dataset.created_at} />
                         ) : (
                           <p className="truncate text-xs font-medium">
