@@ -38,7 +38,7 @@ const OPS_TAB_GROUPS: { tabs: TabDef[] }[] = [
       { value: "pipeline", label: "Pipeline", icon: GitBranch, tone: "info", countKey: "pipeline" },
       { value: "aliases", label: "Aliases", icon: Link2, tone: "warning", countKey: "aliases" },
       { value: "conflicts", label: "Conflicts", icon: ShieldAlert, tone: "destructive", countKey: "conflicts" },
-      { value: "ai-spend", label: "AI spend", icon: Sparkles, tone: "destructive" },
+      { value: "ai-spend", label: "AI spend", icon: Sparkles, tone: "destructive", superAdminOnly: true },
     ],
   },
   {

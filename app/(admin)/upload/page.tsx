@@ -34,6 +34,10 @@ import { useDepartments, useMyDepartments } from "@/lib/hooks/useDepartments";
 import { useCategories } from "@/lib/hooks/useCategories";
 import { uploadFile } from "@/lib/api/uploads";
 import { NIGER_STATE_LGAS } from "@/lib/constants/core";
+import {
+  LICENSE_OPTIONS,
+  UPDATE_FREQUENCY_OPTIONS,
+} from "@/lib/constants/dataset-metadata";
 import { UPLOAD_FIELD_TOOLTIPS, UPLOAD_CONTACT_EMAIL_TIP, UPLOAD_DRAFT_TIP, UPLOAD_PAGE_AGENCY_TIP, UPLOAD_PAGE_TIP, UPLOAD_PREFILL_TIP, UPLOAD_STEP_TIPS, UPLOAD_STEPS_PANEL_TIP, UPLOAD_SUBMIT_TIP } from "@/lib/constants/upload-tooltips";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useToast } from "@/lib/hooks/use-toast";
@@ -76,14 +80,6 @@ const FORMAT_BY_EXTENSION: Record<string, DatasetFormat> = {
   json: "json",
   gpkg: "geopackage",
 };
-
-const LICENSE_OPTIONS = [
-  "CC-BY-4.0",
-  "CC-BY-SA-4.0",
-  "CC0-1.0",
-  "Government Open Data License",
-  "Restricted — Internal Use Only",
-];
 
 function StepHeading({
   title,
@@ -363,6 +359,7 @@ export default function AdminUploadDatasetPage() {
     if (title.trim().length < 5) errors.title = "Title must be at least 5 characters";
     if (description.trim().length < 20) errors.description = "Description must be at least 20 characters";
     if (!effectiveCategoryId) errors.categoryId = "Select a category";
+    if (tags.length === 0) errors.tags = "Add at least one tag";
     setStepErrors(errors);
     return Object.keys(errors).length === 0;
   };
@@ -650,6 +647,7 @@ export default function AdminUploadDatasetPage() {
                 <FieldLabelTooltip
                   htmlFor="tags"
                   label="Tags"
+                  required
                   tooltip={UPLOAD_FIELD_TOOLTIPS.tags}
                 />
                 <div className="flex gap-2">
@@ -671,6 +669,7 @@ export default function AdminUploadDatasetPage() {
                     ))}
                   </div>
                 )}
+                {stepErrors.tags && <p className="text-xs text-destructive">{stepErrors.tags}</p>}
               </div>
             </div>
 
@@ -872,11 +871,14 @@ export default function AdminUploadDatasetPage() {
                 />
                 <Autocomplete
                   id="license"
-                  items={LICENSE_OPTIONS}
+                  items={[...LICENSE_OPTIONS]}
                   value={license}
                   onValueChange={setLicense}
                   placeholder="Select a license or type your own…"
                 />
+                <p className="text-xs text-muted-foreground">
+                  Suggestions only — you can type a custom license.
+                </p>
                 {stepErrors.license && <p className="text-xs text-destructive">{stepErrors.license}</p>}
               </div>
 
@@ -1001,12 +1003,11 @@ export default function AdminUploadDatasetPage() {
                     <SelectValue placeholder="Select frequency" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="Daily">Daily</SelectItem>
-                    <SelectItem value="Weekly">Weekly</SelectItem>
-                    <SelectItem value="Monthly">Monthly</SelectItem>
-                    <SelectItem value="Quarterly">Quarterly</SelectItem>
-                    <SelectItem value="Annually">Annually</SelectItem>
-                    <SelectItem value="One-time">One-time</SelectItem>
+                    {UPDATE_FREQUENCY_OPTIONS.map((option) => (
+                      <SelectItem key={option} value={option}>
+                        {option}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>

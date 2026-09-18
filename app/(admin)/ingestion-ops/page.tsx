@@ -461,8 +461,12 @@ export default function IngestionOpsPage() {
     }
     if (raw === "dead-letter") {
       router.replace("/system-health?tab=dead-letter");
+      return;
     }
-  }, [router, searchParams]);
+    if (raw === "ai-spend" && !isSuperAdmin) {
+      router.replace("/ingestion-ops");
+    }
+  }, [router, searchParams, isSuperAdmin]);
 
   const setTab = (value: string) => {
     const next = parseOpsTab(value);
@@ -495,7 +499,7 @@ export default function IngestionOpsPage() {
     "warehouse",
     ...(isSuperAdmin
       ? (["compare", "ai-spend", "stage8"] as IngestionOpsTabId[])
-      : (["ai-spend"] as IngestionOpsTabId[])),
+      : []),
   ];
 
   if (!canView) {
@@ -591,9 +595,11 @@ export default function IngestionOpsPage() {
         <TabsContent value="observability" className="mt-0">
           <IngestionMetricsTab />
         </TabsContent>
-        <TabsContent value="ai-spend" className="mt-0">
-          <AiSpendTab />
-        </TabsContent>
+        {isSuperAdmin && (
+          <TabsContent value="ai-spend" className="mt-0">
+            <AiSpendTab />
+          </TabsContent>
+        )}
         {isSuperAdmin && (
           <TabsContent value="stage8" className="mt-0">
             <Stage8ToolsTab />
