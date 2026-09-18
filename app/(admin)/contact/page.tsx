@@ -51,9 +51,9 @@ import {
   DataTableShell,
   METRIC_TONE,
   MetricCard,
-  tabToneClass,
   type MetricTone,
 } from "@/components/admin/admin-analytics-ui";
+import { ADMIN_TAB_PILL_ACTIVE } from "@/components/admin/admin-section-tabs-nav";
 import { HelpTip } from "@/components/admin/help-tip";
 import {
   ContactEmailRow,
@@ -236,7 +236,7 @@ export default function ContactMessagesPage() {
                     className={cn(
                       "min-h-9 rounded-lg px-3 py-2 text-xs font-medium transition-colors sm:text-sm",
                       status === tab.key
-                        ? cn("shadow-sm", tabToneClass(tab.tone))
+                        ? ADMIN_TAB_PILL_ACTIVE
                         : "text-muted-foreground hover:bg-background/80 hover:text-foreground"
                     )}
                   >

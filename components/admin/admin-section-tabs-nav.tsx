@@ -1,9 +1,13 @@
 import { TabsList } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 
-/** Base pill style for admin section tab bars — pair with `tabToneClass()` for active color. */
+/** Base pill style for admin section tab bars. Active fill is brand green. */
 export const ADMIN_TAB_TRIGGER_BASE =
-  "min-h-9 flex-none gap-1.5 px-2.5 text-xs sm:text-sm text-muted-foreground hover:bg-background/80 hover:text-foreground data-active:shadow-none";
+  "min-h-9 flex-none gap-1.5 px-2.5 text-xs sm:text-sm text-muted-foreground hover:bg-background/80 hover:text-foreground data-active:bg-primary data-active:text-primary-foreground data-active:shadow-none dark:data-active:bg-primary dark:data-active:text-primary-foreground";
+
+/** Active styles for button-based tab pills (no `data-active` attribute). */
+export const ADMIN_TAB_PILL_ACTIVE =
+  "bg-primary text-primary-foreground shadow-sm";
 
 type AdminSectionTabsNavProps = {
   children: React.ReactNode;

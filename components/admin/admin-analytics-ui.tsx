@@ -65,8 +65,9 @@ export const METRIC_TONE: Record<
   },
 };
 
-export function tabToneClass(tone: MetricTone = "primary") {
-  return METRIC_TONE[tone].tabActive;
+/** Active tab fill is always brand green so the selected tab is obvious. */
+export function tabToneClass(_tone: MetricTone = "primary") {
+  return METRIC_TONE.primary.tabActive;
 }
 
 export function MetricCard({

@@ -12,6 +12,7 @@ import { EmptyState } from "@/components/feedback/empty-state";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatDateTime } from "@/lib/utils/date";
 import { cn } from "@/lib/utils";
+import { ADMIN_TAB_PILL_ACTIVE } from "@/components/admin/admin-section-tabs-nav";
 import { HelpTip } from "@/components/admin/help-tip";
 import {
   NOTIFICATIONS_MARK_ALL_TIP,
@@ -127,15 +128,22 @@ export default function NotificationsPage() {
                   aria-selected={tab === t.key}
                   onClick={() => { setTab(t.key); setPage(1); }}
                   className={cn(
-                    "relative px-3 py-3 text-sm font-medium transition-colors",
+                    "relative rounded-lg px-3 py-2 text-sm font-medium transition-colors",
                     tab === t.key
-                      ? "text-foreground after:absolute after:inset-x-3 after:bottom-0 after:h-0.5 after:rounded-full after:bg-primary"
-                      : "text-muted-foreground hover:text-foreground"
+                      ? ADMIN_TAB_PILL_ACTIVE
+                      : "text-muted-foreground hover:bg-background/80 hover:text-foreground"
                   )}
                 >
                   {t.label}
                   {t.key === "unread" && unreadCount > 0 && (
-                    <span className="ml-1.5 rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-semibold tabular-nums text-foreground">
+                    <span
+                      className={cn(
+                        "ml-1.5 rounded-full px-1.5 py-0.5 text-[10px] font-semibold tabular-nums",
+                        tab === t.key
+                          ? "bg-primary-foreground/20 text-primary-foreground"
+                          : "bg-muted text-foreground",
+                      )}
+                    >
                       {unreadCount}
                     </span>
                   )}
