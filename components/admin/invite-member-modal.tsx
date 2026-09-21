@@ -138,7 +138,7 @@ export function InviteMemberModal({
               >
                 <RadioGroupItem value={InviteRole.ADMIN} id="admin" className="mt-0.5" />
                 <div className="min-w-0 space-y-0.5">
-                  <span className="text-sm font-medium leading-none">Development Partner Admin</span>
+                  <span className="text-sm font-medium leading-none">Dev Partner Admin</span>
                   <p className="text-xs leading-snug text-muted-foreground">
                     Manage datasets and invite members
                   </p>

@@ -97,7 +97,7 @@ const roleOptions: Array<{ value: UserRole; label: string }> = [
   { value: "public", label: "Public" },
   { value: "registered", label: "Registered" },
   { value: "contributor", label: "Contributor" },
-  { value: "admin", label: "Development Partner Admin" },
+  { value: "admin", label: "Dev Partner Admin" },
   { value: "staff", label: "Agency staff" },
   { value: "super_admin", label: "Super admin" },
 ];

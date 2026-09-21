@@ -32,7 +32,7 @@ const TYPE_LABELS: Record<NotificationType, string> = {
   dataset_published: "Dataset Published",
   new_development_partner: "New Development Partner",
   new_user: "New User",
-  admin_invited: "Development Partner Admin Invited",
+  admin_invited: "Dev Partner Admin Invited",
   dataset_archive_requested: "Retract Request",
   dataset_archive_completed: "Dataset Archived",
   capability_granted: "Capability Granted",

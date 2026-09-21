@@ -111,7 +111,7 @@ const TABS: Array<{ key: QueueTab; label: string; tone: MetricTone }> = [
 ];
 
 const SCOPE_TABS: Array<{ key: QueueScope; label: string }> = [
-  { key: "partners", label: "Development Partners" },
+  { key: "partners", label: "Dev Partners" },
   { key: "platform-owner", label: "Agency" },
 ];
 

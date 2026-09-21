@@ -14,7 +14,7 @@ export function AdminSidebarBrand() {
   const roleLabels: Record<string, string> = {
     super_admin: "Super Admin",
     staff: "Agency Staff",
-    admin: "Development Partner Admin",
+    admin: "Dev Partner Admin",
     contributor: "Contributor",
     registered: "Registered User",
     public: "Guest",
