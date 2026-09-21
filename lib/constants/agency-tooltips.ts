@@ -5,14 +5,14 @@ export const AGENCY_METRIC_TIPS = {
   staff: "Agency staff accounts with the staff role — access comes from permission groups they belong to.",
   invites: "Outstanding staff invitations not yet accepted.",
   datasets: "Datasets owned by the platform agency (not partner uploads).",
-  status: "Whether the agency organisation record is active on the platform.",
+  status: "Whether the agency record is active on the platform.",
 } as const;
 
 export const AGENCY_PROFILE_PANEL_TIP =
   "Public-facing contact details for the platform owner shown on the portal. Edit to update name, description, email, phone, website, and address.";
 
 export const AGENCY_EDIT_PROFILE_TIP =
-  "Opens the organisation editor for the agency record — changes apply to how the platform owner appears publicly.";
+  "Opens the editor for the agency record — changes apply to how the platform owner appears publicly.";
 
 export const AGENCY_STAFF_WORKFLOW_PANEL_TIP =
   "Agency workspace — invite staff, assign them to permission groups elsewhere, and manage agency-owned datasets.";

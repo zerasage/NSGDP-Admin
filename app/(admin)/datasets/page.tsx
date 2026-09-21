@@ -45,7 +45,7 @@ import {
   MetricCard,
   type MetricTone,
 } from "@/components/admin/admin-analytics-ui";
-import { ADMIN_TAB_PILL_ACTIVE } from "@/components/admin/admin-section-tabs-nav";
+import { ADMIN_TAB_PILL_ACTIVE, AdminTabCount } from "@/components/admin/admin-section-tabs-nav";
 import { HelpTip } from "@/components/admin/help-tip";
 import {
   DATASETS_QUEUE_METRIC_TIPS,
@@ -308,7 +308,8 @@ export default function DatasetsReviewPage() {
   });
 
   const [
-    pendingSummary,
+    partnersPendingSummary,
+    agencyPendingSummary,
     underReviewSummary,
     validatedSummary,
     approvedSummary,
@@ -317,8 +318,13 @@ export default function DatasetsReviewPage() {
   ] = useQueries({
     queries: [
       {
-        queryKey: ["admin", "datasets", "summary", scope, "pending"],
-        queryFn: () => fetchQueueCount("/admin/review-queue", scope),
+        queryKey: ["admin", "datasets", "summary", "partners", "pending"],
+        queryFn: () => fetchQueueCount("/admin/review-queue", "partners"),
+        enabled: canViewQueue,
+      },
+      {
+        queryKey: ["admin", "datasets", "summary", "platform-owner", "pending"],
+        queryFn: () => fetchQueueCount("/admin/review-queue", "platform-owner"),
         enabled: canViewQueue,
       },
       {
@@ -348,6 +354,14 @@ export default function DatasetsReviewPage() {
       },
     ],
   });
+
+  const pendingSummary =
+    scope === "partners" ? partnersPendingSummary : agencyPendingSummary;
+
+  const scopePendingCount: Record<QueueScope, number> = {
+    partners: partnersPendingSummary.data ?? 0,
+    "platform-owner": agencyPendingSummary.data ?? 0,
+  };
 
   const statsLoading =
     pendingSummary.isLoading ||
@@ -529,26 +543,30 @@ export default function DatasetsReviewPage() {
 
       <div className="rounded-xl border bg-muted/30 p-1">
         <div className="flex flex-wrap gap-1" role="tablist" aria-label="Queue scope">
-          {SCOPE_TABS.map((s) => (
-            <button
-              key={s.key}
-              type="button"
-              role="tab"
-              aria-selected={scope === s.key}
-              onClick={() => {
-                setScope(s.key);
-                setPage(1);
-              }}
-              className={cn(
-                "min-h-9 rounded-lg px-3 py-2 text-xs font-medium transition-colors sm:text-sm",
-                scope === s.key
-                  ? "bg-primary text-primary-foreground shadow-sm"
-                  : "text-muted-foreground hover:bg-background/80 hover:text-foreground",
-              )}
-            >
-              {s.label}
-            </button>
-          ))}
+          {SCOPE_TABS.map((s) => {
+            const active = scope === s.key;
+            return (
+              <button
+                key={s.key}
+                type="button"
+                role="tab"
+                aria-selected={active}
+                onClick={() => {
+                  setScope(s.key);
+                  setPage(1);
+                }}
+                className={cn(
+                  "inline-flex min-h-9 items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-medium transition-colors sm:text-sm",
+                  active
+                    ? ADMIN_TAB_PILL_ACTIVE
+                    : "text-muted-foreground hover:bg-background/80 hover:text-foreground",
+                )}
+              >
+                {s.label}
+                <AdminTabCount count={scopePendingCount[s.key]} active={active} />
+              </button>
+            );
+          })}
         </div>
       </div>
 

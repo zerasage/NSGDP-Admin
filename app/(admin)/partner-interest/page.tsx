@@ -264,7 +264,7 @@ export default function PartnerInterestPage() {
             <HelpTip content={PARTNER_INTEREST_PAGE_TIP} label="About partner interest" />
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Review organisations interested in contributing data to the portal
+            Review organisations interested in becoming development partners
           </p>
         </div>
         {!isLoading && (
@@ -277,7 +277,7 @@ export default function PartnerInterestPage() {
       <div className="flex items-start gap-2 rounded-xl border border-info/25 bg-info/[0.06] px-4 py-3 text-sm text-muted-foreground">
         <Info className="mt-0.5 size-4 shrink-0 text-info" aria-hidden />
         <p>
-          After approval, create the organisation and send an invite manually — the platform does not
+          After approval, create the development partner and send an invite manually — the platform does not
           do this for you.
           <HelpTip
             content={PARTNER_INTEREST_INFO_TIP}
@@ -594,7 +594,7 @@ export default function PartnerInterestPage() {
             </DialogTitle>
             <DialogDescription>
               {reviewAction === "approve"
-                ? "Approve this organisation's interest. You'll need to manually create the organisation record and send an invite."
+                ? "Approve this organisation's interest. You'll need to manually create the development partner record and send an invite."
                 : "Decline this submission. The organisation will not be contacted automatically."}
             </DialogDescription>
           </DialogHeader>

@@ -14,7 +14,7 @@ export function AdminSidebarBrand() {
   const roleLabels: Record<string, string> = {
     super_admin: "Super Admin",
     staff: "Agency Staff",
-    admin: "Org Admin",
+    admin: "Development Partner Admin",
     contributor: "Contributor",
     registered: "Registered User",
     public: "Guest",
@@ -72,6 +72,8 @@ export function AdminPortalLinks({ onNavigate }: { onNavigate?: () => void }) {
         <Link
           key={href}
           href={href}
+          target="_blank"
+          rel="noopener noreferrer"
           onClick={onNavigate}
           className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
         >

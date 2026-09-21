@@ -61,11 +61,11 @@ export const PERMISSION_ACTION_LABELS: Record<PermissionAction, string> = {
   "approve:datasets": "Approve Datasets (Final Sign-off)",
   "validate:datasets": "Validate Datasets",
   "publish:datasets": "Publish Datasets",
-  "invite:users": "Invite Users (org-scoped)",
+  "invite:users": "Invite Users (partner-scoped)",
   "invite:staff": "Invite Agency Staff",
-  "promote:org-admin": "Promote to Org Admin",
-  "demote:org-admin": "Demote Org Admin",
-  "remove:org-members": "Remove Org Member",
+  "promote:org-admin": "Promote to Development Partner Admin",
+  "demote:org-admin": "Demote Development Partner Admin",
+  "remove:org-members": "Remove Development Partner Member",
   "archive:datasets": "Archive Datasets",
   "view:datasets": "View Review Queue",
   "view:restricted": "View Restricted Data",
@@ -107,9 +107,9 @@ export const PERMISSION_ACTION_DESCRIPTIONS: Record<PermissionAction, string> = 
   "invite:staff":
     "Can send, resend, and revoke agency staff invites, and view the current staff roster. Cannot revoke an existing staff member's access or change anyone's role — those stay super_admin-only.",
   "promote:org-admin":
-    "Can promote a user to admin, scoped strictly to that user's own existing development partner — never cross-org, never to super_admin. Powerful: grant only to specific vetted staff, never seed by default.",
+    "Can promote a user to Development Partner Admin, scoped strictly to that user's own existing development partner — never cross-partner, never to super_admin. Powerful: grant only to specific vetted staff, never seed by default.",
   "demote:org-admin":
-    "Can demote an org admin back to contributor, scoped to that admin's own development partner. Can't demote the last remaining admin of an org. Powerful: grant only to specific vetted staff, never seed by default.",
+    "Can demote a Development Partner Admin back to contributor, scoped to that admin's own development partner. Can't demote the last remaining admin of a development partner. Powerful: grant only to specific vetted staff, never seed by default.",
   "remove:org-members":
     "Can detach a member from their development partner without deleting their account.",
   "archive:datasets":
