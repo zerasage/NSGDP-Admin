@@ -156,7 +156,7 @@ export default function DatasetsReviewPage() {
   const canPublish = can("publish:datasets");
   const canArchive = can("archive:datasets");
 
-  const [scope, setScope] = useState<QueueScope>("partners");
+  const [scope, setScope] = useState<QueueScope>("platform-owner");
   const [tab, setTab] = useState<QueueTab>("all");
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
