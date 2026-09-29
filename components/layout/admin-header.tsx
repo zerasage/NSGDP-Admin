@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { ArrowLeft, ExternalLink, User } from "lucide-react";
 import { GeoHealthLogo } from "@/components/layout/geohealth-logo";
+import { NotificationBell } from "@/components/layout/notification-bell";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { useAuth } from "@/lib/auth";
 
@@ -80,7 +81,10 @@ export function AdminPortalLinks({ onNavigate }: { onNavigate?: () => void }) {
       ))}
       <div className="flex items-center justify-between gap-2 px-3 pt-3">
         <span className="text-xs text-muted-foreground">Theme</span>
-        <ThemeToggle />
+        <div className="flex items-center gap-1">
+          <NotificationBell onNavigate={onNavigate} />
+          <ThemeToggle />
+        </div>
       </div>
     </div>
   );
