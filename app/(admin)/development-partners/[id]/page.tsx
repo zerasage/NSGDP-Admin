@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Archive, ArrowLeft, Building2, CheckCircle2, Edit, ExternalLink, FileText,
-  Globe, KeyRound, Mail, MapPin, MoreVertical, Phone, Power, RefreshCw, RotateCcw,
+  Globe, Mail, MapPin, MoreVertical, Phone, Power, RefreshCw, RotateCcw,
   Search, ShieldCheck, Trash2, Upload, UserCog, UserPlus, Users, XCircle,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -24,7 +24,6 @@ import { InviteMemberModal } from "@/components/admin/invite-member-modal";
 import { HelpTip } from "@/components/admin/help-tip";
 import { DevelopmentPartnerAgreementCard } from "@/components/admin/development-partner-agreement-card";
 import { EditDevelopmentPartnerModal } from "@/components/admin/edit-development-partner-modal";
-import { DevelopmentPartnerApiKeysPanel } from "@/components/admin/development-partner-api-keys-panel";
 import { EmptyState } from "@/components/feedback/empty-state";
 import { StatusBadge } from "@/components/data/status-badge";
 import { Badge } from "@/components/ui/badge";
@@ -83,7 +82,6 @@ export default function DevelopmentPartnerDetailPage({ params }: { params: Promi
   const canUpload = can("create:datasets");
   const canArchive = can("archive:datasets");
   const canDeleteDataset = can("archive:datasets");
-  const canManageApiKeys = can("manage:partner-api-keys");
 
   const [inviteOpen, setInviteOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
@@ -130,7 +128,7 @@ export default function DevelopmentPartnerDetailPage({ params }: { params: Promi
   const removeInvite = useActionMutation(deleteInvite, "Invite permanently deleted", "invites");
   const suspend = useActionMutation((id: string) => updateUserStatus(id, { status: "suspended" }), "Member suspended", "members");
   const reactivate = useActionMutation((id: string) => updateUserStatus(id, { status: "active" }), "Member reactivated", "members");
-  const promote = useActionMutation(promoteToOrgAdmin, "Member promoted to Development Partner Admin", "members");
+  const promote = useActionMutation(promoteToOrgAdmin, "Member promoted to Dev Partner Admin", "members");
   const demote = useActionMutation(demoteFromOrgAdmin, "Member demoted to contributor", "members");
   const removeMember = useActionMutation((id: string) => removeOrgMember(orgId!, id), "Member removed", "members");
   const archive = useActionMutation(archiveDataset, "Dataset archived", "developmentPartner");
@@ -212,7 +210,7 @@ export default function DevelopmentPartnerDetailPage({ params }: { params: Promi
       {canViewMembers ? (
         <>
           <Metric label="Members" value={members.length} icon={Users} tip={DEVELOPMENT_PARTNER_SUMMARY_TIPS.members} onClick={() => openDirectory("members")} />
-          <Metric label="Development Partner Admins" value={adminCount} icon={ShieldCheck} tip={DEVELOPMENT_PARTNER_SUMMARY_TIPS.orgAdmins} onClick={() => openDirectory("members")} />
+          <Metric label="Dev Partner Admins" value={adminCount} icon={ShieldCheck} tip={DEVELOPMENT_PARTNER_SUMMARY_TIPS.orgAdmins} onClick={() => openDirectory("members")} />
         </>
       ) : null}
       <Metric label="Datasets" value={datasets.length} icon={FileText} tip={DEVELOPMENT_PARTNER_SUMMARY_TIPS.datasets} onClick={() => openDirectory("datasets")} />
@@ -243,7 +241,6 @@ export default function DevelopmentPartnerDetailPage({ params }: { params: Promi
               <TabsTrigger value="invites" className="min-h-11 flex-none gap-2 px-4 data-active:bg-primary data-active:text-primary-foreground data-active:shadow-none dark:data-active:bg-primary dark:data-active:text-primary-foreground"><Mail className="size-4" aria-hidden="true" />Invitations <span className="rounded-full bg-background/90 px-1.5 py-0.5 text-[10px] tabular-nums text-foreground">{invites.length}</span></TabsTrigger>
             ) : null}
             <TabsTrigger value="datasets" className="min-h-11 flex-none gap-2 px-4 data-active:bg-primary data-active:text-primary-foreground data-active:shadow-none dark:data-active:bg-primary dark:data-active:text-primary-foreground"><FileText className="size-4" aria-hidden="true" />Datasets <span className="rounded-full bg-background/90 px-1.5 py-0.5 text-[10px] tabular-nums text-foreground">{datasets.length}</span></TabsTrigger>
-            {canManageApiKeys && <TabsTrigger value="api-keys" className="min-h-11 flex-none gap-2 px-4 data-active:bg-primary data-active:text-primary-foreground data-active:shadow-none dark:data-active:bg-primary dark:data-active:text-primary-foreground"><KeyRound className="size-4" aria-hidden="true" />API Keys</TabsTrigger>}
           </TabsList>
         </div>
       </div>
@@ -254,7 +251,6 @@ export default function DevelopmentPartnerDetailPage({ params }: { params: Promi
         <TabsContent value="invites"><Directory title="Invitations" titleTip={DEVELOPMENT_PARTNER_INVITES_PANEL_TIP} description="Track invitations and their delivery status." action={canInvite ? <Button className="h-11 sm:h-9" onClick={() => setInviteOpen(true)}><UserPlus className="size-4" />Send invite</Button> : null} search={inviteSearch} setSearch={setInviteSearch} status={inviteStatus} setStatus={setInviteStatus} statuses={["pending", "accepted", "revoked", "expired"]} reset={resetInvites}><InviteList records={filteredInvites} loading={invitesQuery.isLoading} failed={invitesQuery.isError} filtered={!!inviteSearch || inviteStatus !== "all"} retry={() => invitesQuery.refetch()} canInvite={canInvite} revoke={revoke} resend={resend} remove={removeInvite} /></Directory></TabsContent>
       ) : null}
       <TabsContent value="datasets"><Directory title="Datasets" titleTip={DEVELOPMENT_PARTNER_DATASETS_PANEL_TIP} description="Review datasets owned by this development partner." action={canUpload ? <Link href={`/upload?orgId=${orgId}`} className={cn(buttonVariants(), "h-11 sm:h-9")}><Upload className="size-4" />Upload dataset</Link> : null} search={datasetSearch} setSearch={setDatasetSearch} status={datasetStatus} setStatus={setDatasetStatus} statuses={[...DATASET_STATUSES]} reset={resetDatasets}><DatasetList records={filteredDatasets} filtered={!!datasetSearch || datasetStatus !== "all"} canArchive={canArchive} canDelete={canDeleteDataset} archive={setArchiveTarget} remove={setDeleteTarget} /></Directory></TabsContent>
-      {canManageApiKeys && <TabsContent value="api-keys"><DevelopmentPartnerApiKeysPanel developmentPartnerId={orgId ?? ""} canManage={canManageApiKeys} /></TabsContent>}
     </Tabs>
   </div>
   </TooltipProvider>
@@ -273,7 +269,7 @@ function MemberList({ records, loading, failed, filtered, retry, actions }: { re
   if (!records.length) return <ListEmpty icon={Users} filtered={filtered} noun="members" />;
   return <><div className="hidden xl:block"><Table><TableHeader><TableRow><TableHead>Member</TableHead><TableHead>Role</TableHead><TableHead>Status</TableHead><TableHead>Joined</TableHead><TableHead className="text-right">Actions</TableHead></TableRow></TableHeader><TableBody>{records.map((m) => <TableRow key={m.id}><TableCell><Link className="font-medium hover:underline" href={`/users/${m.id}`}>{m.first_name} {m.last_name}</Link><p className="text-xs text-muted-foreground">{m.email}</p></TableCell><TableCell><Role role={m.role} /></TableCell><TableCell><MemberStatus status={m.status} /></TableCell><TableCell className="text-xs text-muted-foreground">{formatDate(m.created_at)}</TableCell><TableCell className="text-right"><MemberMenu member={m} actions={actions} /></TableCell></TableRow>)}</TableBody></Table></div><div className="divide-y xl:hidden">{records.map((m) => <div key={m.id} className="p-4"><div className="flex items-start justify-between gap-3"><div className="min-w-0"><Link className="font-semibold hover:underline" href={`/users/${m.id}`}>{m.first_name} {m.last_name}</Link><p className="truncate text-sm text-muted-foreground">{m.email}</p></div><MemberMenu member={m} actions={actions} /></div><div className="mt-3 flex flex-wrap gap-2"><Role role={m.role} /><MemberStatus status={m.status} /><span className="text-xs text-muted-foreground">Joined {formatDate(m.created_at)}</span></div></div>)}</div></>;
 }
-function MemberMenu({ member: m, actions }: { member: Member; actions: MemberActions }) { return <DropdownMenu><DropdownMenuTrigger className="inline-flex h-11 items-center justify-center rounded-md border px-4 sm:h-9" aria-label={`Actions for ${m.first_name} ${m.last_name}`}><MoreVertical className="size-4" /></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuItem onClick={() => window.location.assign(`/users/${m.id}`)}><ExternalLink className="size-4" />View user</DropdownMenuItem>{actions.canPromote && m.role === "contributor" && <DropdownMenuItem onClick={() => actions.promote.mutate(m.id)}><ShieldCheck className="size-4" />Promote to Development Partner Admin</DropdownMenuItem>}{actions.canDemote && m.role === "admin" && <DropdownMenuItem onClick={() => actions.demote.mutate(m.id)}><UserCog className="size-4" />Demote to contributor</DropdownMenuItem>}{actions.canManageStatus && (m.status === "active" ? <DropdownMenuItem onClick={() => actions.suspend.mutate(m.id)}><Power className="size-4" />Suspend</DropdownMenuItem> : <DropdownMenuItem onClick={() => actions.reactivate.mutate(m.id)}><CheckCircle2 className="size-4" />Reactivate</DropdownMenuItem>)}{actions.canRemove && <DropdownMenuItem className="text-destructive" onClick={() => actions.remove({ id: m.id, name: `${m.first_name} ${m.last_name}` })}><Trash2 className="size-4" />Remove</DropdownMenuItem>}</DropdownMenuContent></DropdownMenu>; }
+function MemberMenu({ member: m, actions }: { member: Member; actions: MemberActions }) { return <DropdownMenu><DropdownMenuTrigger className="inline-flex h-11 items-center justify-center rounded-md border px-4 sm:h-9" aria-label={`Actions for ${m.first_name} ${m.last_name}`}><MoreVertical className="size-4" /></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuItem onClick={() => window.location.assign(`/users/${m.id}`)}><ExternalLink className="size-4" />View user</DropdownMenuItem>{actions.canPromote && m.role === "contributor" && <DropdownMenuItem onClick={() => actions.promote.mutate(m.id)}><ShieldCheck className="size-4" />Promote to Dev Partner Admin</DropdownMenuItem>}{actions.canDemote && m.role === "admin" && <DropdownMenuItem onClick={() => actions.demote.mutate(m.id)}><UserCog className="size-4" />Demote to contributor</DropdownMenuItem>}{actions.canManageStatus && (m.status === "active" ? <DropdownMenuItem onClick={() => actions.suspend.mutate(m.id)}><Power className="size-4" />Suspend</DropdownMenuItem> : <DropdownMenuItem onClick={() => actions.reactivate.mutate(m.id)}><CheckCircle2 className="size-4" />Reactivate</DropdownMenuItem>)}{actions.canRemove && <DropdownMenuItem className="text-destructive" onClick={() => actions.remove({ id: m.id, name: `${m.first_name} ${m.last_name}` })}><Trash2 className="size-4" />Remove</DropdownMenuItem>}</DropdownMenuContent></DropdownMenu>; }
 
 function InviteList({ records, loading, failed, filtered, retry, canInvite, revoke, resend, remove }: { records: Invite[]; loading: boolean; failed: boolean; filtered: boolean; retry: () => void; canInvite: boolean; revoke: StringMutation; resend: StringMutation; remove: StringMutation }) {
   if (loading) return <ListSkeleton />; if (failed) return <InlineFailure retry={retry} />; if (!records.length) return <ListEmpty icon={Mail} filtered={filtered} noun="invitations" />;
@@ -289,7 +285,7 @@ function DatasetList({ records, filtered, canArchive, canDelete, archive, remove
 }
 function DatasetStatus({ value }: { value?: string | null }) { return DATASET_STATUSES.includes(value as typeof DATASET_STATUSES[number]) ? <StatusBadge status={value as typeof DATASET_STATUSES[number]} /> : <Badge variant="outline">Unknown</Badge>; }
 function MemberStatus({ status }: { status: Member["status"] }) { return <Badge variant={status === "active" ? "default" : status === "suspended" ? "destructive" : "secondary"} className="capitalize">{status}</Badge>; }
-function Role({ role }: { role: Member["role"] }) { return <Badge variant="secondary" className={role === "admin" ? undefined : "capitalize"}>{role === "admin" ? "Development Partner Admin" : role.replaceAll("_", " ")}</Badge>; }
+function Role({ role }: { role: Member["role"] }) { return <Badge variant="secondary" className={role === "admin" ? undefined : "capitalize"}>{role === "admin" ? "Dev Partner Admin" : role.replaceAll("_", " ")}</Badge>; }
 function Metric({ label, value, icon: Icon, onClick, tip }: { label: string; value: number; icon: typeof Users; onClick: () => void; tip?: string }) {
   return (
     <div className="relative rounded-xl border bg-card transition-colors hover:border-primary/40 hover:bg-muted/30">

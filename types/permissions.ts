@@ -37,7 +37,6 @@ export type PermissionAction =
   | "manage:groups"          // Create/edit/delete curated dataset/document groups
   | "manage:analytics"       // Force-refresh the platform analytics dashboard cache
   | "manage:gis-reference-data" // Choose active GIS layer datasets, reconcile ward names
-  | "manage:partner-api-keys" // Generate/revoke a development partner's programmatic API key
   | "manage:indicators" // Manage the canonical indicator registry, alias review queue, and AI-assisted resolution admin
   | "manage:department-members"; // Scoped: view/add/remove existing staff in department(s) the holder themselves belongs to
 
@@ -63,9 +62,9 @@ export const PERMISSION_ACTION_LABELS: Record<PermissionAction, string> = {
   "publish:datasets": "Publish Datasets",
   "invite:users": "Invite Users (partner-scoped)",
   "invite:staff": "Invite Agency Staff",
-  "promote:org-admin": "Promote to Development Partner Admin",
-  "demote:org-admin": "Demote Development Partner Admin",
-  "remove:org-members": "Remove Development Partner Member",
+  "promote:org-admin": "Promote to Dev Partner Admin",
+  "demote:org-admin": "Demote Dev Partner Admin",
+  "remove:org-members": "Remove Dev Partner Member",
   "archive:datasets": "Archive Datasets",
   "view:datasets": "View Review Queue",
   "view:restricted": "View Restricted Data",
@@ -90,7 +89,6 @@ export const PERMISSION_ACTION_LABELS: Record<PermissionAction, string> = {
   "manage:groups": "Manage Collections",
   "manage:analytics": "Manage Analytics",
   "manage:gis-reference-data": "Manage GIS Reference Layers",
-  "manage:partner-api-keys": "Manage Partner API Keys",
   "manage:indicators": "Manage Indicators",
   "manage:department-members": "Manage Department Members",
 };
@@ -107,9 +105,9 @@ export const PERMISSION_ACTION_DESCRIPTIONS: Record<PermissionAction, string> = 
   "invite:staff":
     "Can send, resend, and revoke agency staff invites, and view the current staff roster. Cannot revoke an existing staff member's access or change anyone's role — those stay super_admin-only.",
   "promote:org-admin":
-    "Can promote a user to Development Partner Admin, scoped strictly to that user's own existing development partner — never cross-partner, never to super_admin. Powerful: grant only to specific vetted staff, never seed by default.",
+    "Can promote a user to Dev Partner Admin, scoped strictly to that user's own existing development partner — never cross-partner, never to super_admin. Powerful: grant only to specific vetted staff, never seed by default.",
   "demote:org-admin":
-    "Can demote a Development Partner Admin back to contributor, scoped to that admin's own development partner. Can't demote the last remaining admin of a development partner. Powerful: grant only to specific vetted staff, never seed by default.",
+    "Can demote a Dev Partner Admin back to contributor, scoped to that admin's own development partner. Can't demote the last remaining admin of a development partner. Powerful: grant only to specific vetted staff, never seed by default.",
   "remove:org-members":
     "Can detach a member from their development partner without deleting their account.",
   "archive:datasets":
@@ -160,8 +158,6 @@ export const PERMISSION_ACTION_DESCRIPTIONS: Record<PermissionAction, string> = 
     "Can force an immediate recompute of the platform analytics dashboard cache.",
   "manage:gis-reference-data":
     "Can choose which dataset backs each GIS map layer, rebuild the canonical ward table, and reconcile raw LGA/ward spellings.",
-  "manage:partner-api-keys":
-    "Can generate and revoke a development partner's programmatic API key for pulling data outside the browser.",
   "manage:indicators":
     "Can manage the canonical indicator registry (create/edit/activate), resolve pending indicator and org-unit aliases in the ingestion review queue, and run Stage 8 / calibration / AI admin tools.",
   "manage:department-members":
@@ -240,10 +236,6 @@ export const PERMISSION_ACTION_GROUPS: Array<{ label: string; actions: Permissio
   {
     label: "GIS",
     actions: ["manage:gis-reference-data"],
-  },
-  {
-    label: "Partner API",
-    actions: ["manage:partner-api-keys"],
   },
   {
     label: "Indicators",

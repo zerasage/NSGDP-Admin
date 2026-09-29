@@ -1,5 +1,5 @@
 export const USERS_PAGE_TIP =
-  "Platform accounts — registrants, partner contributors, Development Partner Admins, and agency staff. Super admins can suspend or reactivate access here; partner role changes are managed from each development partner's member list.";
+  "Platform accounts — registrants, partner contributors, Dev Partner Admins, and agency staff. Super admins can suspend or reactivate access here; partner role changes are managed from each development partner's member list.";
 
 export const USERS_METRIC_TIPS = {
   total: "Every registered account on the platform, regardless of status.",
@@ -18,7 +18,7 @@ export const USERS_TAB_TIPS = {
 } as const;
 
 export const USERS_ROLE_FILTER_TIP =
-  "Platform role controls what the user can do — Development Partner Admin and contributor roles also require membership on a development partner.";
+  "Platform role controls what the user can do — Dev Partner Admin and contributor roles also require membership on a development partner.";
 
 export const USERS_EXPORT_TIP =
   "Downloads the users currently shown on this page as CSV — filters apply, but only this page of results is exported.";

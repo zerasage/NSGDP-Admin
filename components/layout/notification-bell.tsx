@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Bell, CheckCheck } from "lucide-react";
 import { useNotifications, useMarkNotificationAsRead, useMarkAllNotificationsAsRead } from "@/lib/hooks/useNotifications";
 import { getAdminNotificationHref, type NotificationType } from "@/lib/api/notifications";
 import { cn } from "@/lib/utils";
 import { formatDistanceToNow } from "date-fns";
+import { playNotificationSound } from "@/lib/utils/notification-sound";
 
 const TYPE_DOT_CLASS: Record<NotificationType, string> = {
   dataset_approved: "bg-emerald-500",
@@ -34,6 +35,16 @@ export function NotificationBell() {
 
   const items = data?.data ?? [];
   const unreadCount = items.filter((n) => !n.is_read).length;
+
+  // Chime when unread count rises — never on the first render, so opening
+  // the app with existing unread notifications stays silent.
+  const previousUnread = useRef<number | null>(null);
+  useEffect(() => {
+    if (previousUnread.current !== null && unreadCount > previousUnread.current) {
+      playNotificationSound();
+    }
+    previousUnread.current = unreadCount;
+  }, [unreadCount]);
 
   return (
     <div className="relative">

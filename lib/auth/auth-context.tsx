@@ -4,14 +4,19 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import { useRouter } from "next/navigation";
 import { adminAuthApi } from "@/lib/api/admin-auth";
 import * as tokenStorage from "@/lib/utils/token-storage";
-import type { AdminUserProfile } from "@/lib/api/admin-auth";
+import type { AdminUserProfile, MfaMethod } from "@/lib/api/admin-auth";
 import { toast } from "sonner";
+
+export interface LoginResult {
+  requiresMfa: boolean;
+  mfaMethod?: MfaMethod | null;
+}
 
 interface AuthContextType {
   user: AdminUserProfile | null;
   isLoading: boolean;
   isAuthenticated: boolean;
-  login: (data: { email: string; password: string; mfaCode?: string }) => Promise<void>;
+  login: (data: { email: string; password: string; mfaCode?: string }) => Promise<LoginResult>;
   logout: () => Promise<void>;
   refreshSession: () => Promise<void>;
 }
@@ -92,7 +97,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     loadUser();
   }, []);
 
-  const login = useCallback(async (data: { email: string; password: string; mfaCode?: string }) => {
+  const login = useCallback(async (data: { email: string; password: string; mfaCode?: string }): Promise<LoginResult> => {
     try {
       const { data: response } = await adminAuthApi.login({
         email: data.email,
@@ -100,10 +105,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         mfaCode: data.mfaCode,
       });
 
-      // Check if MFA is required
       if (response.requiresMfa) {
-        toast.info("MFA code required. Please enter your authentication code.");
-        throw new Error("MFA_REQUIRED");
+        // Password was correct but a second factor is still needed — no
+        // tokens yet. The caller (login page) holds the email/password and
+        // re-calls login() with mfaCode once the user has entered it.
+        return { requiresMfa: true, mfaMethod: response.mfaMethod };
       }
 
       // Store tokens
@@ -115,13 +121,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       setUser(response.user);
       toast.success("Logged in successfully");
-      
+
       // Use window.location for reliable redirect
       window.location.href = "/";
+      return { requiresMfa: false };
     } catch (error: unknown) {
-      if (error instanceof Error && error.message === "MFA_REQUIRED") {
-        throw error;
-      }
       const errorMessage = error instanceof Error ? error.message : "Login failed";
       toast.error(errorMessage);
       throw error;

@@ -26,6 +26,7 @@ import {
   ShieldAlert,
   Trash2,
   Landmark,
+  CircleUser,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { AdminPortalLinks, AdminSidebarBrand } from "@/components/layout/admin-header";
@@ -80,7 +81,7 @@ export const adminNavItems: Array<{
     badgeKey: "archiveRequests",
     superAdminOnly: true,
   },
-  { href: "/development-partners", label: "Development Partners", icon: Building2 },
+  { href: "/development-partners", label: "Dev Partners", icon: Building2 },
   // Blanket-staff-readable, same as Development Partners/Audit Log: everyone in the
   // admin portal can browse; create/edit/archive are gated within the page.
   {
@@ -111,9 +112,10 @@ export const adminNavItems: Array<{
   { href: "/agency", label: "Agency", icon: UserCog, anyPermission: ["invite:staff"] },
   { href: "/departments", label: "Departments", icon: Landmark, anyPermission: ["manage:department-members"] },
   { href: "/permission-groups", label: "Permission Groups", icon: ShieldCheck, superAdminOnly: true },
-  { href: "/development-partner-groups", label: "Development Partner Groups", icon: Network, superAdminOnly: true },
+  { href: "/development-partner-groups", label: "Dev Partner Groups", icon: Network, superAdminOnly: true },
   { href: "/governance", label: "Data Governance", icon: ShieldAlert, superAdminOnly: true },
   { href: "/audit-logs", label: "Audit Log", icon: ScrollText },
+  { href: "/profile", label: "Profile & Security", icon: CircleUser },
 ];
 
 function NavBadge({ count }: { count: number }) {

@@ -111,8 +111,8 @@ const TABS: Array<{ key: QueueTab; label: string; tone: MetricTone }> = [
 ];
 
 const SCOPE_TABS: Array<{ key: QueueScope; label: string }> = [
-  { key: "partners", label: "Development Partners" },
   { key: "platform-owner", label: "Agency" },
+  { key: "partners", label: "Dev Partners" },
 ];
 
 async function fetchQueueCount(path: string, scope: QueueScope): Promise<number> {
@@ -157,7 +157,7 @@ export default function DatasetsReviewPage() {
   const canArchive = can("archive:datasets");
 
   const [scope, setScope] = useState<QueueScope>("partners");
-  const [tab, setTab] = useState<QueueTab>("pending");
+  const [tab, setTab] = useState<QueueTab>("all");
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const [page, setPage] = useState(1);

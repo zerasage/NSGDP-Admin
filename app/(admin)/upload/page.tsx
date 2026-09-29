@@ -380,6 +380,15 @@ export default function AdminUploadDatasetPage() {
     return Object.keys(errors).length === 0;
   };
 
+  const validateStep3 = () => {
+    if (uploadedFiles.length === 0) {
+      setStepErrors({ files: "Upload at least one file" });
+      return false;
+    }
+    setStepErrors({});
+    return true;
+  };
+
   const validateStep4 = () => {
     const errors: Record<string, string> = {};
     if (!license) errors.license = "Select a license";
@@ -394,6 +403,12 @@ export default function AdminUploadDatasetPage() {
     }
     if (!validateStep2()) {
       setCurrentStep(2);
+      return;
+    }
+    // Require a file for every dataset, draft or submitted — mirrors the
+    // contributor-facing upload wizard's rule.
+    if (!validateStep3()) {
+      setCurrentStep(3);
       return;
     }
     if (!validateStep4()) {
@@ -842,13 +857,16 @@ export default function AdminUploadDatasetPage() {
                 tooltip={UPLOAD_FIELD_TOOLTIPS.files}
               />
               <FileUploadArea files={uploadedFiles} onFilesChange={setUploadedFiles} />
+              {stepErrors.files ? (
+                <p className="text-sm text-destructive">{stepErrors.files}</p>
+              ) : null}
             </div>
 
             <div className="flex justify-between border-t pt-4">
               <Button variant="outline" onClick={() => setCurrentStep(2)}>
                 Back
               </Button>
-              <Button onClick={() => setCurrentStep(4)}>Next: Governance</Button>
+              <Button onClick={() => validateStep3() && setCurrentStep(4)}>Next: Governance</Button>
             </div>
           </div>
         )}
@@ -1038,13 +1056,22 @@ export default function AdminUploadDatasetPage() {
               </Button>
               <div className="flex flex-col-reverse gap-2 sm:flex-row">
                 <div className="flex items-center gap-1.5">
-                  <Button variant="outline" onClick={() => handleSubmit(true)} disabled={saving}>
+                  <Button
+                    variant="outline"
+                    onClick={() => handleSubmit(true)}
+                    disabled={saving || uploadedFiles.length === 0}
+                    title={uploadedFiles.length === 0 ? "Upload a file first" : ""}
+                  >
                     Save as draft
                   </Button>
                   <HelpTip content={UPLOAD_DRAFT_TIP} label="About save as draft" />
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <Button onClick={() => handleSubmit(false)} disabled={saving}>
+                  <Button
+                    onClick={() => handleSubmit(false)}
+                    disabled={saving || uploadedFiles.length === 0}
+                    title={uploadedFiles.length === 0 ? "Upload a file first" : ""}
+                  >
                     {saving ? "Submitting..." : "Submit for review"}
                   </Button>
                   <HelpTip content={UPLOAD_SUBMIT_TIP} label="About submit for review" />

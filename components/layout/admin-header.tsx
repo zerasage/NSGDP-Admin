@@ -1,11 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowLeft, Bell, ExternalLink, User } from "lucide-react";
+import { ArrowLeft, ExternalLink, User } from "lucide-react";
 import { GeoHealthLogo } from "@/components/layout/geohealth-logo";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { useAuth } from "@/lib/auth";
-import { useNotifications } from "@/lib/hooks/useNotifications";
 
 /** Sidebar brand block — links back to the public portal */
 export function AdminSidebarBrand() {
@@ -14,7 +13,7 @@ export function AdminSidebarBrand() {
   const roleLabels: Record<string, string> = {
     super_admin: "Super Admin",
     staff: "Agency Staff",
-    admin: "Development Partner Admin",
+    admin: "Dev Partner Admin",
     contributor: "Contributor",
     registered: "Registered User",
     public: "Guest",
@@ -56,8 +55,6 @@ export function AdminSidebarBrand() {
 /** Footer link strip for leaving admin */
 export function AdminPortalLinks({ onNavigate }: { onNavigate?: () => void }) {
   const portalUrl = process.env.NEXT_PUBLIC_PORTAL_URL;
-  const { data } = useNotifications(1, 1, true);
-  const unreadCount = data?.meta.total ?? 0;
   const links = [
     { href: `${portalUrl}/`, label: "Portal Home", icon: ArrowLeft },
     { href: `${portalUrl}/dataportal`, label: "Browse Datasets", icon: ExternalLink },
@@ -83,23 +80,7 @@ export function AdminPortalLinks({ onNavigate }: { onNavigate?: () => void }) {
       ))}
       <div className="flex items-center justify-between gap-2 px-3 pt-3">
         <span className="text-xs text-muted-foreground">Theme</span>
-        <div className="flex items-center gap-1">
-          <Link
-            href="/notifications"
-            onClick={onNavigate}
-            className="relative flex size-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-            aria-label={`Notifications (${unreadCount} unread)`}
-            title="Notifications"
-          >
-            <Bell className="size-4" aria-hidden="true" />
-            {unreadCount > 0 && (
-              <span className="absolute -right-0.5 -top-0.5 flex min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[9px] font-bold leading-4 text-white">
-                {unreadCount > 9 ? "9+" : unreadCount}
-              </span>
-            )}
-          </Link>
-          <ThemeToggle />
-        </div>
+        <ThemeToggle />
       </div>
     </div>
   );

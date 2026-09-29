@@ -48,6 +48,3 @@ export const DEVELOPMENT_PARTNER_INVITES_PANEL_TIP =
 
 export const DEVELOPMENT_PARTNER_DATASETS_PANEL_TIP =
   "All datasets attributed to this development partner. Open a record for review, ingestion, or publishing.";
-
-export const DEVELOPMENT_PARTNER_API_KEYS_TIP =
-  "Programmatic access for this development partner's systems — scoped to their own data, the public catalogue, and approved restricted datasets.";
