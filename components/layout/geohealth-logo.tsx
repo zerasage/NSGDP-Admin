@@ -15,20 +15,7 @@ export function GeoHealthLogo({ className, compact }: GeoHealthLogoProps) {
       className={cn("flex items-center gap-2.5 hover:opacity-90 transition-opacity", className)}
       aria-label={BRAND.portalName}
     >
-      {/* MOH logo — left */}
-      <Image
-        src="/images/moh-logo.png"
-        alt="Niger State Ministry of Health"
-        width={38}
-        height={38}
-        className="size-[38px] rounded-full object-cover border border-teal/60 shadow-sm"
-        priority
-      />
-
-      {/* Subtle divider */}
-      <span className="h-7 w-px bg-border/60" aria-hidden />
-
-      {/* NSPHCDA logo — right of MOH */}
+      {/* NSPHCDA logo — the agency */}
       <Image
         src={BRAND.logoPath}
         alt={BRAND.logoAlt}
