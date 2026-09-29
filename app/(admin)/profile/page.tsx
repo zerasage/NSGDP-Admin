@@ -1,10 +1,12 @@
 "use client";
 
-import { Lock, Shield, User as UserIcon } from "lucide-react";
+import { Bell, KeyRound, Lock, Shield, User as UserIcon } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { Panel } from "@/components/admin/admin-analytics-ui";
 import { Badge } from "@/components/ui/badge";
 import { MfaSettingsPanel } from "@/components/admin/mfa-settings-panel";
+import { PasswordChangePanel } from "@/components/admin/password-change-panel";
+import { NotificationSoundToggle } from "@/components/admin/notification-sound-toggle";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export default function ProfilePage() {
@@ -57,6 +59,15 @@ export default function ProfilePage() {
       </Panel>
 
       <Panel
+        title="Change password"
+        description="Use a strong password you do not reuse on other sites."
+        icon={KeyRound}
+        tone="warning"
+      >
+        <PasswordChangePanel />
+      </Panel>
+
+      <Panel
         title="Two-factor authentication"
         description="Off by default — turn it on whenever you want the extra protection."
         icon={Shield}
@@ -67,6 +78,10 @@ export default function ProfilePage() {
           initialMethod={user.mfaMethod ?? null}
           hasPhoneNumber={!!user.phoneNumber}
         />
+      </Panel>
+
+      <Panel title="Notifications" icon={Bell} tone="muted">
+        <NotificationSoundToggle />
       </Panel>
 
       {!user.phoneNumber ? (
