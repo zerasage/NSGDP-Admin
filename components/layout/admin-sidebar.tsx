@@ -26,6 +26,7 @@ import {
   ShieldAlert,
   Trash2,
   Landmark,
+  CircleUser,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { AdminPortalLinks, AdminSidebarBrand } from "@/components/layout/admin-header";
@@ -114,6 +115,7 @@ export const adminNavItems: Array<{
   { href: "/development-partner-groups", label: "Dev Partner Groups", icon: Network, superAdminOnly: true },
   { href: "/governance", label: "Data Governance", icon: ShieldAlert, superAdminOnly: true },
   { href: "/audit-logs", label: "Audit Log", icon: ScrollText },
+  { href: "/profile", label: "Profile & Security", icon: CircleUser },
 ];
 
 function NavBadge({ count }: { count: number }) {

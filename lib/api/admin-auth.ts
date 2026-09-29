@@ -8,6 +8,8 @@ async function unwrapResponse<T>(
   return { data: response.data.data };
 }
 
+export type MfaMethod = 'totp' | 'sms' | 'email';
+
 export interface AdminLoginRequest {
   email: string;
   password: string;
@@ -19,8 +21,10 @@ export interface AdminUserProfile {
   email: string;
   firstName: string;
   lastName: string;
+  phoneNumber?: string;
   role: 'super_admin' | 'staff';
   mfaEnabled: boolean;
+  mfaMethod?: MfaMethod | null;
   groupId: string | null;
   groupName: string | null;
   lastLoginAt?: Date;
@@ -32,6 +36,7 @@ export interface AdminAuthResponse {
   refreshToken: string;
   expiresIn: number;
   requiresMfa: boolean;
+  mfaMethod?: MfaMethod | null;
   user: AdminUserProfile;
 }
 
