@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Archive, ArrowLeft, Building2, CheckCircle2, Edit, ExternalLink, FileText,
-  Globe, KeyRound, Mail, MapPin, MoreVertical, Phone, Power, RefreshCw, RotateCcw,
+  Globe, Mail, MapPin, MoreVertical, Phone, Power, RefreshCw, RotateCcw,
   Search, ShieldCheck, Trash2, Upload, UserCog, UserPlus, Users, XCircle,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -24,7 +24,6 @@ import { InviteMemberModal } from "@/components/admin/invite-member-modal";
 import { HelpTip } from "@/components/admin/help-tip";
 import { DevelopmentPartnerAgreementCard } from "@/components/admin/development-partner-agreement-card";
 import { EditDevelopmentPartnerModal } from "@/components/admin/edit-development-partner-modal";
-import { DevelopmentPartnerApiKeysPanel } from "@/components/admin/development-partner-api-keys-panel";
 import { EmptyState } from "@/components/feedback/empty-state";
 import { StatusBadge } from "@/components/data/status-badge";
 import { Badge } from "@/components/ui/badge";
@@ -83,7 +82,6 @@ export default function DevelopmentPartnerDetailPage({ params }: { params: Promi
   const canUpload = can("create:datasets");
   const canArchive = can("archive:datasets");
   const canDeleteDataset = can("archive:datasets");
-  const canManageApiKeys = can("manage:partner-api-keys");
 
   const [inviteOpen, setInviteOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
@@ -243,7 +241,6 @@ export default function DevelopmentPartnerDetailPage({ params }: { params: Promi
               <TabsTrigger value="invites" className="min-h-11 flex-none gap-2 px-4 data-active:bg-primary data-active:text-primary-foreground data-active:shadow-none dark:data-active:bg-primary dark:data-active:text-primary-foreground"><Mail className="size-4" aria-hidden="true" />Invitations <span className="rounded-full bg-background/90 px-1.5 py-0.5 text-[10px] tabular-nums text-foreground">{invites.length}</span></TabsTrigger>
             ) : null}
             <TabsTrigger value="datasets" className="min-h-11 flex-none gap-2 px-4 data-active:bg-primary data-active:text-primary-foreground data-active:shadow-none dark:data-active:bg-primary dark:data-active:text-primary-foreground"><FileText className="size-4" aria-hidden="true" />Datasets <span className="rounded-full bg-background/90 px-1.5 py-0.5 text-[10px] tabular-nums text-foreground">{datasets.length}</span></TabsTrigger>
-            {canManageApiKeys && <TabsTrigger value="api-keys" className="min-h-11 flex-none gap-2 px-4 data-active:bg-primary data-active:text-primary-foreground data-active:shadow-none dark:data-active:bg-primary dark:data-active:text-primary-foreground"><KeyRound className="size-4" aria-hidden="true" />API Keys</TabsTrigger>}
           </TabsList>
         </div>
       </div>
@@ -254,7 +251,6 @@ export default function DevelopmentPartnerDetailPage({ params }: { params: Promi
         <TabsContent value="invites"><Directory title="Invitations" titleTip={DEVELOPMENT_PARTNER_INVITES_PANEL_TIP} description="Track invitations and their delivery status." action={canInvite ? <Button className="h-11 sm:h-9" onClick={() => setInviteOpen(true)}><UserPlus className="size-4" />Send invite</Button> : null} search={inviteSearch} setSearch={setInviteSearch} status={inviteStatus} setStatus={setInviteStatus} statuses={["pending", "accepted", "revoked", "expired"]} reset={resetInvites}><InviteList records={filteredInvites} loading={invitesQuery.isLoading} failed={invitesQuery.isError} filtered={!!inviteSearch || inviteStatus !== "all"} retry={() => invitesQuery.refetch()} canInvite={canInvite} revoke={revoke} resend={resend} remove={removeInvite} /></Directory></TabsContent>
       ) : null}
       <TabsContent value="datasets"><Directory title="Datasets" titleTip={DEVELOPMENT_PARTNER_DATASETS_PANEL_TIP} description="Review datasets owned by this development partner." action={canUpload ? <Link href={`/upload?orgId=${orgId}`} className={cn(buttonVariants(), "h-11 sm:h-9")}><Upload className="size-4" />Upload dataset</Link> : null} search={datasetSearch} setSearch={setDatasetSearch} status={datasetStatus} setStatus={setDatasetStatus} statuses={[...DATASET_STATUSES]} reset={resetDatasets}><DatasetList records={filteredDatasets} filtered={!!datasetSearch || datasetStatus !== "all"} canArchive={canArchive} canDelete={canDeleteDataset} archive={setArchiveTarget} remove={setDeleteTarget} /></Directory></TabsContent>
-      {canManageApiKeys && <TabsContent value="api-keys"><DevelopmentPartnerApiKeysPanel developmentPartnerId={orgId ?? ""} canManage={canManageApiKeys} /></TabsContent>}
     </Tabs>
   </div>
   </TooltipProvider>

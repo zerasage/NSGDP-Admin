@@ -37,7 +37,6 @@ export type PermissionAction =
   | "manage:groups"          // Create/edit/delete curated dataset/document groups
   | "manage:analytics"       // Force-refresh the platform analytics dashboard cache
   | "manage:gis-reference-data" // Choose active GIS layer datasets, reconcile ward names
-  | "manage:partner-api-keys" // Generate/revoke a development partner's programmatic API key
   | "manage:indicators" // Manage the canonical indicator registry, alias review queue, and AI-assisted resolution admin
   | "manage:department-members"; // Scoped: view/add/remove existing staff in department(s) the holder themselves belongs to
 
@@ -90,7 +89,6 @@ export const PERMISSION_ACTION_LABELS: Record<PermissionAction, string> = {
   "manage:groups": "Manage Collections",
   "manage:analytics": "Manage Analytics",
   "manage:gis-reference-data": "Manage GIS Reference Layers",
-  "manage:partner-api-keys": "Manage Partner API Keys",
   "manage:indicators": "Manage Indicators",
   "manage:department-members": "Manage Department Members",
 };
@@ -160,8 +158,6 @@ export const PERMISSION_ACTION_DESCRIPTIONS: Record<PermissionAction, string> = 
     "Can force an immediate recompute of the platform analytics dashboard cache.",
   "manage:gis-reference-data":
     "Can choose which dataset backs each GIS map layer, rebuild the canonical ward table, and reconcile raw LGA/ward spellings.",
-  "manage:partner-api-keys":
-    "Can generate and revoke a development partner's programmatic API key for pulling data outside the browser.",
   "manage:indicators":
     "Can manage the canonical indicator registry (create/edit/activate), resolve pending indicator and org-unit aliases in the ingestion review queue, and run Stage 8 / calibration / AI admin tools.",
   "manage:department-members":
@@ -240,10 +236,6 @@ export const PERMISSION_ACTION_GROUPS: Array<{ label: string; actions: Permissio
   {
     label: "GIS",
     actions: ["manage:gis-reference-data"],
-  },
-  {
-    label: "Partner API",
-    actions: ["manage:partner-api-keys"],
   },
   {
     label: "Indicators",
