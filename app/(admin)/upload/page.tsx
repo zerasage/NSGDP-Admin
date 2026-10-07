@@ -856,21 +856,11 @@ export default function AdminUploadDatasetPage() {
           <div className="space-y-6">
             <StepHeading
               title="Governance"
-              description="Review the standard license and document collection methodology and known data limitations."
+              description="Document collection methodology and known data limitations."
               tip={UPLOAD_STEP_TIPS.governance}
             />
 
             <div className="space-y-4">
-              <div className="space-y-2">
-                <FieldLabelTooltip
-                  label="Data license"
-                  tooltip={UPLOAD_FIELD_TOOLTIPS.dataLicense}
-                />
-                <p className="rounded-md border bg-muted/30 px-3 py-2 text-sm">
-                  {DEFAULT_DATASET_LICENSE}
-                </p>
-              </div>
-
               <div className="space-y-2">
                 <FieldLabelTooltip
                   htmlFor="methodology"
