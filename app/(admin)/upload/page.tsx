@@ -854,6 +854,7 @@ export default function AdminUploadDatasetPage() {
             <div className="space-y-2">
               <FieldLabelTooltip
                 label="Data files"
+                required
                 tooltip={UPLOAD_FIELD_TOOLTIPS.files}
               />
               <FileUploadArea files={uploadedFiles} onFilesChange={setUploadedFiles} />
