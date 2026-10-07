@@ -175,7 +175,7 @@ export interface Dataset {
   reportingPeriod?: string;
   /** ISO date the dataset was first published to this portal */
   datePublished?: string;
-  /** Usage license e.g. "CC BY 4.0", "Open Government License", "Restricted" */
+  /** Usage license identifier, currently standardized to CC-BY-4.0. */
   dataLicense?: string;
   /** Searchable keywords / tags */
   tags?: string[];

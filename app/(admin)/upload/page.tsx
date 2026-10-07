@@ -18,7 +18,6 @@ import { METRIC_TONE, Panel } from "@/components/admin/admin-analytics-ui";
 import { HelpTip } from "@/components/admin/help-tip";
 import { DevelopmentPartnerCombobox } from "@/components/admin/development-partner-combobox";
 import { CategoryCombobox } from "@/components/admin/category-combobox";
-import { Autocomplete } from "@/components/ui/autocomplete";
 import { useAuth } from "@/lib/auth";
 import { useAdminAccess } from "@/lib/hooks/useAdminAccess";
 import {
@@ -35,7 +34,7 @@ import { useCategories } from "@/lib/hooks/useCategories";
 import { uploadFile } from "@/lib/api/uploads";
 import { NIGER_STATE_LGAS } from "@/lib/constants/core";
 import {
-  LICENSE_OPTIONS,
+  DEFAULT_DATASET_LICENSE,
   UPDATE_FREQUENCY_OPTIONS,
 } from "@/lib/constants/dataset-metadata";
 import { UPLOAD_FIELD_TOOLTIPS, UPLOAD_CONTACT_EMAIL_TIP, UPLOAD_DRAFT_TIP, UPLOAD_PAGE_AGENCY_TIP, UPLOAD_PAGE_TIP, UPLOAD_PREFILL_TIP, UPLOAD_STEP_TIPS, UPLOAD_STEPS_PANEL_TIP, UPLOAD_SUBMIT_TIP } from "@/lib/constants/upload-tooltips";
@@ -55,7 +54,6 @@ interface UploadDraft {
   temporalCoverageStart: string;
   temporalCoverageEnd: string;
   diseaseIndicators: string[];
-  license: string;
   methodology: string;
   limitations: string;
   visibility: DatasetVisibility;
@@ -190,7 +188,6 @@ export default function AdminUploadDatasetPage() {
   const [temporalCoverageEnd, setTemporalCoverageEnd] = useState(initialDraft?.temporalCoverageEnd ?? "");
   const [diseaseIndicators, setDiseaseIndicators] = useState<string[]>(initialDraft?.diseaseIndicators ?? []);
   const [indicatorInput, setIndicatorInput] = useState("");
-  const [license, setLicense] = useState(initialDraft?.license ?? "");
   const [methodology, setMethodology] = useState(initialDraft?.methodology ?? "");
   const [limitations, setLimitations] = useState(initialDraft?.limitations ?? "");
   const [visibility, setVisibility] = useState<DatasetVisibility>(initialDraft?.visibility ?? "public");
@@ -215,7 +212,6 @@ export default function AdminUploadDatasetPage() {
           temporalCoverageStart,
           temporalCoverageEnd,
           diseaseIndicators,
-          license,
           methodology,
           limitations,
           visibility,
@@ -241,7 +237,6 @@ export default function AdminUploadDatasetPage() {
     temporalCoverageStart,
     temporalCoverageEnd,
     diseaseIndicators,
-    license,
     methodology,
     limitations,
     visibility,
@@ -272,7 +267,6 @@ export default function AdminUploadDatasetPage() {
     setTemporalCoverageStart("");
     setTemporalCoverageEnd("");
     setDiseaseIndicators([]);
-    setLicense("");
     setMethodology("");
     setLimitations("");
     setVisibility("public");
@@ -298,7 +292,6 @@ export default function AdminUploadDatasetPage() {
       setTemporalCoverageStart("2025-01-01");
       setTemporalCoverageEnd("2025-12-31");
       setDiseaseIndicators(["Confirmed cases", "Deaths"]);
-      setLicense("CC-BY-4.0");
       setMethodology("Facility-based routine reporting via DHIS2");
       setLimitations("Data may have reporting delays from rural facilities");
       setResponsibleDept("Disease Surveillance Unit");
@@ -313,7 +306,6 @@ export default function AdminUploadDatasetPage() {
       setTemporalCoverageStart("");
       setTemporalCoverageEnd("");
       setDiseaseIndicators([]);
-      setLicense("");
       setMethodology("");
       setLimitations("");
       setResponsibleDept("");
@@ -389,13 +381,6 @@ export default function AdminUploadDatasetPage() {
     return true;
   };
 
-  const validateStep4 = () => {
-    const errors: Record<string, string> = {};
-    if (!license) errors.license = "Select a license";
-    setStepErrors(errors);
-    return Object.keys(errors).length === 0;
-  };
-
   const handleSubmit = async (isDraft: boolean) => {
     if (!validateStep1()) {
       setCurrentStep(1);
@@ -411,11 +396,6 @@ export default function AdminUploadDatasetPage() {
       setCurrentStep(3);
       return;
     }
-    if (!validateStep4()) {
-      setCurrentStep(4);
-      return;
-    }
-
     setSaving(true);
 
     try {
@@ -433,7 +413,7 @@ export default function AdminUploadDatasetPage() {
         temporalCoverageStart: temporalCoverageStart || undefined,
         temporalCoverageEnd: temporalCoverageEnd || undefined,
         diseaseIndicators: diseaseIndicators.length > 0 ? diseaseIndicators : undefined,
-        license: license || undefined,
+        license: DEFAULT_DATASET_LICENSE,
         methodology: methodology || undefined,
         limitations: limitations || undefined,
         developmentPartnerId: effectiveDevelopmentPartnerId,
@@ -876,29 +856,19 @@ export default function AdminUploadDatasetPage() {
           <div className="space-y-6">
             <StepHeading
               title="Governance"
-              description="Document licensing, collection methodology, and known data limitations."
+              description="Review the standard license and document collection methodology and known data limitations."
               tip={UPLOAD_STEP_TIPS.governance}
             />
 
             <div className="space-y-4">
               <div className="space-y-2">
                 <FieldLabelTooltip
-                  htmlFor="license"
                   label="Data license"
-                  required
                   tooltip={UPLOAD_FIELD_TOOLTIPS.dataLicense}
                 />
-                <Autocomplete
-                  id="license"
-                  items={[...LICENSE_OPTIONS]}
-                  value={license}
-                  onValueChange={setLicense}
-                  placeholder="Select a license or type your own…"
-                />
-                <p className="text-xs text-muted-foreground">
-                  Suggestions only — you can type a custom license.
+                <p className="rounded-md border bg-muted/30 px-3 py-2 text-sm">
+                  {DEFAULT_DATASET_LICENSE}
                 </p>
-                {stepErrors.license && <p className="text-xs text-destructive">{stepErrors.license}</p>}
               </div>
 
               <div className="space-y-2">
@@ -936,7 +906,7 @@ export default function AdminUploadDatasetPage() {
               <Button variant="outline" onClick={() => setCurrentStep(3)}>
                 Back
               </Button>
-              <Button onClick={() => validateStep4() && setCurrentStep(5)}>Next: Contact and settings</Button>
+              <Button onClick={() => setCurrentStep(5)}>Next: Contact and settings</Button>
             </div>
           </div>
         )}

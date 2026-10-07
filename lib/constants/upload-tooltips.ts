@@ -29,7 +29,7 @@ export const UPLOAD_FIELD_TOOLTIPS = {
 
   // Governance
   dataLicense:
-    "The license under which this data can be used. 'CC BY 4.0' allows open reuse with attribution. 'Restricted Use' means internal/partner access only.",
+    "All datasets use CC-BY-4.0, which allows reuse with attribution.",
   methodology:
     "How this data was collected. E.g. 'Facility-based routine reporting via DHIS2' or 'Household survey, cluster sampling'.",
   limitations:
@@ -61,7 +61,7 @@ export const UPLOAD_STEP_TIPS = {
   basic: "Identify the owning development partner and describe the dataset so reviewers and catalogue users can find it.",
   coverage: "Specify which LGAs and time period the data covers, plus the health indicators it tracks.",
   files: "Attach the data files now or skip and upload later from the dataset detail page.",
-  governance: "Licensing and methodology help users understand how they may reuse the data and how it was collected.",
+  governance: "All datasets use CC-BY-4.0. Document the collection methodology and known data limitations.",
   contact: "Stewardship contacts and visibility control who can access the dataset once it is approved.",
 } as const;
 
