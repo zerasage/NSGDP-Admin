@@ -224,7 +224,9 @@ export async function getDatasetBySlug(slug: string): Promise<Dataset> {
 export async function createDataset(
   data: CreateDatasetDto
 ): Promise<Dataset> {
-  const response = await apiClient.post<ApiResponse<Dataset>>('/datasets', data);
+  const response = await apiClient.post<ApiResponse<Dataset>>('/datasets', data, {
+    headers: { 'X-NSGDP-Portal': 'admin' },
+  });
   return response.data.data;
 }
 
